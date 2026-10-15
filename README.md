@@ -6,8 +6,8 @@
 
 ## Tech Stack Overview
 
-- **Backend:** .NET 9 (ASP.NET Core Web API, SignalR Hubs, MediatR CQRS, Modular Monolith)
-- **Frontend:** React 19 + TypeScript + Vite, Zustand, Tailwind CSS, Framer Motion, Howler.js, Zod
+- **Backend:** .NET 10 (ASP.NET Core Web API, SignalR Hubs, MediatR CQRS, Modular Monolith)
+- **Frontend:** React 19 (Latest) + TypeScript + Vite, Zustand, Tailwind CSS, Framer Motion, Howler.js, Zod
 - **Persistence & Cache:** PostgreSQL (EF Core) + Redis (SignalR Backplane, distributed locks, session state)
 
 ---

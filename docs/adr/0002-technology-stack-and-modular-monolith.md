@@ -91,7 +91,7 @@ flowchart TD
 
 ### Key Components
 
-1. **Backend Runtime — .NET 9 (C#):**
+1. **Backend Runtime — .NET 10 (C#):**
    - High-throughput web server (Kestrel) ranked among the top web frameworks in TechEmpower benchmarks.
    - Built-in asynchronous primitives (`Task`, `ValueTask`, `System.Threading.Channels`) provide goroutine-like concurrency and lightweight actor/in-memory queue patterns.
    - Single Dockerfile, unified dependency injection, and centralized logging/observability.
@@ -112,7 +112,7 @@ flowchart TD
      - Caches active room metadata, temporary session tokens, and connection-to-room mappings.
      - Provides distributed locks (`Redlock`) to eliminate race conditions during room join/leave events.
 
-5. **Frontend — React + TypeScript (Vite):**
+5. **Frontend — React 19 + TypeScript (Vite):**
    - **State Management:** **Zustand** for lightweight, predictable room and turn state synchronization.
    - **Styling & Retro Aesthetics:** Tailwind CSS with custom CRT scanline, chromatic aberration, and dithering CSS shaders.
    - **Animation & Audio:** **Framer Motion** for card flip/deal animations and **Howler.js** for zero-latency 8-bit / dark-synth sound effects.
