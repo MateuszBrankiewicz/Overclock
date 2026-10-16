@@ -22,9 +22,9 @@ export DOTNET_SYSTEM_NET_DISABLEIPV6=1
 MODE="full"
 [ "${1:-}" = "--fast" ] && MODE="fast"
 
-FRONTEND_DIR="src/Frontend"
-ARCH_TESTS="tests/Architecture.Tests/Architecture.Tests.csproj"
-INTEG_TESTS="tests/Integration.Tests/Integration.Tests.csproj"
+FRONTEND_DIR="frontend"
+ARCH_TESTS="backend/tests/Architecture.Tests/Architecture.Tests.csproj"
+INTEG_TESTS="backend/tests/Integration.Tests/Integration.Tests.csproj"
 GENERATED_API="$FRONTEND_DIR/src/shared/api/generated"
 OPENAPI_SPEC_DIR="$FRONTEND_DIR/openapi"
 
@@ -50,15 +50,16 @@ step "Context layer (ADR + markdown lint)"
 run_gate "check-docs" bash scripts/check-docs.sh
 
 # --------------------------------------------------------------- 2. Backend --
-SOLUTION=$(find . -maxdepth 1 \( -name '*.slnx' -o -name '*.sln' \) -print -quit)
-HAS_BACKEND=$(find src -name '*.csproj' -print -quit 2>/dev/null || true)
+SOLUTION=$(find backend -maxdepth 1 \( -name '*.slnx' -o -name '*.sln' \) -print -quit 2>/dev/null || true)
+[ -z "$SOLUTION" ] && SOLUTION=$(find . -maxdepth 1 \( -name '*.slnx' -o -name '*.sln' \) -print -quit)
+HAS_BACKEND=$(find backend -name '*.csproj' -print -quit 2>/dev/null || true)
 
 step "Backend (.NET)"
 if [ -z "$HAS_BACKEND" ]; then
-    skip "backend not scaffolded yet (no src/**/*.csproj)"
+    skip "backend not scaffolded yet (no backend/**/*.csproj)"
 else
     if [ -z "$SOLUTION" ]; then
-        fail "solution file (*.slnx / *.sln) missing at repo root"
+        fail "solution file (*.slnx / *.sln) missing in backend/"
     else
         run_gate "dotnet restore" dotnet restore "$SOLUTION" --verbosity quiet
         run_gate "dotnet format --verify-no-changes" dotnet format "$SOLUTION" --verify-no-changes --no-restore --verbosity quiet

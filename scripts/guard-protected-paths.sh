@@ -30,13 +30,13 @@ DECISION="allow"
 REASON=""
 
 case "$REL" in
-    src/Frontend/src/shared/api/generated/*|src/Frontend/openapi/*)
+    frontend/src/shared/api/generated/*|frontend/openapi/*|src/Frontend/src/shared/api/generated/*|src/Frontend/openapi/*)
         DECISION="deny"
         REASON="'$REL' is generated (ADR 0007). Change the C# endpoint/DTO and run 'npm run codegen:api' instead of editing it." ;;
     */Migrations/*.cs)
         DECISION="deny"
         REASON="'$REL' is an EF Core migration. Generate migrations with 'dotnet ef migrations add <Name>'; never hand-edit them." ;;
-    tests/Architecture.Tests/*|scripts/*|.githooks/*|.github/*|.agents/hooks.json|.claude/settings.json|AGENTS.md|CLAUDE.md|*/AGENTS.md)
+    tests/Architecture.Tests/*|backend/tests/Architecture.Tests/*|scripts/*|.githooks/*|.github/*|.agents/hooks.json|.claude/settings.json|AGENTS.md|CLAUDE.md|*/AGENTS.md)
         DECISION="force_ask"
         REASON="'$REL' is part of the architecture harness. Changing it requires explicit human approval. If a guardrail blocks you, fix the code, not the guardrail." ;;
     docs/adr/[0-9][0-9][0-9][0-9]-*.md)

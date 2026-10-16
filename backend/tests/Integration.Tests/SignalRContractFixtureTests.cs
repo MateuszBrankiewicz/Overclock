@@ -66,7 +66,7 @@ public class SignalRContractFixtureTests
         var dir = AppContext.BaseDirectory;
         while (!string.IsNullOrEmpty(dir))
         {
-            if (File.Exists(Path.Combine(dir, "Overclock.slnx")) || Directory.Exists(Path.Combine(dir, ".git")))
+            if (Directory.Exists(Path.Combine(dir, ".git")))
             {
                 return dir;
             }

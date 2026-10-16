@@ -8,27 +8,28 @@ It refines — never overrides — the accepted ADRs ([0002](../adr/0002-technol
 ## 1. Modular Monolith Layout
 
 ```
-Overclock.slnx
-src/
-├── Host/
-│   └── Overclock.Host/             # ASP.NET Core: REST endpoints, SignalR hubs, DI composition root, OpenAPI
-├── SharedKernel/
-│   └── Overclock.SharedKernel/     # Result type (ADR 0006), Entity/AggregateRoot base, IDomainEvent
-└── Modules/
-    ├── GameEngine/
-    │   ├── Overclock.Modules.GameEngine.Domain/          # Room aggregate, state machine, cards, VoltageShunt (pure C#)
-    │   ├── Overclock.Modules.GameEngine.Application/     # Commands, Queries, Handlers, validators, ports (interfaces)
-    │   ├── Overclock.Modules.GameEngine.Infrastructure/  # Room registry + single-writer loop, Redis snapshots, adapters
-    │   └── Overclock.Modules.GameEngine.Contracts/       # Public records: integration events, SignalR event payloads
-    ├── Identity/   (same four projects)
-    ├── Economy/    (same four projects)
-    └── Stats/      (same four projects)
-tests/
-├── Architecture.Tests/
-└── Integration.Tests/
+backend/
+├── Overclock.slnx
+├── src/
+│   ├── Host/
+│   │   └── Overclock.Host/             # ASP.NET Core: REST endpoints, SignalR hubs, DI composition root, OpenAPI
+│   ├── SharedKernel/
+│   │   └── Overclock.SharedKernel/     # Result type (ADR 0006), Entity/AggregateRoot base, IDomainEvent
+│   └── Modules/
+│       ├── GameEngine/
+│       │   ├── Overclock.Modules.GameEngine.Domain/          # Room aggregate, state machine, cards, VoltageShunt (pure C#)
+│       │   ├── Overclock.Modules.GameEngine.Application/     # Commands, Queries, Handlers, validators, ports (interfaces)
+│       │   ├── Overclock.Modules.GameEngine.Infrastructure/  # Room registry + single-writer loop, Redis snapshots, adapters
+│       │   └── Overclock.Modules.GameEngine.Contracts/       # Public records: integration events, SignalR event payloads
+│       ├── Identity/   (same four projects)
+│       ├── Economy/    (same four projects)
+│       └── Stats/      (same four projects)
+└── tests/
+    ├── Architecture.Tests/
+    └── Integration.Tests/
 ```
 
-### Dependency rules (enforced by `tests/Architecture.Tests`)
+### Dependency rules (enforced by `backend/tests/Architecture.Tests`)
 
 | Project | May reference |
 |---|---|

@@ -41,12 +41,13 @@ When two documents disagree, the higher one wins — and you must report the con
 
 | Path | Purpose |
 |---|---|
-| `src/Host/` | ASP.NET Core host: REST endpoints, SignalR hubs, DI composition root |
-| `src/Modules/<Module>/{Domain,Application,Infrastructure,Contracts}` | Isolated modules: `GameEngine`, `Identity`, `Economy`, `Stats` |
-| `src/SharedKernel/` | Result type, base entity, domain event abstractions |
-| `src/Frontend/` | React 19 + Vite app; `src/shared/api/generated/` is **generated** |
-| `tests/Architecture.Tests/` | NetArchTest boundary rules (**protected**) |
-| `tests/Integration.Tests/` | WebApplicationFactory + Testcontainers (Postgres, Redis) |
+| `backend/src/Host/` | ASP.NET Core host: REST endpoints, SignalR hubs, DI composition root |
+| `backend/src/Modules/<Module>/{Domain,Application,Infrastructure,Contracts}` | Isolated modules: `GameEngine`, `Identity`, `Economy`, `Stats` |
+| `backend/src/SharedKernel/` | Result type, base entity, domain event abstractions |
+| `backend/tests/Architecture.Tests/` | NetArchTest boundary rules (**protected**) |
+| `backend/tests/Integration.Tests/` | WebApplicationFactory + Testcontainers (Postgres, Redis) |
+| `frontend/` | React 19 + Vite app; `frontend/src/shared/api/generated/` is **generated** |
+| `tests/contracts/signalr/` | Shared JSON contract fixtures for SignalR payload verification |
 | `docs/adr/`, `docs/architecture/`, `docs/business/` | Decisions, technical standards, game rules |
 | `scripts/` | Harness: `verify.sh`, `check-docs.sh`, `new-adr.sh`, agent hooks (**protected**) |
 
@@ -83,9 +84,9 @@ When two documents disagree, the higher one wins — and you must report the con
 
 ## 4. Anti-Gaming Rules (never make the harness green by cheating)
 
-* ❌ Never edit, skip, or weaken tests in `tests/Architecture.Tests/`, nor add `[Fact(Skip=...)]`, `#pragma warning disable`, `// eslint-disable`, `@ts-ignore`, or `any` to pass a gate.
+* ❌ Never edit, skip, or weaken tests in `backend/tests/Architecture.Tests/`, nor add `[Fact(Skip=...)]`, `#pragma warning disable`, `// eslint-disable`, `@ts-ignore`, or `any` to pass a gate.
 * ❌ Never edit harness files (`scripts/`, `.githooks/`, `.github/`, `.agents/hooks.json`, `.claude/settings.json`, `AGENTS.md`) unless the user explicitly asks.
-* ❌ Never hand-edit generated code (`src/Frontend/src/shared/api/generated/**`, `src/Frontend/openapi/**`, `**/Migrations/*.cs`) — regenerate it.
+* ❌ Never hand-edit generated code (`frontend/src/shared/api/generated/**`, `frontend/openapi/**`, `**/Migrations/*.cs`) — regenerate it.
 * ❌ Never use `git commit --no-verify` or replace real Postgres/Redis with mocks in integration tests.
 * ✅ If a guardrail looks wrong, stop and explain why; propose an ADR. Fix the code, not the guardrail.
 

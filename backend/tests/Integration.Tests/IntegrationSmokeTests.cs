@@ -41,7 +41,7 @@ public class IntegrationSmokeTests : IClassFixture<WebApplicationFactory<Program
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
-            var openApiDir = Path.Combine(repoRoot, "src", "Frontend", "openapi");
+            var openApiDir = Path.Combine(repoRoot, "frontend", "openapi");
             if (Directory.Exists(openApiDir))
             {
                 var filePath = Path.Combine(openApiDir, "overclock.json");
@@ -58,7 +58,7 @@ public class IntegrationSmokeTests : IClassFixture<WebApplicationFactory<Program
         var dir = AppContext.BaseDirectory;
         while (!string.IsNullOrEmpty(dir))
         {
-            if (File.Exists(Path.Combine(dir, "Overclock.slnx")) || Directory.Exists(Path.Combine(dir, ".git")))
+            if (Directory.Exists(Path.Combine(dir, ".git")))
             {
                 return dir;
             }
