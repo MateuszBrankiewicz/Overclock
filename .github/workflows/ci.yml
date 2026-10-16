@@ -21,7 +21,7 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-context:
     name: "Gate 1: Context & Governance"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,7 +73,7 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-backend:
     name: "Gate 2: Backend Architecture & Quality"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -108,7 +108,7 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-frontend:
     name: "Gate 3: Frontend Quality & Runtime Validation"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,7 +137,7 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-contracts-integration:
     name: "Gate 4: Contracts & Testcontainers Integration"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [gate-backend, gate-frontend]
     steps:
       - name: Checkout code
@@ -177,7 +177,7 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-verify-all:
     name: "Gate 5: Full Harness Verification"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [gate-context, gate-backend, gate-frontend, gate-contracts-integration]
     steps:
       - name: Checkout code
