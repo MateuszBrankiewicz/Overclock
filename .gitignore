@@ -1,3 +1,7 @@
+# AI agents (shared configs are versioned; personal overrides are not)
+.claude/settings.local.json
+.aider*
+
 # Visual Studio / Rider / VS Code
 .vscode/
 .idea/

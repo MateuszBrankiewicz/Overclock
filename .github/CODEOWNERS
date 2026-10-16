@@ -1,0 +1,13 @@
+# Harness files and accepted decisions require maintainer review (ADR 0005).
+# Combine with branch protection: "Require review from Code Owners" + required "verify" check.
+
+/AGENTS.md                      @MateuszBrankiewicz
+/CLAUDE.md                      @MateuszBrankiewicz
+/docs/adr/                      @MateuszBrankiewicz
+/docs/architecture/             @MateuszBrankiewicz
+/scripts/                       @MateuszBrankiewicz
+/.githooks/                     @MateuszBrankiewicz
+/.github/                       @MateuszBrankiewicz
+/.agents/hooks.json             @MateuszBrankiewicz
+/.claude/settings.json          @MateuszBrankiewicz
+/tests/Architecture.Tests/      @MateuszBrankiewicz

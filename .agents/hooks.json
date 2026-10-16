@@ -1,0 +1,25 @@
+{
+  "protected-paths": {
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ../scripts/guard-protected-paths.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "verify-before-stop": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "bash ../scripts/agent-stop-gate.sh",
+        "timeout": 300
+      }
+    ]
+  }
+}

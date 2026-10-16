@@ -12,15 +12,28 @@
 
 ---
 
+## Getting Started (contributors & AI agents)
+
+```bash
+bash scripts/setup-hooks.sh     # activate pre-commit + commit-msg hooks
+bash scripts/verify.sh --fast   # inner-loop verification
+bash scripts/verify.sh          # full verification (requires Docker for Testcontainers)
+scripts/new-adr.sh "Title"      # draft a new Architecture Decision Record
+```
+
+AI coding agents read [`AGENTS.md`](AGENTS.md) (Claude Code: [`CLAUDE.md`](CLAUDE.md) imports it). The harness is described in [ADR 0005](docs/adr/0005-ai-architecture-harness-and-deterministic-guardrails.md).
+
+---
+
 ## Documentation
 
-- [`docs/PROJECT_CONCEPT.md`](file:///home/mateusz/Projects/liarsgame/docs/PROJECT_CONCEPT.md) — Vision, core loop, monetization, and Go-to-Market strategy.
-- [`docs/adr/`](file:///home/mateusz/Projects/liarsgame/docs/adr/) — Architecture Decision Records (ADRs):
-  - [ADR 0001: Record Architecture Decisions](file:///home/mateusz/Projects/liarsgame/docs/adr/0001-record-architecture-decisions.md)
-  - [ADR 0002: Core Technology Stack: .NET, React, MediatR, PostgreSQL, and Redis](file:///home/mateusz/Projects/liarsgame/docs/adr/0002-technology-stack-and-modular-monolith.md)
-  - [ADR 0003: Real-Time Game Loop: SignalR, In-Memory State Machine, and Redis Backplane](file:///home/mateusz/Projects/liarsgame/docs/adr/0003-realtime-engine-signalr-and-state-machine.md)
-  - [ADR 0004: Runtime Model Validation and Type Inference with Zod](file:///home/mateusz/Projects/liarsgame/docs/adr/0004-runtime-model-validation-with-zod.md)
-- [`docs/business/`](file:///home/mateusz/Projects/liarsgame/docs/business/) — Business & game design rules:
-  - [PCB Data Cards Design Decision](file:///home/mateusz/Projects/liarsgame/docs/business/adr_pcb_data_cards_business_design_decision.md)
-  - [Game Rules, Hardware Exploits & Balance Model](file:///home/mateusz/Projects/liarsgame/docs/business/game_rules_and_balance.md)
-- [`.agents/skills/`](file:///home/mateusz/Projects/liarsgame/.agents/skills/) — AI Agent Skills & engineering playbooks.
+- [`docs/PROJECT_CONCEPT.md`](docs/PROJECT_CONCEPT.md) — Vision, core loop, monetization, and Go-to-Market strategy.
+- [`docs/adr/`](docs/adr/README.md) — Architecture Decision Records (index with statuses).
+- [`docs/architecture/`](docs/architecture/) — Technical standards:
+  - [Backend guidelines](docs/architecture/backend-guidelines.md)
+  - [Frontend guidelines](docs/architecture/frontend-guidelines.md)
+  - [Testing & verification](docs/architecture/testing.md)
+- [`docs/business/`](docs/business/) — Business & game design rules:
+  - [PCB Data Cards Design Decision](docs/business/adr_pcb_data_cards_business_design_decision.md)
+  - [Game Rules, Hardware Exploits & Balance Model](docs/business/game_rules_and_balance.md)
+- [`.agents/skills/`](.agents/skills/) — AI Agent Skills & engineering playbooks (including `implement-adr`).

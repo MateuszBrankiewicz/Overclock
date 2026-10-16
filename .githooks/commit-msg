@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# commit-msg — enforce Conventional Commits (AGENTS.md §4, Step 4).
+set -euo pipefail
+
+MSG_FILE="$1"
+SUBJECT=$(head -n 1 "$MSG_FILE")
+
+# Allow git-generated messages.
+if [[ "$SUBJECT" =~ ^(Merge|Revert\ \"|fixup!|squash!) ]]; then
+    exit 0
+fi
+
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9-]+\))?!?: .{1,100}$'
+if [[ ! "$SUBJECT" =~ $PATTERN ]]; then
+    cat >&2 <<EOF
+❌ Commit subject does not follow Conventional Commits:
+   "$SUBJECT"
+
+   Expected: <type>(<scope>): <summary>   (max 100 chars)
+   Types:    feat fix docs style refactor perf test build ci chore revert
+   Example:  feat(game-engine): implement bluff state transition (ADR 0003)
+EOF
+    exit 1
+fi

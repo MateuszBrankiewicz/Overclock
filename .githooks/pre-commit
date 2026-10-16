@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# pre-commit — fast deterministic gates before every commit (ADR 0005).
+# Bypassing with --no-verify does not help: CI runs the full verify.sh.
+set -euo pipefail
+exec bash "$(git rev-parse --show-toplevel)/scripts/verify.sh" --fast
