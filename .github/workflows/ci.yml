@@ -21,17 +21,12 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-context:
     name: "Gate 1: Context & Governance"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Python (for doc linting)
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
 
       - name: Validate ADRs & Documentation Links
         run: bash scripts/check-docs.sh
@@ -73,15 +68,10 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-backend:
     name: "Gate 2: Backend Architecture & Quality"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -103,12 +93,15 @@ jobs:
       - name: NetArchTest Architecture Tests (Hard Boundary Rules)
         run: dotnet test backend/tests/Architecture.Tests/Architecture.Tests.csproj --no-build --verbosity normal
 
+      - name: Run Domain Unit Tests
+        run: dotnet test backend/tests/GameEngine.Domain.Tests/GameEngine.Domain.Tests.csproj --no-build --verbosity normal
+
   # ----------------------------------------------------------------------------
   # Gate 3: Frontend Quality & Runtime Validation (React 19, ESLint, Vitest)
   # ----------------------------------------------------------------------------
   gate-frontend:
     name: "Gate 3: Frontend Quality & Runtime Validation"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,16 +130,11 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-contracts-integration:
     name: "Gate 4: Contracts & Testcontainers Integration"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [gate-backend, gate-frontend]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -177,16 +165,11 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-verify-all:
     name: "Gate 5: Full Harness Verification"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [gate-context, gate-backend, gate-frontend, gate-contracts-integration]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

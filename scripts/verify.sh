@@ -73,6 +73,12 @@ else
         fail "architecture tests missing ($ARCH_TESTS) — required once backend exists"
     fi
 
+    for domain_test in backend/tests/*Domain.Tests/*.csproj; do
+        if [ -f "$domain_test" ]; then
+            run_gate "domain unit tests ($(basename "$domain_test" .csproj))" dotnet test "$domain_test" --no-build --verbosity quiet
+        fi
+    done
+
     if [ "$MODE" = "fast" ]; then
         skip "integration tests (fast mode)"
     elif [ ! -f "$INTEG_TESTS" ]; then
