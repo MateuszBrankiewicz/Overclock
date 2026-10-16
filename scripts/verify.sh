@@ -17,6 +17,8 @@ set -uo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+export DOTNET_SYSTEM_NET_DISABLEIPV6=1
+
 MODE="full"
 [ "${1:-}" = "--fast" ] && MODE="fast"
 

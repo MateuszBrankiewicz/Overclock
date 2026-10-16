@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\SharedKernel\Overclock.SharedKernel\Overclock.SharedKernel.csproj" />
+    <ProjectReference Include="..\Overclock.Modules.Stats.Domain\Overclock.Modules.Stats.Domain.csproj" />
+    <ProjectReference Include="..\Overclock.Modules.Stats.Contracts\Overclock.Modules.Stats.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="*" />
+    <PackageReference Include="Mediator.Abstractions" Version="*" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

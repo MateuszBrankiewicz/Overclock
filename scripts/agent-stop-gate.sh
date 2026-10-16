@@ -28,6 +28,8 @@ if [ "$MODE" = "--claude" ]; then
 else
     REASON_CODE=$(jq -r '.terminationReason // ""' <<<"$INPUT")
     ATTEMPT=$(jq -r '.executionNum // 1' <<<"$INPUT")
+    FULLY_IDLE=$(jq -r '.fullyIdle // true' <<<"$INPUT")
+    [ "$FULLY_IDLE" = "false" ] && allow_stop
     [ "$REASON_CODE" != "NO_TOOL_CALL" ] && allow_stop
     [ "$ATTEMPT" -gt "$MAX_ATTEMPTS" ] && allow_stop
 fi
