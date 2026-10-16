@@ -28,11 +28,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python (for doc linting)
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
       - name: Validate ADRs & Documentation Links
         run: bash scripts/check-docs.sh
 
@@ -102,6 +97,9 @@ jobs:
 
       - name: NetArchTest Architecture Tests (Hard Boundary Rules)
         run: dotnet test backend/tests/Architecture.Tests/Architecture.Tests.csproj --no-build --verbosity normal
+
+      - name: Run Domain Unit Tests
+        run: dotnet test backend/tests/GameEngine.Domain.Tests/GameEngine.Domain.Tests.csproj --no-build --verbosity normal
 
   # ----------------------------------------------------------------------------
   # Gate 3: Frontend Quality & Runtime Validation (React 19, ESLint, Vitest)
