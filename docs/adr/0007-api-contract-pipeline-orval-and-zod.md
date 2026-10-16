@@ -4,7 +4,7 @@ Date: 2026-10-16
 
 ## Status
 
-Proposed
+Accepted
 
 Amends [0004](0004-runtime-model-validation-with-zod.md)
 

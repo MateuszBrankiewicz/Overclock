@@ -22,5 +22,6 @@ We follow the [Michael Nygard / MADR](https://adr.github.io/madr/) format to cap
 | [0003](0003-realtime-engine-signalr-and-state-machine.md) | [Real-Time Game Loop: SignalR, In-Memory State Machine, and Redis Backplane](0003-realtime-engine-signalr-and-state-machine.md) | **Accepted** | 2026-10-15 |
 | [0004](0004-runtime-model-validation-with-zod.md) | [Runtime Model Validation and Type Inference with Zod](0004-runtime-model-validation-with-zod.md) | **Accepted** | 2026-10-15 |
 | [0005](0005-ai-architecture-harness-and-deterministic-guardrails.md) | [AI Architecture Harness and Deterministic Guardrails](0005-ai-architecture-harness-and-deterministic-guardrails.md) | **Accepted** | 2026-10-16 |
-| [0006](0006-functional-error-handling-with-ardalis-result.md) | [Functional Error Handling with Ardalis.Result](0006-functional-error-handling-with-ardalis-result.md) | **Proposed** | 2026-10-16 |
-| [0007](0007-api-contract-pipeline-orval-and-zod.md) | [API Contract Pipeline: OpenAPI → Orval and SignalR Contract Schemas](0007-api-contract-pipeline-orval-and-zod.md) | **Proposed** | 2026-10-16 |
+| [0006](0006-functional-error-handling-with-ardalis-result.md) | [Functional Error Handling with Ardalis.Result](0006-functional-error-handling-with-ardalis-result.md) | **Accepted** | 2026-10-16 |
+| [0007](0007-api-contract-pipeline-orval-and-zod.md) | [API Contract Pipeline: OpenAPI → Orval and SignalR Contract Schemas](0007-api-contract-pipeline-orval-and-zod.md) | **Accepted** | 2026-10-16 |
+| [0008](0008-replace-mediatr-with-compile-time-source-generated-mediator.md) | [Replace MediatR with Compile-Time Source-Generated Mediator](0008-replace-mediatr-with-compile-time-source-generated-mediator.md) | **Accepted** | 2026-10-16 |

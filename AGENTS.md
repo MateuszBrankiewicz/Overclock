@@ -55,7 +55,7 @@ When two documents disagree, the higher one wins — and you must report the con
 ## 3. Hard Negative Constraints
 
 ### Backend (.NET 10 Modular Monolith & CQRS)
-* ❌ **NO direct SQL queries or `DbContext` injections in API Controllers or SignalR Hubs.** Presentation layers only adapt network transport and dispatch requests via MediatR (`ISender.Send`).
+* ❌ **NO direct SQL queries or `DbContext` injections in API Controllers or SignalR Hubs.** Presentation layers only adapt network transport and dispatch requests via Mediator (`ISender.Send`).
 * ❌ **NO business logic outside CQRS Command/Query Handlers or Domain Entities.**
 * ❌ **ZERO `IQueryable` leaks beyond the infrastructure layer.** Materialize queries via `.ToListAsync()` or `.FirstOrDefaultAsync()` inside repositories.
 * ❌ **ZERO `throw new Exception(...)` for domain or validation errors.** Return `Result<T>` or `Result` (library: see [ADR 0006](docs/adr/0006-functional-error-handling-with-ardalis-result.md)). Exceptions are exclusively reserved for unrecoverable infrastructure crashes (500).

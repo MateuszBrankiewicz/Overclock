@@ -39,19 +39,21 @@ tests/
 | `Overclock.Host` | every module's `Application`, `Infrastructure` (DI only), `Contracts` |
 
 * A module **never** references another module's `Domain`, `Application`, or `Infrastructure`.
-* Inter-module communication: `Contracts` records + in-process MediatR notifications (e.g. `MatchFinishedEvent`).
+* Inter-module communication: `Contracts` records + in-process `Mediator` notifications (e.g. `MatchFinishedEvent`).
 
 ---
 
-## 2. CQRS & MediatR Conventions
+## 2. CQRS & Mediator Conventions (ADR 0008)
 
-* Commands and Queries are **immutable `sealed record` types**.
+We use **`Mediator` (Source Generator)** by Martin Ullrich (MIT License) instead of `MediatR` ([ADR 0008](../adr/0008-replace-mediatr-with-compile-time-source-generated-mediator.md)).
+
+* Commands and Queries are **immutable `sealed record` types** implementing `IRequest<Result<T>>` or `IRequest<Result>`.
 * Naming:
   - Commands: `<Action><Entity>Command` (`PlayCardsCommand`, `CallBluffCommand`, `RegisterUserCommand`).
   - Queries: `Get<Entity>Query` / `List<Entities>Query` (`GetRoomStateQuery`).
-  - Handlers: `<RequestName>Handler`, `internal sealed`.
-* Every handler returns `Result` or `Result<T>` ([ADR 0006](../adr/0006-functional-error-handling-with-ardalis-result.md)). No exceptions for domain/validation errors.
-* Validation runs in a `ValidationBehavior<TRequest, TResponse>` (FluentValidation) and returns `Result.Invalid(...)`.
+  - Handlers: `<RequestName>Handler`, `internal sealed`, implementing `IRequestHandler<TRequest, Result<TResponse>>`.
+* Every handler returns `ValueTask<Result>` or `ValueTask<Result<T>>` ([ADR 0006](../adr/0006-functional-error-handling-with-ardalis-result.md), [ADR 0008](../adr/0008-replace-mediatr-with-compile-time-source-generated-mediator.md)). No exceptions for domain/validation errors.
+* Validation runs in a `ValidationBehavior<TRequest, TResponse>` (FluentValidation pipeline behavior) and returns `Result.Invalid(...)`.
 * Error codes use `<Aggregate>.<Reason>` strings: `"Room.NotFound"`, `"Turn.NotYourTurn"`.
 
 ---
@@ -64,7 +66,7 @@ Room state lives **in memory**, one authoritative `Room` aggregate per room code
 sequenceDiagram
     participant C as Client
     participant H as GameHub (Host)
-    participant M as MediatR
+    participant M as Mediator
     participant HD as CallBluffCommandHandler
     participant R as RoomLoop (Channel, single consumer)
     participant N as IGameNotifier (Host adapter)
@@ -82,12 +84,14 @@ sequenceDiagram
 
 ```csharp
 // Application — command + handler (thin: routes the action into the room loop)
+using Mediator;
+
 public sealed record CallBluffCommand(string RoomCode, Guid AccuserPlayerId) : IRequest<Result<BluffResolutionDto>>;
 
 internal sealed class CallBluffCommandHandler(IRoomRegistry rooms)
     : IRequestHandler<CallBluffCommand, Result<BluffResolutionDto>>
 {
-    public async Task<Result<BluffResolutionDto>> Handle(CallBluffCommand request, CancellationToken ct)
+    public async ValueTask<Result<BluffResolutionDto>> Handle(CallBluffCommand request, CancellationToken ct)
     {
         if (!rooms.TryGet(request.RoomCode, out var room))
         {
