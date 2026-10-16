@@ -1,0 +1,199 @@
+name: CI (AI Architecture Harness)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_SYSTEM_NET_DISABLEIPV6: "1"
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Gate 1: Context & Governance (ADRs, Docs, Commits, Anti-Gaming Audit)
+  # ----------------------------------------------------------------------------
+  gate-context:
+    name: "Gate 1: Context & Governance"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python (for doc linting)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate ADRs & Documentation Links
+        run: bash scripts/check-docs.sh
+
+      - name: Validate Conventional Commits
+        if: github.event_name == 'pull_request'
+        run: |
+          for sha in $(git rev-list "origin/${{ github.base_ref }}..HEAD" --no-merges); do
+            git log -1 --format=%B "$sha" > /tmp/msg
+            bash .githooks/commit-msg /tmp/msg
+          done
+
+      - name: Anti-Gaming Guardrail Audit
+        if: github.event_name == 'pull_request'
+        run: |
+          MODIFIED_FILES=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "Inspecting modified files for protected architectural harness paths..."
+          PROTECTED_CHANGES=0
+          for f in $MODIFIED_FILES; do
+            case "$f" in
+              backend/tests/Architecture.Tests/*|scripts/*|.githooks/*|.github/*|.agents/hooks.json|.claude/settings.json|AGENTS.md|CLAUDE.md)
+                echo "⚠️  Protected harness path modified: $f (requires Codeowner approval)"
+                PROTECTED_CHANGES=$((PROTECTED_CHANGES + 1))
+                ;;
+              docs/adr/[0-9][0-9][0-9][0-9]-*.md)
+                if git diff "origin/${{ github.base_ref }}...HEAD" -- "$f" | grep -qE '^\+(Accepted|Superseded by)'; then
+                  echo "⚠️  Accepted ADR modified: $f (requires review)"
+                  PROTECTED_CHANGES=$((PROTECTED_CHANGES + 1))
+                fi
+                ;;
+            esac
+          done
+          if [ "$PROTECTED_CHANGES" -gt 0 ]; then
+            echo "::notice ::$PROTECTED_CHANGES protected harness file(s) modified. CODEOWNERS review required."
+          fi
+
+  # ----------------------------------------------------------------------------
+  # Gate 2: Backend Architecture & Quality (.NET 10, NetArchTest)
+  # ----------------------------------------------------------------------------
+  gate-backend:
+    name: "Gate 2: Backend Architecture & Quality"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('backend/**/*.csproj', 'backend/Overclock.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore backend/Overclock.slnx --verbosity quiet
+
+      - name: Verify formatting (dotnet format)
+        run: dotnet format backend/Overclock.slnx --verify-no-changes --no-restore --verbosity quiet
+
+      - name: Compile solution (-warnaserror)
+        run: dotnet build backend/Overclock.slnx --no-restore -warnaserror --verbosity quiet
+
+      - name: NetArchTest Architecture Tests (Hard Boundary Rules)
+        run: dotnet test backend/tests/Architecture.Tests/Architecture.Tests.csproj --no-build --verbosity normal
+
+  # ----------------------------------------------------------------------------
+  # Gate 3: Frontend Quality & Runtime Validation (React 19, ESLint, Vitest)
+  # ----------------------------------------------------------------------------
+  gate-frontend:
+    name: "Gate 3: Frontend Quality & Runtime Validation"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm --prefix frontend ci --no-audit --no-fund
+
+      - name: ESLint (Architecture Boundary & Anti-Gaming Rules)
+        run: npm --prefix frontend run lint
+
+      - name: TypeScript Typecheck (tsc -b --noEmit)
+        run: npm --prefix frontend run typecheck
+
+      - name: Vitest (SignalR Zod Runtime Validation)
+        run: npm --prefix frontend run test -- --run
+
+  # ----------------------------------------------------------------------------
+  # Gate 4: Real-Time & API Integration Contracts (Testcontainers & Orval Drift)
+  # ----------------------------------------------------------------------------
+  gate-contracts-integration:
+    name: "Gate 4: Contracts & Testcontainers Integration"
+    runs-on: ubuntu-latest
+    needs: [gate-backend, gate-frontend]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Restore .NET & npm
+        run: |
+          dotnet restore backend/Overclock.slnx --verbosity quiet
+          npm --prefix frontend ci --no-audit --no-fund --silent
+
+      - name: Build backend
+        run: dotnet build backend/Overclock.slnx --no-restore -warnaserror --verbosity quiet
+
+      - name: Run Testcontainers Integration & Fixture Tests
+        run: dotnet test backend/tests/Integration.Tests/Integration.Tests.csproj --no-build --verbosity normal
+
+      - name: Regenerate API Client & Check Contract Drift (ADR 0007)
+        run: |
+          npm --prefix frontend run codegen:api
+          echo "Checking for API contract drift between OpenAPI and generated client..."
+          git diff --exit-code -- frontend/src/shared/api/generated frontend/openapi tests/contracts/signalr
+
+  # ----------------------------------------------------------------------------
+  # Gate 5: Final Deterministic Verification Run
+  # ----------------------------------------------------------------------------
+  gate-verify-all:
+    name: "Gate 5: Full Harness Verification"
+    runs-on: ubuntu-latest
+    needs: [gate-context, gate-backend, gate-frontend, gate-contracts-integration]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Full verify.sh run
+        run: bash scripts/verify.sh
