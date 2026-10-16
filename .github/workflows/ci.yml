@@ -69,6 +69,8 @@ jobs:
   gate-backend:
     name: "Gate 2: Backend Architecture & Quality"
     runs-on: self-hosted
+    env:
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}/.dotnet
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -137,6 +139,8 @@ jobs:
     name: "Gate 4: Contracts & Testcontainers Integration"
     runs-on: self-hosted
     needs: [gate-backend, gate-frontend]
+    env:
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}/.dotnet
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -177,6 +181,8 @@ jobs:
     name: "Gate 5: Full Harness Verification"
     runs-on: self-hosted
     needs: [gate-context, gate-backend, gate-frontend, gate-contracts-integration]
+    env:
+      DOTNET_INSTALL_DIR: ${{ runner.temp }}/.dotnet
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
