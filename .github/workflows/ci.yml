@@ -69,16 +69,9 @@ jobs:
   gate-backend:
     name: "Gate 2: Backend Architecture & Quality"
     runs-on: self-hosted
-    env:
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/.dotnet
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -139,16 +132,9 @@ jobs:
     name: "Gate 4: Contracts & Testcontainers Integration"
     runs-on: self-hosted
     needs: [gate-backend, gate-frontend]
-    env:
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/.dotnet
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -181,16 +167,9 @@ jobs:
     name: "Gate 5: Full Harness Verification"
     runs-on: self-hosted
     needs: [gate-context, gate-backend, gate-frontend, gate-contracts-integration]
-    env:
-      DOTNET_INSTALL_DIR: ${{ runner.temp }}/.dotnet
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup .NET 10 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "10.0.x"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
