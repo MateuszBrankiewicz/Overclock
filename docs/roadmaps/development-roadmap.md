@@ -34,7 +34,7 @@ Działająca, autorytatywna pętla gry dla 2–4 graczy w surowym interfejsie te
 ### Lista Zadań (Task Breakdown)
 
 #### [Backend .NET]
-- [ ] **`TASK-0.1` | Model Domeny Kart i Talii**
+- [x] **`TASK-0.1` | Model Domeny Kart i Talii**
   - **Lokalizacja:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Domain/`
   - **Zakres:**
     - Utworzenie enumów/rekordów `CardProtocol` (`Alpha`, `Beta`, `Gamma`, `Glitch`, `Corrupted`).
