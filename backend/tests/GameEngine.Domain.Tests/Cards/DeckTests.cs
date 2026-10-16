@@ -3,7 +3,7 @@ using Overclock.Modules.GameEngine.Domain.Cards;
 using Overclock.SharedKernel;
 using Xunit;
 
-namespace Integration.Tests.Domain.Cards;
+namespace Overclock.Modules.GameEngine.Domain.Tests.Cards;
 
 public class DeckTests
 {

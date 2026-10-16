@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Host\Overclock.Host\Overclock.Host.csproj" />
-    <ProjectReference Include="..\..\src\Modules\GameEngine\Overclock.Modules.GameEngine.Domain\Overclock.Modules.GameEngine.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
