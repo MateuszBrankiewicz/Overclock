@@ -3,10 +3,14 @@ using Overclock.Modules.GameEngine.Domain.Rooms;
 
 namespace Overclock.Modules.GameEngine.Application.Projections;
 
-public static class GameStateProjector
+public sealed class GameStateProjector : IGameStateProjector
 {
+    PlayerGameStateDto IGameStateProjector.Project(GameRoom room, PlayerId recipientId) => Project(room, recipientId);
+
     public static PlayerGameStateDto Project(GameRoom room, PlayerId recipientId)
     {
+        ArgumentNullException.ThrowIfNull(room);
+
         var recipientSeat = room.Seats.FirstOrDefault(s => s.Id == recipientId);
         var myHand = recipientSeat?.Hand
             .Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString()))

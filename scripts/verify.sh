@@ -73,10 +73,13 @@ else
         fail "architecture tests missing ($ARCH_TESTS) — required once backend exists"
     fi
 
-    for domain_test in backend/tests/*Domain.Tests/*.csproj; do
-        if [ -f "$domain_test" ]; then
-            run_gate "domain unit tests ($(basename "$domain_test" .csproj))" dotnet test "$domain_test" --no-build --verbosity quiet
+    for test_project in backend/tests/*/*.csproj; do
+        [ -f "$test_project" ] || continue
+        test_name="$(basename "$test_project" .csproj)"
+        if [ "$test_name" = "Architecture.Tests" ] || [ "$test_name" = "Integration.Tests" ]; then
+            continue
         fi
+        run_gate "unit tests ($test_name)" dotnet test "$test_project" --no-build --verbosity quiet
     done
 
     if [ "$MODE" = "fast" ]; then

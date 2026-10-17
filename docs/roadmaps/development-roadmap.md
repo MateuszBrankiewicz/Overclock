@@ -69,7 +69,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - On timeout: auto-generate `TurnExpired` action and transition to penalty resolution.
   - **Verification:** Unit test asserting timeout automatically passes turn and applies penalty.
 
-- [ ] **`TASK-0.5` | Anti-Cheat State Projection Engine**
+- [x] **`TASK-0.5` | Anti-Cheat State Projection Engine**
   - **Location:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Application/Projections/`
   - **Scope:**
     - Transform `GameRoom` aggregate state into player-specific DTOs (`PlayerGameStateDto`).
