@@ -78,7 +78,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - Table pile only exposes total size (`TablePileCount`) without revealing played card types.
   - **Verification:** Unit test assertion: opponent DTO contains zero IDs or types of foreign cards.
 
-- [ ] **`TASK-0.6` | SignalR Hub & Reconnection Handling**
+- [x] **`TASK-0.6` | SignalR Hub & Reconnection Handling**
   - **Location:** `backend/src/Host/Overclock.Host/Hubs/GameHub.cs`
   - **Scope:**
     - Hub methods: `CreateRoom`, `JoinRoom`, `SetReady`, `PlayCards`, `CallTrace`, `Reconnect`.

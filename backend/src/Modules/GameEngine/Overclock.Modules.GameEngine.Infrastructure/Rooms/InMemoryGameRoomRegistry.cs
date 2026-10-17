@@ -1,0 +1,66 @@
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using Ardalis.Result;
+using Overclock.Modules.GameEngine.Application.Rooms;
+using Overclock.Modules.GameEngine.Domain.Rooms;
+
+namespace Overclock.Modules.GameEngine.Infrastructure.Rooms;
+
+public sealed class InMemoryGameRoomRegistry : IGameRoomRegistry, IAsyncDisposable
+{
+    private readonly ConcurrentDictionary<string, GameRoomSession> _rooms =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public Result<GameRoomSession> CreateRoom(
+        RoomId id,
+        PlayerId hostId,
+        string hostNickname,
+        string connectionId,
+        Guid sessionToken)
+    {
+        if (_rooms.ContainsKey(id.Value))
+        {
+            return Result<GameRoomSession>.Conflict("Room.AlreadyExists", $"Room with code '{id.Value}' already exists.");
+        }
+
+        var roomResult = GameRoom.Create(id, hostId, hostNickname, connectionId, sessionToken);
+        if (!roomResult.IsSuccess)
+        {
+            return Result<GameRoomSession>.Invalid(roomResult.ValidationErrors);
+        }
+
+        var session = new GameRoomSession(roomResult.Value);
+        if (!_rooms.TryAdd(id.Value, session))
+        {
+            return Result<GameRoomSession>.Conflict("Room.AlreadyExists", $"Room with code '{id.Value}' already exists.");
+        }
+
+        return Result<GameRoomSession>.Success(session);
+    }
+
+    public bool TryGet(string roomCode, [NotNullWhen(true)] out GameRoomSession? session)
+    {
+        return _rooms.TryGetValue(roomCode, out session);
+    }
+
+    public bool Remove(string roomCode)
+    {
+        if (_rooms.TryRemove(roomCode, out var session))
+        {
+            _ = session.DisposeAsync();
+            return true;
+        }
+
+        return false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var session in _rooms.Values)
+        {
+            await session.DisposeAsync();
+        }
+
+        _rooms.Clear();
+    }
+}
