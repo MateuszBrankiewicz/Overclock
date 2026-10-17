@@ -1,6 +1,9 @@
 using Ardalis.Result;
+using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Rooms;
 using Overclock.Modules.GameEngine.Application.Services;
+using Overclock.Modules.GameEngine.Contracts;
+using Overclock.Modules.GameEngine.Domain.Cards;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.Modules.GameEngine.Infrastructure.Rooms;
 
@@ -24,6 +27,56 @@ public sealed class TurnTimerEngineTests
         Assert.Equal(RoomState.TurnActive, room.State);
         Assert.Equal(nextPlayerId, room.CurrentTurnPlayerId);
         Assert.NotEqual(1, room.TurnSequenceId);
+    }
+
+    [Fact]
+    public async Task Timer_SuccessiveTimeouts_AdvanceThroughAllPlayers()
+    {
+        var (room, hostPlayerId, secondPlayerId) = CreateActiveRoom();
+        await using var session = new GameRoomSession(room, new RoomActor(room));
+        var delay = new ManualTurnDelay();
+        await using var timer = new TurnTimerEngine(delay, TimeSpan.FromSeconds(15));
+
+        timer.Start(session, hostPlayerId, room.TurnSequenceId);
+
+        // 1st timeout: Host -> Second player
+        await delay.AdvanceAsync();
+        await session.EnqueueAsync(_ => Result.Success());
+
+        Assert.Equal(RoomState.TurnActive, room.State);
+        Assert.Equal(secondPlayerId, room.CurrentTurnPlayerId);
+        Assert.Equal(2, room.TurnSequenceId);
+
+        // Wait for 2nd delay to begin
+        await delay.Started;
+
+        // 2nd timeout: Second player -> Host
+        await delay.AdvanceAsync();
+        await session.EnqueueAsync(_ => Result.Success());
+
+        Assert.Equal(RoomState.TurnActive, room.State);
+        Assert.Equal(hostPlayerId, room.CurrentTurnPlayerId);
+        Assert.Equal(3, room.TurnSequenceId);
+    }
+
+    [Fact]
+    public async Task Timer_Expiration_BroadcastsUpdatedGameState()
+    {
+        var (room, currentPlayerId, nextPlayerId) = CreateActiveRoom();
+        await using var session = new GameRoomSession(room, new RoomActor(room));
+        var delay = new ManualTurnDelay();
+        var notifier = new FakeGameNotifier();
+        await using var timer = new TurnTimerEngine(delay, notifier, TimeSpan.FromSeconds(15));
+
+        timer.Start(session, currentPlayerId, room.TurnSequenceId);
+        await delay.AdvanceAsync();
+        await notifier.BroadcastReceived.WaitAsync(TimeSpan.FromSeconds(2));
+        await session.EnqueueAsync(_ => Result.Success());
+
+        Assert.Equal(1, notifier.BroadcastCount);
+        Assert.Equal(room.Id.Value, notifier.LastBroadcastRoomCode);
+        Assert.NotNull(notifier.LastBroadcastSample);
+        Assert.Equal(nextPlayerId.Value, notifier.LastBroadcastSample.CurrentTurnPlayerId);
     }
 
     [Fact]
@@ -87,25 +140,122 @@ public sealed class TurnTimerEngineTests
 
     private sealed class ManualTurnDelay : ITurnDelay
     {
-        private readonly TaskCompletionSource _release =
+        private readonly object _lock = new();
+        private TaskCompletionSource _release =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource _returned =
+        private TaskCompletionSource _returned =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private TaskCompletionSource _started =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public Task Returned => _returned.Task;
-
-        public async Task DelayAsync(TimeSpan duration, CancellationToken cancellationToken)
+        public Task Returned
         {
-            try
+            get
             {
-                await _release.Task.WaitAsync(cancellationToken);
-            }
-            finally
-            {
-                _returned.TrySetResult();
+                lock (_lock)
+                {
+                    return _returned.Task;
+                }
             }
         }
 
-        public void Release() => _release.TrySetResult();
+        public Task Started
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _started.Task;
+                }
+            }
+        }
+
+        public async Task DelayAsync(TimeSpan duration, CancellationToken cancellationToken)
+        {
+            TaskCompletionSource releaseTcs;
+            TaskCompletionSource returnedTcs;
+            lock (_lock)
+            {
+                _started.TrySetResult();
+                releaseTcs = _release;
+                returnedTcs = _returned;
+            }
+
+            try
+            {
+                await releaseTcs.Task.WaitAsync(cancellationToken);
+            }
+            finally
+            {
+                returnedTcs.TrySetResult();
+            }
+        }
+
+        public async Task AdvanceAsync()
+        {
+            Task returnedTask;
+            lock (_lock)
+            {
+                returnedTask = _returned.Task;
+                _release.TrySetResult();
+                _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                _returned = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            await returnedTask;
+        }
+
+        public void Release()
+        {
+            lock (_lock)
+            {
+                _release.TrySetResult();
+                _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+    }
+
+    private sealed class FakeGameNotifier : IGameNotifier
+    {
+        private readonly TaskCompletionSource _broadcastReceived =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task BroadcastReceived => _broadcastReceived.Task;
+        public int BroadcastCount { get; private set; }
+        public string? LastBroadcastRoomCode { get; private set; }
+        public PlayerGameStateDto? LastBroadcastSample { get; private set; }
+
+        public Task BroadcastGameStateAsync(
+            string roomCode,
+            Func<PlayerId, PlayerGameStateDto> snapshotFactory,
+            IReadOnlyList<PlayerSeat> seats,
+            CancellationToken ct = default)
+        {
+            BroadcastCount++;
+            LastBroadcastRoomCode = roomCode;
+            if (seats.Count > 0)
+            {
+                LastBroadcastSample = snapshotFactory(seats[0].Id);
+            }
+            _broadcastReceived.TrySetResult();
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyPlayerJoinedAsync(string roomCode, PlayerSeatDto player, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyPlayerStatusChangedAsync(string roomCode, Guid playerId, PlayerStatus status, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyCardsPlayedAsync(string roomCode, Guid playerId, int cardCount, CardProtocol declaredProtocol, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyTraceCalledAsync(string roomCode, TraceResolutionDto resolution, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task SendPlayerSnapshotAsync(string connectionId, PlayerGameStateDto snapshot, CancellationToken ct = default) =>
+            Task.CompletedTask;
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Rooms;
 using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Infrastructure.Rooms;
@@ -14,7 +15,10 @@ public static class DependencyInjection
         services.AddSingleton<IGameRoomRegistry>(sp => sp.GetRequiredService<InMemoryGameRoomRegistry>());
         services.AddSingleton<IDisconnectGraceManager, DisconnectGraceManager>();
         services.AddSingleton<ITurnDelay, TaskTurnDelay>();
-        services.AddSingleton<ITurnTimerEngine, TurnTimerEngine>();
+        services.AddSingleton<ITurnTimerEngine>(sp =>
+            new TurnTimerEngine(
+                sp.GetRequiredService<ITurnDelay>(),
+                sp.GetService<IGameNotifier>()));
         services.AddSingleton<IRandomSource>(CryptoRandomSource.Instance);
 
         return services;

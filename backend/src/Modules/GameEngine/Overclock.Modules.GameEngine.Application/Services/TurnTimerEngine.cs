@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Overclock.Modules.GameEngine.Application.Ports;
+using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Rooms;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 
@@ -11,11 +13,21 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
     private readonly ConcurrentDictionary<string, TimerEntry> _timers =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ITurnDelay _delay;
+    private readonly IGameNotifier? _notifier;
     private readonly TimeSpan _turnDuration;
 
     public TurnTimerEngine(ITurnDelay delay, TimeSpan? turnDuration = null)
+        : this(delay, null, turnDuration)
+    {
+    }
+
+    public TurnTimerEngine(
+        ITurnDelay delay,
+        IGameNotifier? notifier,
+        TimeSpan? turnDuration = null)
     {
         _delay = delay;
+        _notifier = notifier;
         _turnDuration = turnDuration ?? DefaultTurnDuration;
     }
 
@@ -59,7 +71,14 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
 
         if (tasks.Length > 0)
         {
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+            try
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+            catch
+            {
+                // Ignore cancellations during shutdown
+            }
         }
     }
 
@@ -75,19 +94,42 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
             }
 
             var action = new TurnExpiredAction(entry.PlayerId, entry.TurnSequenceId);
-            await entry.Session.EnqueueAsync(action.Execute, CancellationToken.None)
+            var result = await entry.Session.EnqueueAsync(action.Execute, CancellationToken.None)
                 .ConfigureAwait(false);
+
+            if (result.IsSuccess)
+            {
+                var outcome = result.Value;
+
+                if (outcome.NextPlayerId is { } nextPlayerId &&
+                    entry.Session.Room.State == RoomState.TurnActive)
+                {
+                    Start(entry.Session, nextPlayerId, entry.Session.Room.TurnSequenceId);
+                }
+
+                if (_notifier is not null)
+                {
+                    try
+                    {
+                        await _notifier.BroadcastGameStateAsync(
+                            roomCode,
+                            id => GameStateProjector.Project(entry.Session.Room, id),
+                            entry.Session.Room.Seats.ToList(),
+                            CancellationToken.None).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // Failure to deliver network broadcast should not fault the authoritative timer loop
+                    }
+                }
+            }
         }
-        catch (OperationCanceledException) when (entry.CancellationToken.IsCancellationRequested)
+        catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException)
         {
         }
         finally
         {
-            if (_timers.TryGetValue(roomCode, out var current) && ReferenceEquals(current, entry))
-            {
-                _timers.TryRemove(roomCode, out _);
-            }
-
+            _timers.TryRemove(new KeyValuePair<string, TimerEntry>(roomCode, entry));
             entry.Dispose();
         }
     }
@@ -98,6 +140,7 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
         long turnSequenceId) : IDisposable
     {
         private readonly CancellationTokenSource _cancellation = new();
+        private bool _disposed;
 
         public GameRoomSession Session { get; } = session;
         public PlayerId PlayerId { get; } = playerId;
@@ -105,9 +148,25 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
         public Task? Task { get; set; }
         public CancellationToken CancellationToken => _cancellation.Token;
 
-        public void Cancel() => _cancellation.Cancel();
+        public void Cancel()
+        {
+            try
+            {
+                if (!_disposed)
+                {
+                    _cancellation.Cancel();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
 
-        public void Dispose() => _cancellation.Dispose();
+        public void Dispose()
+        {
+            _disposed = true;
+            _cancellation.Dispose();
+        }
     }
 }
 
