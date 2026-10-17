@@ -44,7 +44,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - Partition out the hidden `BurnedPile` from active dealable cards.
   - **Verification:** Unit tests verifying card type proportions for 2, 3, and 4 players.
 
-- [ ] **`TASK-0.2` | GameRoom Aggregate & State Machine**
+- [x] **`TASK-0.2` | GameRoom Aggregate & State Machine**
   - **Location:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Domain/`
   - **Scope:**
     - `PlayerSeat` entity: `PlayerId`, `ConnectionId`, `SessionToken`, `List<Card> Hand`, `PlayerStatus` (`Active`, `Disconnected`, `Eliminated`).
