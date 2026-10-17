@@ -11,6 +11,7 @@ builder.Services.AddMediator();
 builder.Services.AddGameEngine();
 builder.Services.AddSingleton<IConnectionTracker, InMemoryConnectionTracker>();
 builder.Services.AddSingleton<IGameNotifier, SignalRGameNotifier>();
+builder.Services.AddGameEngineInfrastructure();
 
 var app = builder.Build();
 

@@ -53,7 +53,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - Validation guard: ensure player holds the declared `CardId`s in their hand.
   - **Verification:** State machine transition unit tests in `GameEngine.Domain.Tests`.
 
-- [ ] **`TASK-0.3` | Single-Writer Channel Loop**
+- [x] **`TASK-0.3` | Single-Writer Channel Loop**
   - **Location:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Application/Rooms/`
   - **Scope:**
     - Create `RoomManager` storing active room instances in RAM.

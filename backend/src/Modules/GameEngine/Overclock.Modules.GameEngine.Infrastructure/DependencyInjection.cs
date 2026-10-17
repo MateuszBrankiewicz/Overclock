@@ -17,4 +17,13 @@ public static class DependencyInjection
 
         return services;
     }
+
+    public static IServiceCollection AddGameEngineInfrastructure(this IServiceCollection services)
+    {
+        services.AddSingleton<RoomManager>();
+        services.AddSingleton<IRoomRegistry>(provider =>
+            provider.GetRequiredService<RoomManager>());
+
+        return services;
+    }
 }
