@@ -76,7 +76,7 @@ public sealed class RoomActor : IRoomActor, IAsyncDisposable
     {
         await foreach (var action in _actions.Reader.ReadAllAsync(_shutdown.Token))
         {
-            action.Execute(_room);
+            await action.Execute(_room).ConfigureAwait(false);
         }
     }
 }

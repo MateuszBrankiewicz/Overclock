@@ -13,6 +13,8 @@ public static class DependencyInjection
         services.AddSingleton<InMemoryGameRoomRegistry>();
         services.AddSingleton<IGameRoomRegistry>(sp => sp.GetRequiredService<InMemoryGameRoomRegistry>());
         services.AddSingleton<IDisconnectGraceManager, DisconnectGraceManager>();
+        services.AddSingleton<ITurnDelay, TaskTurnDelay>();
+        services.AddSingleton<ITurnTimerEngine, TurnTimerEngine>();
         services.AddSingleton<IRandomSource>(CryptoRandomSource.Instance);
 
         return services;

@@ -24,6 +24,7 @@ public sealed class GameRoom
     public Deck? CurrentDeck { get; private set; }
     public CardProtocol? CurrentTargetProtocol { get; private set; }
     public PlayerId? CurrentTurnPlayerId { get; private set; }
+    public long TurnSequenceId { get; private set; }
     public PlayedTurn? LastPlay { get; private set; }
     public TraceResolution? LastTraceResolution { get; private set; }
     public int RoundNumber { get; private set; }
@@ -213,6 +214,7 @@ public sealed class GameRoom
         LastPlay = null;
         LastTraceResolution = null;
         RoundNumber++;
+        TurnSequenceId++;
 
         // Determine starting player
         var startingPlayerIndex = (RoundNumber - 1) % activePlayers.Count;
@@ -304,9 +306,48 @@ public sealed class GameRoom
         else
         {
             CurrentTurnPlayerId = nextPlayerId.Value;
+            TurnSequenceId++;
         }
 
         return Result.Success();
+    }
+
+    public Result<TurnExpired> ExpireTurn(PlayerId playerId, long turnSequenceId)
+    {
+        if (State != RoomState.TurnActive)
+        {
+            return Result<TurnExpired>.Conflict(
+                "Turn.NotActive",
+                $"Cannot expire a turn in room state '{State}'.");
+        }
+
+        if (turnSequenceId != TurnSequenceId)
+        {
+            return Result<TurnExpired>.Conflict(
+                "Turn.StaleSequence",
+                $"Turn sequence '{turnSequenceId}' is no longer active.");
+        }
+
+        if (CurrentTurnPlayerId != playerId)
+        {
+            return Result<TurnExpired>.Invalid(new ValidationError(
+                "Turn.NotYourTurn",
+                $"Player '{playerId}' does not own the active turn."));
+        }
+
+        var nextPlayerId = GetNextTurnPlayerId(playerId);
+        if (nextPlayerId is null)
+        {
+            State = RoomState.RoundOver;
+            CurrentTurnPlayerId = null;
+        }
+        else
+        {
+            CurrentTurnPlayerId = nextPlayerId;
+            TurnSequenceId++;
+        }
+
+        return Result<TurnExpired>.Success(new TurnExpired(playerId, turnSequenceId, nextPlayerId));
     }
 
     public Result<TraceResolution> CallTrace(PlayerId accuserPlayerId)

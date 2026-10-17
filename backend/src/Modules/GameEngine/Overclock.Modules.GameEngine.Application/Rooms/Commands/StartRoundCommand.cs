@@ -2,6 +2,7 @@ using Ardalis.Result;
 using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
+using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
 
@@ -13,6 +14,7 @@ public sealed record StartRoundCommand(string RoomCode, Guid RequesterId)
 internal sealed class StartRoundCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
+    ITurnTimerEngine turnTimer,
     IRandomSource? randomSource = null)
     : IRequestHandler<StartRoundCommand, Result>
 {
@@ -30,6 +32,8 @@ internal sealed class StartRoundCommandHandler(
             {
                 return result.ToResult<IReadOnlyList<PlayerSeat>>();
             }
+
+            turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
 
             return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
         }, ct);

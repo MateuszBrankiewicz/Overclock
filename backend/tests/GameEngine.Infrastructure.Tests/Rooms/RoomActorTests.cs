@@ -79,7 +79,8 @@ public sealed class RoomActorTests
     public async Task EnqueueAsync_DoesNotStopConsumerAfterActionFailure()
     {
         await using var actor = new RoomActor(CreateRoom());
-        var failingAction = GameAction<int>.Create(_ => throw new InvalidOperationException("test failure"));
+        var failingAction = GameAction<int>.Create(
+            (Func<GameRoom, Result<int>>)(_ => throw new InvalidOperationException("test failure")));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => actor.EnqueueAsync(failingAction));
 

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using Ardalis.Result;
 using Overclock.Modules.GameEngine.Application.Rooms;
+using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 
 namespace Overclock.Modules.GameEngine.Infrastructure.Rooms;
@@ -10,6 +11,12 @@ public sealed class InMemoryGameRoomRegistry : IGameRoomRegistry, IAsyncDisposab
 {
     private readonly ConcurrentDictionary<string, GameRoomSession> _rooms =
         new(StringComparer.OrdinalIgnoreCase);
+    private readonly ITurnTimerEngine _turnTimer;
+
+    public InMemoryGameRoomRegistry(ITurnTimerEngine turnTimer)
+    {
+        _turnTimer = turnTimer;
+    }
 
     public Result<GameRoomSession> CreateRoom(
         RoomId id,
@@ -29,7 +36,9 @@ public sealed class InMemoryGameRoomRegistry : IGameRoomRegistry, IAsyncDisposab
             return Result<GameRoomSession>.Invalid(roomResult.ValidationErrors);
         }
 
-        var session = new GameRoomSession(roomResult.Value);
+        var session = new GameRoomSession(
+            roomResult.Value,
+            new RoomActor(roomResult.Value));
         if (!_rooms.TryAdd(id.Value, session))
         {
             return Result<GameRoomSession>.Conflict("Room.AlreadyExists", $"Room with code '{id.Value}' already exists.");
@@ -47,6 +56,7 @@ public sealed class InMemoryGameRoomRegistry : IGameRoomRegistry, IAsyncDisposab
     {
         if (_rooms.TryRemove(roomCode, out var session))
         {
+            _turnTimer.Cancel(roomCode);
             _ = session.DisposeAsync();
             return true;
         }

@@ -2,6 +2,7 @@ using Ardalis.Result;
 using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
+using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Domain.Cards;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
@@ -15,7 +16,10 @@ public sealed record PlayCardsCommand(
     CardProtocol DeclaredProtocol)
     : IRequest<Result>;
 
-internal sealed class PlayCardsCommandHandler(IGameRoomRegistry registry, IGameNotifier notifier)
+internal sealed class PlayCardsCommandHandler(
+    IGameRoomRegistry registry,
+    IGameNotifier notifier,
+    ITurnTimerEngine turnTimer)
     : IRequestHandler<PlayCardsCommand, Result>
 {
     public async ValueTask<Result> Handle(PlayCardsCommand request, CancellationToken ct)
@@ -33,6 +37,15 @@ internal sealed class PlayCardsCommandHandler(IGameRoomRegistry registry, IGameN
             if (!result.IsSuccess)
             {
                 return result.ToResult<IReadOnlyList<PlayerSeat>>();
+            }
+
+            if (room.State == RoomState.TurnActive && room.CurrentTurnPlayerId is { } nextPlayerId)
+            {
+                turnTimer.Start(session, nextPlayerId, room.TurnSequenceId);
+            }
+            else
+            {
+                turnTimer.Cancel(room.Id.Value);
             }
 
             return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
