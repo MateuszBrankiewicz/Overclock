@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\Overclock.SharedKernel\Overclock.SharedKernel.csproj" />
@@ -7,8 +7,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Overclock.Host" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FluentValidation" Version="*" />
-    <PackageReference Include="Mediator.Abstractions" Version="*" />
+    <PackageReference Include="Mediator.Abstractions" Version="2.1.7" />
   </ItemGroup>
 
   <PropertyGroup>
