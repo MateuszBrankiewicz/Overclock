@@ -5,6 +5,7 @@ using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
+using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 
@@ -27,29 +28,33 @@ internal sealed class ReconnectCommandHandler(
         // Cancel pending 30s elimination grace period if active
         graceManager.CancelGracePeriod(request.SessionToken);
 
-        var outcome = await session.EnqueueAsync(async room =>
+        var outcome = await session.EnqueueAsync(room =>
         {
             var reconnectResult = room.HandleReconnect(request.SessionToken, request.NewConnectionId);
             if (!reconnectResult.IsSuccess)
             {
-                return Result<PlayerGameStateDto>.NotFound(
-                    reconnectResult.Errors.FirstOrDefault() ?? "Room.InvalidSessionToken");
+                return reconnectResult.ToResult<ReconnectOutcome>();
             }
 
             var seat = reconnectResult.Value;
-
-            // Notify opponents that player is active again
-            await notifier.NotifyPlayerStatusChangedAsync(
-                room.Id.Value,
-                seat.Id.Value,
-                PlayerStatus.Active,
-                ct);
-
-            // Transmit full state snapshot tailored to the reconnected player
             var snapshot = GameStateProjector.Project(room, seat.Id);
-            return Result<PlayerGameStateDto>.Success(snapshot);
+            return Result<ReconnectOutcome>.Success(new ReconnectOutcome(seat.Id.Value, snapshot));
         }, ct);
 
-        return outcome;
+        if (!outcome.IsSuccess)
+        {
+            return outcome.ToResult<PlayerGameStateDto>();
+        }
+
+        // Notify opponents that player is active again
+        await notifier.NotifyPlayerStatusChangedAsync(
+            request.RoomCode,
+            outcome.Value.PlayerId,
+            PlayerStatus.Active,
+            CancellationToken.None);
+
+        return Result<PlayerGameStateDto>.Success(outcome.Value.Snapshot);
     }
+
+    private sealed record ReconnectOutcome(Guid PlayerId, PlayerGameStateDto Snapshot);
 }

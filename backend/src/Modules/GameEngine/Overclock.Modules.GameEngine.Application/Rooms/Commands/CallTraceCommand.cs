@@ -4,6 +4,7 @@ using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
+using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 
@@ -20,12 +21,12 @@ internal sealed class CallTraceCommandHandler(IGameRoomRegistry registry, IGameN
             return Result<TraceResolutionDto>.NotFound("Room.NotFound");
         }
 
-        var outcome = await session.EnqueueAsync(async room =>
+        var outcome = await session.EnqueueAsync(room =>
         {
             var result = room.CallTrace(new PlayerId(request.AccuserPlayerId));
             if (!result.IsSuccess)
             {
-                return Result<TraceResolutionDto>.Invalid(result.ValidationErrors);
+                return result.ToResult<CallTraceOutcome>();
             }
 
             var res = result.Value;
@@ -37,17 +38,24 @@ internal sealed class CallTraceCommandHandler(IGameRoomRegistry registry, IGameN
                 res.DeclaredProtocol.ToString(),
                 res.BluffDetected);
 
-            await notifier.NotifyTraceCalledAsync(room.Id.Value, dto, ct);
-
-            await notifier.BroadcastGameStateAsync(
-                room.Id.Value,
-                id => GameStateProjector.Project(room, id),
-                room.Seats,
-                ct);
-
-            return Result<TraceResolutionDto>.Success(dto);
+            return Result<CallTraceOutcome>.Success(new CallTraceOutcome(dto, room.Seats.ToList()));
         }, ct);
 
-        return outcome;
+        if (!outcome.IsSuccess)
+        {
+            return outcome.ToResult<TraceResolutionDto>();
+        }
+
+        await notifier.NotifyTraceCalledAsync(request.RoomCode, outcome.Value.Resolution, CancellationToken.None);
+
+        await notifier.BroadcastGameStateAsync(
+            request.RoomCode,
+            id => GameStateProjector.Project(session.Room, id),
+            outcome.Value.Seats,
+            CancellationToken.None);
+
+        return Result<TraceResolutionDto>.Success(outcome.Value.Resolution);
     }
+
+    private sealed record CallTraceOutcome(TraceResolutionDto Resolution, IReadOnlyList<PlayerSeat> Seats);
 }

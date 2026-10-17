@@ -1,8 +1,10 @@
+using Ardalis.Result;
 using Mediator;
 using Microsoft.AspNetCore.SignalR;
 using Overclock.Host.Services;
 using Overclock.Modules.GameEngine.Application.Rooms.Commands;
 using Overclock.Modules.GameEngine.Contracts;
+using Overclock.SharedKernel;
 
 namespace Overclock.Host.Hubs;
 
@@ -46,8 +48,13 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
     public async Task<HubResponse> SetReady(SetReadyRequest request)
     {
-        var playerId = request.PlayerId ?? GetCallerPlayerId();
-        var command = new SetReadyCommand(request.RoomCode, playerId, request.IsReady);
+        var caller = ValidateCaller(request.RoomCode);
+        if (!caller.IsSuccess)
+        {
+            return HubResponse.From(caller.ToResult());
+        }
+
+        var command = new SetReadyCommand(request.RoomCode, caller.Value.PlayerId, request.IsReady);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
         return HubResponse.From(result);
@@ -55,8 +62,13 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
     public async Task<HubResponse> StartRound(StartRoundRequest request)
     {
-        var requesterId = request.RequesterId ?? GetCallerPlayerId();
-        var command = new StartRoundCommand(request.RoomCode, requesterId);
+        var caller = ValidateCaller(request.RoomCode);
+        if (!caller.IsSuccess)
+        {
+            return HubResponse.From(caller.ToResult());
+        }
+
+        var command = new StartRoundCommand(request.RoomCode, caller.Value.PlayerId);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
         return HubResponse.From(result);
@@ -64,8 +76,13 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
     public async Task<HubResponse> PlayCards(PlayCardsRequest request)
     {
-        var playerId = request.PlayerId ?? GetCallerPlayerId();
-        var command = new PlayCardsCommand(request.RoomCode, playerId, request.CardIds, request.DeclaredProtocol);
+        var caller = ValidateCaller(request.RoomCode);
+        if (!caller.IsSuccess)
+        {
+            return HubResponse.From(caller.ToResult());
+        }
+
+        var command = new PlayCardsCommand(request.RoomCode, caller.Value.PlayerId, request.CardIds, request.DeclaredProtocol);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
         return HubResponse.From(result);
@@ -73,8 +90,13 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
     public async Task<HubResponse<TraceResolutionDto>> CallTrace(CallTraceRequest request)
     {
-        var accuserId = request.AccuserPlayerId ?? GetCallerPlayerId();
-        var command = new CallTraceCommand(request.RoomCode, accuserId);
+        var caller = ValidateCaller(request.RoomCode);
+        if (!caller.IsSuccess)
+        {
+            return HubResponse<TraceResolutionDto>.From(caller.ToResult<TraceResolutionDto>());
+        }
+
+        var command = new CallTraceCommand(request.RoomCode, caller.Value.PlayerId);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
         return HubResponse<TraceResolutionDto>.From(result);
@@ -110,13 +132,18 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
         await base.OnDisconnectedAsync(exception);
     }
 
-    private Guid GetCallerPlayerId()
+    private Result<(Guid PlayerId, string RoomCode)> ValidateCaller(string requestedRoomCode)
     {
-        if (connectionTracker.TryGet(Context.ConnectionId, out var info))
+        if (!connectionTracker.TryGet(Context.ConnectionId, out var info))
         {
-            return info.PlayerId;
+            return Result<(Guid PlayerId, string RoomCode)>.Unauthorized("Connection.Unregistered");
         }
 
-        return Guid.Empty;
+        if (!string.Equals(info.RoomCode, requestedRoomCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<(Guid PlayerId, string RoomCode)>.Forbidden("Connection.RoomMismatch");
+        }
+
+        return Result<(Guid PlayerId, string RoomCode)>.Success((info.PlayerId, info.RoomCode));
     }
 }

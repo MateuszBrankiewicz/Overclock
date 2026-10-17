@@ -15,11 +15,14 @@ public sealed record HubResponse(bool IsSuccess, string? Error = null, string? E
             return Success();
         }
 
-        var error = result.Errors.FirstOrDefault()
+        var error = result.Errors.Skip(1).FirstOrDefault()
+            ?? result.Errors.FirstOrDefault()
             ?? result.ValidationErrors.FirstOrDefault()?.ErrorMessage
             ?? "Operation failed.";
 
-        var code = result.ValidationErrors.FirstOrDefault()?.Identifier;
+        var code = result.ValidationErrors.FirstOrDefault()?.Identifier
+            ?? result.Errors.FirstOrDefault();
+
         return Failure(error, code);
     }
 }
@@ -37,11 +40,14 @@ public sealed record HubResponse<T>(bool IsSuccess, T? Data = default, string? E
             return Success(result.Value);
         }
 
-        var error = result.Errors.FirstOrDefault()
+        var error = result.Errors.Skip(1).FirstOrDefault()
+            ?? result.Errors.FirstOrDefault()
             ?? result.ValidationErrors.FirstOrDefault()?.ErrorMessage
             ?? "Operation failed.";
 
-        var code = result.ValidationErrors.FirstOrDefault()?.Identifier;
+        var code = result.ValidationErrors.FirstOrDefault()?.Identifier
+            ?? result.Errors.FirstOrDefault();
+
         return Failure(error, code);
     }
 }

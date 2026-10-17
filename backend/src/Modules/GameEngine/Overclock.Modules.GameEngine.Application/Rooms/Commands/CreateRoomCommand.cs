@@ -3,6 +3,7 @@ using Mediator;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
+using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 
@@ -21,7 +22,7 @@ internal sealed class CreateRoomCommandHandler(IGameRoomRegistry registry)
         var roomIdResult = RoomId.Create(rawCode);
         if (!roomIdResult.IsSuccess)
         {
-            return ValueTask.FromResult(Result<RoomJoinResultDto>.Invalid(roomIdResult.ValidationErrors));
+            return ValueTask.FromResult(roomIdResult.ToResult<RoomJoinResultDto>());
         }
 
         var hostId = PlayerId.New();
@@ -36,7 +37,7 @@ internal sealed class CreateRoomCommandHandler(IGameRoomRegistry registry)
 
         if (!roomResult.IsSuccess)
         {
-            return ValueTask.FromResult(Result<RoomJoinResultDto>.Invalid(roomResult.ValidationErrors));
+            return ValueTask.FromResult(roomResult.ToResult<RoomJoinResultDto>());
         }
 
         var session = roomResult.Value;

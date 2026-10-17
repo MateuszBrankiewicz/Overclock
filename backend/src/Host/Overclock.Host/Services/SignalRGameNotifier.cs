@@ -42,7 +42,7 @@ public sealed class SignalRGameNotifier(IHubContext<GameHub, IGameClient> hubCon
     {
         foreach (var seat in seats)
         {
-            if (seat.ConnectionId is not null && seat.Status != PlayerStatus.Eliminated)
+            if (seat.ConnectionId is not null && seat.Status != PlayerStatus.Disconnected)
             {
                 var snapshot = snapshotFactory(seat.Id);
                 await hubContext.Clients.Client(seat.ConnectionId).ReceiveGameState(snapshot);

@@ -23,23 +23,28 @@ internal sealed class StartRoundCommandHandler(
             return Result.NotFound("Room.NotFound");
         }
 
-        var outcome = await session.EnqueueAsync(async room =>
+        var outcome = await session.EnqueueAsync(room =>
         {
             var result = room.StartRound(new PlayerId(request.RequesterId), randomSource);
             if (!result.IsSuccess)
             {
-                return result;
+                return result.ToResult<IReadOnlyList<PlayerSeat>>();
             }
 
-            await notifier.BroadcastGameStateAsync(
-                room.Id.Value,
-                id => GameStateProjector.Project(room, id),
-                room.Seats,
-                ct);
-
-            return Result.Success();
+            return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
         }, ct);
 
-        return outcome;
+        if (!outcome.IsSuccess)
+        {
+            return outcome.ToResult();
+        }
+
+        await notifier.BroadcastGameStateAsync(
+            request.RoomCode,
+            id => GameStateProjector.Project(session.Room, id),
+            outcome.Value,
+            CancellationToken.None);
+
+        return Result.Success();
     }
 }

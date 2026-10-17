@@ -3,6 +3,7 @@ using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Domain.Rooms;
+using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 
@@ -19,23 +20,28 @@ internal sealed class SetReadyCommandHandler(IGameRoomRegistry registry, IGameNo
             return Result.NotFound("Room.NotFound");
         }
 
-        var outcome = await session.EnqueueAsync(async room =>
+        var outcome = await session.EnqueueAsync(room =>
         {
             var result = room.SetReady(new PlayerId(request.PlayerId), request.IsReady);
             if (!result.IsSuccess)
             {
-                return result;
+                return result.ToResult<IReadOnlyList<PlayerSeat>>();
             }
 
-            await notifier.BroadcastGameStateAsync(
-                room.Id.Value,
-                id => GameStateProjector.Project(room, id),
-                room.Seats,
-                ct);
-
-            return Result.Success();
+            return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
         }, ct);
 
-        return outcome;
+        if (!outcome.IsSuccess)
+        {
+            return outcome.ToResult();
+        }
+
+        await notifier.BroadcastGameStateAsync(
+            request.RoomCode,
+            id => GameStateProjector.Project(session.Room, id),
+            outcome.Value,
+            CancellationToken.None);
+
+        return Result.Success();
     }
 }

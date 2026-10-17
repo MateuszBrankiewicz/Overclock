@@ -88,10 +88,87 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
 
         var readyResponse = await hostConnection.InvokeAsync<HubResponse>(
             "SetReady",
-            new SetReadyRequest(roomCode, true, hostResponse.Data!.PlayerId));
+            new SetReadyRequest(roomCode, true));
 
         Assert.NotNull(readyResponse);
         Assert.True(readyResponse.IsSuccess, readyResponse.Error);
+    }
+
+    [Fact]
+    public async Task Action_WhenUnregisteredOrRoomMismatch_ReturnsFailure()
+    {
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+
+        var roomCode = $"CYBER-M{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        await using var alienConnection = CreateHubConnection();
+        await alienConnection.StartAsync();
+
+        // 1. Calling action without joining any room -> Connection.Unregistered
+        var unregResponse = await alienConnection.InvokeAsync<HubResponse>(
+            "SetReady",
+            new SetReadyRequest(roomCode, true));
+        Assert.NotNull(unregResponse);
+        Assert.False(unregResponse.IsSuccess);
+        Assert.Equal("Connection.Unregistered", unregResponse.ErrorCode);
+
+        // 2. Alien joins another room -> Room mismatch when calling action on original room
+        var otherRoomCode = $"CYBER-O{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+        var alienRoomResponse = await alienConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("AlienHost", otherRoomCode));
+        Assert.True(alienRoomResponse.IsSuccess);
+
+        var mismatchResponse = await alienConnection.InvokeAsync<HubResponse>(
+            "SetReady",
+            new SetReadyRequest(roomCode, true));
+        Assert.NotNull(mismatchResponse);
+        Assert.False(mismatchResponse.IsSuccess);
+        Assert.Equal("Connection.RoomMismatch", mismatchResponse.ErrorCode);
+    }
+
+    [Fact]
+    public async Task JoinRoom_WhenMatchAlreadyStarted_ReturnsConflictErrorCode()
+    {
+        var roomCode = $"CYBER-S{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+
+        // Both ready up
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+
+        // Host starts round
+        var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResponse.IsSuccess);
+
+        // A third player attempts to join active game -> should get Conflict with "Room.NotInLobby"
+        await using var lateConnection = CreateHubConnection();
+        await lateConnection.StartAsync();
+        var lateResponse = await lateConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "LatePlayer"));
+
+        Assert.NotNull(lateResponse);
+        Assert.False(lateResponse.IsSuccess);
+        Assert.Equal("Room.NotInLobby", lateResponse.ErrorCode);
     }
 
     [Fact]

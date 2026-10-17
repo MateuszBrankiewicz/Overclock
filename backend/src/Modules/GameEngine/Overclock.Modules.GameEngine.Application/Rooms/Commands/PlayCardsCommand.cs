@@ -4,6 +4,7 @@ using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Domain.Cards;
 using Overclock.Modules.GameEngine.Domain.Rooms;
+using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 
@@ -26,30 +27,35 @@ internal sealed class PlayCardsCommandHandler(IGameRoomRegistry registry, IGameN
 
         var domainCardIds = request.CardIds.Select(id => new CardId(id)).ToList();
 
-        var outcome = await session.EnqueueAsync(async room =>
+        var outcome = await session.EnqueueAsync(room =>
         {
             var result = room.PlayCards(new PlayerId(request.PlayerId), domainCardIds, request.DeclaredProtocol);
             if (!result.IsSuccess)
             {
-                return result;
+                return result.ToResult<IReadOnlyList<PlayerSeat>>();
             }
 
-            await notifier.NotifyCardsPlayedAsync(
-                room.Id.Value,
-                request.PlayerId,
-                request.CardIds.Count,
-                request.DeclaredProtocol,
-                ct);
-
-            await notifier.BroadcastGameStateAsync(
-                room.Id.Value,
-                id => GameStateProjector.Project(room, id),
-                room.Seats,
-                ct);
-
-            return Result.Success();
+            return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
         }, ct);
 
-        return outcome;
+        if (!outcome.IsSuccess)
+        {
+            return outcome.ToResult();
+        }
+
+        await notifier.NotifyCardsPlayedAsync(
+            request.RoomCode,
+            request.PlayerId,
+            request.CardIds.Count,
+            request.DeclaredProtocol,
+            CancellationToken.None);
+
+        await notifier.BroadcastGameStateAsync(
+            request.RoomCode,
+            id => GameStateProjector.Project(session.Room, id),
+            outcome.Value,
+            CancellationToken.None);
+
+        return Result.Success();
     }
 }
