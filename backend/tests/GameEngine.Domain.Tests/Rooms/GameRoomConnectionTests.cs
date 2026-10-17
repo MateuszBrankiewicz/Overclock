@@ -120,4 +120,38 @@ public class GameRoomConnectionTests
         Assert.Equal(p2Id, room.CurrentTurnPlayerId); // Turn advanced to Player 2
         Assert.Null(room.WinnerId);
     }
+
+    [Fact]
+    public void EliminatePlayer_ReassignsHostToSurvivingPlayer_WhenHostIsEliminated()
+    {
+        var hostId = PlayerId.New();
+        var p2Id = PlayerId.New();
+        var p3Id = PlayerId.New();
+        var room = GameRoom.Create(RoomId.New("CYBER-407"), hostId, "Host", "conn-1", Guid.NewGuid()).Value;
+        room.AddPlayer(p2Id, "Player2", "conn-2", Guid.NewGuid());
+        room.AddPlayer(p3Id, "Player3", "conn-3", Guid.NewGuid());
+        room.SetReady(hostId, true);
+        room.SetReady(p2Id, true);
+        room.SetReady(p3Id, true);
+        room.StartRound(hostId, new ConstantRandomSource(0));
+
+        // Eliminate Host in a 3-player match
+        var elimResult = room.EliminatePlayer(hostId);
+
+        Assert.True(elimResult.IsSuccess);
+        Assert.Equal(RoomState.TurnActive, room.State);
+        Assert.Equal(p2Id, room.HostId); // P2 became the new host!
+
+        // Emulate round finish: P2 plays cards and calls TRACE with P3
+        room.PlayCards(p2Id, [room.Seats[1].Hand[0].Id], CardProtocol.Alpha);
+        room.CallTrace(p3Id);
+        room.CompleteBluffCheck();
+
+        Assert.Equal(RoomState.RoundOver, room.State);
+
+        // New host (P2) can start Round 2 without getting blocked
+        var startR2Result = room.StartRound(p2Id, new ConstantRandomSource(1));
+        Assert.True(startR2Result.IsSuccess);
+        Assert.Equal(2, room.RoundNumber);
+    }
 }

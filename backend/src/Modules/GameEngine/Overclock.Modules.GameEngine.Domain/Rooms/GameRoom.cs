@@ -438,6 +438,15 @@ public sealed class GameRoom
 
         seat.Eliminate();
 
+        if (HostId == playerId)
+        {
+            var nextHost = _seats.FirstOrDefault(s => s.Status != PlayerStatus.Eliminated);
+            if (nextHost is not null)
+            {
+                HostId = nextHost.Id;
+            }
+        }
+
         var remainingActive = _seats.Count(s => s.Status != PlayerStatus.Eliminated);
         if (remainingActive <= 1)
         {

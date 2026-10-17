@@ -25,6 +25,9 @@ public readonly partial record struct RoomId
         return RoomCodeRegex().IsMatch(value);
     }
 
+    /// <summary>
+    /// Factory for application/domain code. Returns a functional Result without throwing exceptions (ADR 0006).
+    /// </summary>
     public static Result<RoomId> Create(string value)
     {
         if (!IsValid(value))
@@ -37,6 +40,9 @@ public readonly partial record struct RoomId
         return Result<RoomId>.Success(new RoomId(value));
     }
 
+    /// <summary>
+    /// Test and compile-time constant factory. For production untrusted input, use <see cref="Create"/> instead.
+    /// </summary>
     public static RoomId New(string value)
     {
         var result = Create(value);
