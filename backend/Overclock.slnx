@@ -34,6 +34,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Architecture.Tests/Architecture.Tests.csproj" />
     <Project Path="tests/GameEngine.Domain.Tests/GameEngine.Domain.Tests.csproj" />
+    <Project Path="tests/GameEngine.Infrastructure.Tests/GameEngine.Infrastructure.Tests.csproj" />
     <Project Path="tests/Integration.Tests/Integration.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,6 +1,9 @@
+using Overclock.Modules.GameEngine.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi("overclock");
+builder.Services.AddGameEngineInfrastructure();
 
 var app = builder.Build();
 
