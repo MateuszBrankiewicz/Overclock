@@ -19,14 +19,18 @@ public sealed class GameRoom
     public RoomId Id { get; }
     public PlayerId HostId { get; private set; }
     public RoomState State { get; private set; }
-    public IReadOnlyList<PlayerSeat> Seats => _seats.AsReadOnly();
-    public IReadOnlyList<Card> TablePile => _tablePile.AsReadOnly();
+    public IReadOnlyList<PlayerSeat> Seats => _seats;
+    public IReadOnlyList<Card> TablePile => _tablePile;
     public Deck? CurrentDeck { get; private set; }
     public CardProtocol? CurrentTargetProtocol { get; private set; }
     public PlayerId? CurrentTurnPlayerId { get; private set; }
     public PlayedTurn? LastPlay { get; private set; }
     public TraceResolution? LastTraceResolution { get; private set; }
     public int RoundNumber { get; private set; }
+
+    public PlayerId? WinnerId => State == RoomState.GameOver
+        ? _seats.FirstOrDefault(s => s.Status != PlayerStatus.Eliminated)?.Id
+        : null;
 
     private GameRoom(RoomId id, PlayerId hostId, PlayerSeat hostSeat)
     {
@@ -98,6 +102,11 @@ public sealed class GameRoom
         }
 
         var seat = new PlayerSeat(playerId, nickname, connectionId, sessionToken);
+        if (_seats.Count == 0)
+        {
+            HostId = playerId;
+        }
+
         _seats.Add(seat);
         return Result<PlayerSeat>.Success(seat);
     }
@@ -117,9 +126,9 @@ public sealed class GameRoom
 
         _seats.Remove(seat);
 
-        if (HostId == playerId && _seats.Count > 0)
+        if (HostId == playerId)
         {
-            HostId = _seats[0].Id;
+            HostId = _seats.Count > 0 ? _seats[0].Id : default;
         }
 
         return Result.Success();
@@ -142,11 +151,18 @@ public sealed class GameRoom
         return Result.Success();
     }
 
-    public Result StartRound(IRandomSource? randomSource = null)
+    public Result StartRound(PlayerId requesterId, IRandomSource? randomSource = null)
     {
         if (State != RoomState.Lobby && State != RoomState.RoundOver)
         {
             return Result.Conflict("Room.CannotStartRound", $"Cannot start a round in state '{State}'.");
+        }
+
+        if (requesterId != HostId)
+        {
+            return Result.Invalid(new ValidationError(
+                "Room.OnlyHostCanStart",
+                $"Only the room host '{HostId}' can start the round."));
         }
 
         var activePlayers = _seats.Where(s => s.Status != PlayerStatus.Eliminated).ToList();
@@ -227,6 +243,13 @@ public sealed class GameRoom
                 $"Players must play between 1 and 3 cards, but received {cardIds.Count}."));
         }
 
+        if (cardIds.Distinct().Count() != cardIds.Count)
+        {
+            return Result.Invalid(new ValidationError(
+                "Turn.DuplicateCardIds",
+                "Cannot play duplicate card identifiers in the same turn."));
+        }
+
         if (CurrentTargetProtocol is null || declaredProtocol != CurrentTargetProtocol.Value)
         {
             return Result.Invalid(new ValidationError(
@@ -259,8 +282,29 @@ public sealed class GameRoom
 
         LastPlay = new PlayedTurn(playerId, playedCards, declaredProtocol, DateTimeOffset.UtcNow);
 
-        // Advance to next active player
-        CurrentTurnPlayerId = GetNextTurnPlayerId(playerId);
+        // Check if any players still have cards
+        var remainingActivePlayers = _seats.Where(s => s.Status != PlayerStatus.Eliminated).ToList();
+        var playersWithCards = remainingActivePlayers.Where(s => s.Hand.Count > 0).ToList();
+
+        if (playersWithCards.Count == 0)
+        {
+            // All players have successfully played all their cards without any challenge.
+            State = RoomState.RoundOver;
+            CurrentTurnPlayerId = null;
+            return Result.Success();
+        }
+
+        // Advance to next active player with cards
+        var nextPlayerId = GetNextTurnPlayerId(playerId);
+        if (nextPlayerId is null)
+        {
+            State = RoomState.RoundOver;
+            CurrentTurnPlayerId = null;
+        }
+        else
+        {
+            CurrentTurnPlayerId = nextPlayerId.Value;
+        }
 
         return Result.Success();
     }
@@ -286,6 +330,13 @@ public sealed class GameRoom
                 "A player cannot challenge their own play."));
         }
 
+        if (CurrentTurnPlayerId != accuserPlayerId)
+        {
+            return Result<TraceResolution>.Invalid(new ValidationError(
+                "Trace.NotYourTurn",
+                $"Only the active turn player '{CurrentTurnPlayerId}' can challenge the previous play."));
+        }
+
         var accuserSeat = _seats.Find(s => s.Id == accuserPlayerId);
         if (accuserSeat is null || accuserSeat.Status == PlayerStatus.Eliminated)
         {
@@ -309,9 +360,27 @@ public sealed class GameRoom
             bluffDetected);
 
         LastTraceResolution = resolution;
-        State = RoomState.RoundOver;
+        CurrentTurnPlayerId = null;
 
         return Result<TraceResolution>.Success(resolution);
+    }
+
+    public Result CompleteBluffCheck()
+    {
+        if (State != RoomState.BluffCheck)
+        {
+            return Result.Conflict("Room.NotInBluffCheck", $"Cannot complete bluff check in state '{State}'.");
+        }
+
+        var remainingActive = _seats.Count(s => s.Status != PlayerStatus.Eliminated);
+        if (remainingActive <= 1)
+        {
+            State = RoomState.GameOver;
+            return Result.Success();
+        }
+
+        State = RoomState.RoundOver;
+        return Result.Success();
     }
 
     public Result HandleDisconnect(string connectionId)
@@ -379,13 +448,22 @@ public sealed class GameRoom
 
         if (CurrentTurnPlayerId == playerId)
         {
-            CurrentTurnPlayerId = GetNextTurnPlayerId(playerId);
+            var nextPlayer = GetNextTurnPlayerId(playerId);
+            if (nextPlayer is null)
+            {
+                State = RoomState.RoundOver;
+                CurrentTurnPlayerId = null;
+            }
+            else
+            {
+                CurrentTurnPlayerId = nextPlayer.Value;
+            }
         }
 
         return Result.Success();
     }
 
-    private PlayerId GetNextTurnPlayerId(PlayerId currentPlayerId)
+    private PlayerId? GetNextTurnPlayerId(PlayerId currentPlayerId)
     {
         var currentIndex = _seats.FindIndex(s => s.Id == currentPlayerId);
         if (currentIndex < 0)
@@ -397,12 +475,12 @@ public sealed class GameRoom
         {
             var nextIndex = (currentIndex + offset) % _seats.Count;
             var candidate = _seats[nextIndex];
-            if (candidate.Status != PlayerStatus.Eliminated)
+            if (candidate.Status != PlayerStatus.Eliminated && candidate.Hand.Count > 0)
             {
                 return candidate.Id;
             }
         }
 
-        return currentPlayerId;
+        return null;
     }
 }

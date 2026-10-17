@@ -21,16 +21,16 @@ public class GameRoomTraceTests
         room.AddPlayer(p2Id, "Player2", "conn-2", Guid.NewGuid());
         room.SetReady(hostId, true);
         room.SetReady(p2Id, true);
-        room.StartRound(new ConstantRandomSource(0)); // Target: Alpha
+        room.StartRound(hostId, new ConstantRandomSource(0)); // Target: Alpha
         return (room, hostId, p2Id);
     }
 
     [Fact]
     public void CallTrace_Fails_WhenNoCardsHaveBeenPlayed()
     {
-        var (room, _, p2Id) = SetupActiveGame();
+        var (room, hostId, _) = SetupActiveGame();
 
-        var traceResult = room.CallTrace(p2Id);
+        var traceResult = room.CallTrace(hostId);
 
         Assert.False(traceResult.IsSuccess);
         Assert.Equal(ResultStatus.Invalid, traceResult.Status);
@@ -38,21 +38,33 @@ public class GameRoomTraceTests
     }
 
     [Fact]
-    public void CallTrace_Fails_WhenPlayerChallengesThemselves()
+    public void CallTrace_Fails_WhenNotAccuserTurn()
     {
-        var (room, hostId, _) = SetupActiveGame();
-        var hostCard = room.Seats[0].Hand[0].Id;
-        room.PlayCards(hostId, [hostCard], CardProtocol.Alpha);
+        // 3-player game: Host plays, turn goes to P2. P3 attempts to call TRACE.
+        var hostId = PlayerId.New();
+        var p2Id = PlayerId.New();
+        var p3Id = PlayerId.New();
+        var room = GameRoom.Create(RoomId.New("CYBER-301"), hostId, "Host", "conn-1", Guid.NewGuid()).Value;
+        room.AddPlayer(p2Id, "Player2", "conn-2", Guid.NewGuid());
+        room.AddPlayer(p3Id, "Player3", "conn-3", Guid.NewGuid());
+        room.SetReady(hostId, true);
+        room.SetReady(p2Id, true);
+        room.SetReady(p3Id, true);
+        room.StartRound(hostId, new ConstantRandomSource(0));
 
-        // Host attempts to call trace on their own play
-        var traceResult = room.CallTrace(hostId);
+        // Host plays cards -> turn passes to P2
+        room.PlayCards(hostId, [room.Seats[0].Hand[0].Id], CardProtocol.Alpha);
+        Assert.Equal(p2Id, room.CurrentTurnPlayerId);
+
+        // P3 attempts to challenge out-of-turn
+        var traceResult = room.CallTrace(p3Id);
 
         Assert.False(traceResult.IsSuccess);
-        Assert.Contains(traceResult.ValidationErrors, e => e.Identifier == "Trace.CannotTraceSelf");
+        Assert.Contains(traceResult.ValidationErrors, e => e.Identifier == "Trace.NotYourTurn");
     }
 
     [Fact]
-    public void CallTrace_DetectsBluff_WhenPlayedCardsDoNotMatchProtocol()
+    public void CallTrace_DetectsBluff_TransitionsToBluffCheck_AndCompletesToRoundOver()
     {
         var (room, hostId, p2Id) = SetupActiveGame();
 
@@ -61,8 +73,9 @@ public class GameRoomTraceTests
         var bluffCard = Card.Create(CardProtocol.Beta);
         hostSeat.AssignHand([bluffCard]);
 
-        // Host plays Beta as Alpha (bluff!)
+        // Host plays Beta as Alpha (bluff!) -> turn goes to P2
         room.PlayCards(hostId, [bluffCard.Id], CardProtocol.Alpha);
+        Assert.Equal(p2Id, room.CurrentTurnPlayerId);
 
         // Player 2 calls trace
         var traceResult = room.CallTrace(p2Id);
@@ -74,6 +87,14 @@ public class GameRoomTraceTests
         Assert.Equal(p2Id, resolution.AccuserPlayerId);
         Assert.Equal(hostId, resolution.AccusedPlayerId);
         Assert.Equal(hostId, resolution.LoserPlayerId); // Host lost!
+
+        // Verifying observable BluffCheck state (Kwestia 3)
+        Assert.Equal(RoomState.BluffCheck, room.State);
+        Assert.Null(room.CurrentTurnPlayerId);
+
+        // Complete bluff check transitions to RoundOver
+        var completeResult = room.CompleteBluffCheck();
+        Assert.True(completeResult.IsSuccess);
         Assert.Equal(RoomState.RoundOver, room.State);
     }
 
@@ -87,7 +108,7 @@ public class GameRoomTraceTests
         var truthCard = Card.Create(CardProtocol.Alpha);
         hostSeat.AssignHand([truthCard]);
 
-        // Host plays Alpha truthfully
+        // Host plays Alpha truthfully -> turn goes to P2
         room.PlayCards(hostId, [truthCard.Id], CardProtocol.Alpha);
 
         // Player 2 calls trace
@@ -100,7 +121,7 @@ public class GameRoomTraceTests
         Assert.Equal(p2Id, resolution.AccuserPlayerId);
         Assert.Equal(hostId, resolution.AccusedPlayerId);
         Assert.Equal(p2Id, resolution.LoserPlayerId); // Accuser was wrong and lost!
-        Assert.Equal(RoomState.RoundOver, room.State);
+        Assert.Equal(RoomState.BluffCheck, room.State);
     }
 
     [Fact]

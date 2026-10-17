@@ -1,11 +1,17 @@
 using Ardalis.Result;
 using Overclock.Modules.GameEngine.Domain.Rooms;
+using Overclock.SharedKernel;
 using Xunit;
 
 namespace Overclock.Modules.GameEngine.Domain.Tests.Rooms;
 
 public class GameRoomLobbyTests
 {
+    private sealed class ConstantRandomSource(int fixedValue) : IRandomSource
+    {
+        public int Next(int minValue, int maxValue) => fixedValue;
+    }
+
     [Fact]
     public void Create_InitializesHostSeat_InLobbyState()
     {
@@ -33,16 +39,43 @@ public class GameRoomLobbyTests
     }
 
     [Theory]
-    [InlineData("", "Host")]
-    [InlineData("   ", "Host")]
-    [InlineData("CYBER-1", "")]
-    [InlineData("CYBER-1", "   ")]
-    public void Create_Fails_WhenIdOrNicknameIsInvalid(string id, string nickname)
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("AB")] // too short (<3)
+    [InlineData("TOOLONGROOMIDEXCEEDINGTWENTYCHARS")] // too long (>20)
+    [InlineData("ROOM@#$")] // invalid characters
+    [InlineData("-START-HYPHEN")]
+    public void RoomId_Create_FailsForMalformedRoomCodes(string invalidCode)
     {
-        var result = GameRoom.Create(RoomId.New(id), PlayerId.New(), nickname, "conn", Guid.NewGuid());
+        var result = RoomId.Create(invalidCode);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ResultStatus.Invalid, result.Status);
+        Assert.Contains(result.ValidationErrors, e => e.Identifier == "Room.InvalidId");
+    }
+
+    [Theory]
+    [InlineData("CYBER-7X9")]
+    [InlineData("ROOM1")]
+    [InlineData("A-B-C-123")]
+    public void RoomId_Create_SucceedsForValidRoomCodes(string validCode)
+    {
+        var result = RoomId.Create(validCode);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(validCode.ToUpperInvariant(), result.Value.Value);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Create_Fails_WhenNicknameIsInvalid(string nickname)
+    {
+        var result = GameRoom.Create(RoomId.New("CYBER-1"), PlayerId.New(), nickname, "conn", Guid.NewGuid());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+        Assert.Contains(result.ValidationErrors, e => e.Identifier == "Room.InvalidNickname");
     }
 
     [Fact]
@@ -112,5 +145,28 @@ public class GameRoomLobbyTests
         Assert.True(removeResult.IsSuccess);
         Assert.Single(room.Seats);
         Assert.Equal(p2Id, room.HostId);
+    }
+
+    [Fact]
+    public void LobbyOperations_Fail_WhenGameIsAlreadyActive()
+    {
+        var hostId = PlayerId.New();
+        var p2Id = PlayerId.New();
+        var room = GameRoom.Create(RoomId.New("CYBER-105"), hostId, "Host", "conn-1", Guid.NewGuid()).Value;
+        room.AddPlayer(p2Id, "Player2", "conn-2", Guid.NewGuid());
+        room.SetReady(hostId, true);
+        room.SetReady(p2Id, true);
+        room.StartRound(hostId, new ConstantRandomSource(0));
+
+        Assert.Equal(RoomState.TurnActive, room.State);
+
+        var addResult = room.AddPlayer(PlayerId.New(), "P3", "conn-3", Guid.NewGuid());
+        Assert.Equal(ResultStatus.Conflict, addResult.Status);
+
+        var removeResult = room.RemovePlayer(p2Id);
+        Assert.Equal(ResultStatus.Conflict, removeResult.Status);
+
+        var readyResult = room.SetReady(p2Id, false);
+        Assert.Equal(ResultStatus.Conflict, readyResult.Status);
     }
 }

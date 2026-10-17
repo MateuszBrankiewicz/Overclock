@@ -1,7 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\Overclock.SharedKernel\Overclock.SharedKernel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GameEngine.Domain.Tests" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -55,7 +55,28 @@ public class GameRoomConnectionTests
     }
 
     [Fact]
-    public void EliminatePlayer_TransitionsToGameOver_WhenOnlyOnePlayerRemains()
+    public void HandleReconnect_Fails_WhenSeatEliminated()
+    {
+        var hostId = PlayerId.New();
+        var p2Id = PlayerId.New();
+        var p2Session = Guid.NewGuid();
+        var room = GameRoom.Create(RoomId.New("CYBER-406"), hostId, "Host", "conn-1", Guid.NewGuid()).Value;
+        room.AddPlayer(p2Id, "Player2", "conn-2", p2Session);
+        room.SetReady(hostId, true);
+        room.SetReady(p2Id, true);
+        room.StartRound(hostId, new ConstantRandomSource(0));
+
+        room.EliminatePlayer(p2Id);
+
+        var reconnectResult = room.HandleReconnect(p2Session, "conn-new");
+
+        Assert.False(reconnectResult.IsSuccess);
+        Assert.Equal(ResultStatus.Invalid, reconnectResult.Status);
+        Assert.Contains(reconnectResult.ValidationErrors, e => e.Identifier == "Room.PlayerEliminated");
+    }
+
+    [Fact]
+    public void EliminatePlayer_TransitionsToGameOver_AndSetsWinner_WhenOnlyOnePlayerRemains()
     {
         var hostId = PlayerId.New();
         var p2Id = PlayerId.New();
@@ -63,7 +84,7 @@ public class GameRoomConnectionTests
         room.AddPlayer(p2Id, "Player2", "conn-2", Guid.NewGuid());
         room.SetReady(hostId, true);
         room.SetReady(p2Id, true);
-        room.StartRound(new ConstantRandomSource(0));
+        room.StartRound(hostId, new ConstantRandomSource(0));
 
         // Eliminate Player 2
         var elimResult = room.EliminatePlayer(p2Id);
@@ -72,6 +93,7 @@ public class GameRoomConnectionTests
         Assert.Equal(PlayerStatus.Eliminated, room.Seats[1].Status);
         Assert.Equal(RoomState.GameOver, room.State);
         Assert.Null(room.CurrentTurnPlayerId);
+        Assert.Equal(hostId, room.WinnerId); // Host is the winner!
     }
 
     [Fact]
@@ -86,7 +108,7 @@ public class GameRoomConnectionTests
         room.SetReady(hostId, true);
         room.SetReady(p2Id, true);
         room.SetReady(p3Id, true);
-        room.StartRound(new ConstantRandomSource(0));
+        room.StartRound(hostId, new ConstantRandomSource(0));
 
         Assert.Equal(hostId, room.CurrentTurnPlayerId);
 
@@ -96,5 +118,6 @@ public class GameRoomConnectionTests
         Assert.True(elimResult.IsSuccess);
         Assert.Equal(RoomState.TurnActive, room.State); // 2 players still remain
         Assert.Equal(p2Id, room.CurrentTurnPlayerId); // Turn advanced to Player 2
+        Assert.Null(room.WinnerId);
     }
 }

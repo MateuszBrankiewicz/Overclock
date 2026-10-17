@@ -11,7 +11,7 @@ public sealed class PlayerSeat
     public string Nickname { get; }
     public string? ConnectionId { get; private set; }
     public Guid SessionToken { get; }
-    public IReadOnlyList<Card> Hand => _hand.AsReadOnly();
+    public IReadOnlyList<Card> Hand => _hand;
     public PlayerStatus Status { get; private set; }
     public bool IsReady { get; private set; }
     public DateTimeOffset? DisconnectedAtUtc { get; private set; }
@@ -32,23 +32,23 @@ public sealed class PlayerSeat
         IsReady = isReady;
     }
 
-    public void SetReady(bool ready)
+    internal void SetReady(bool ready)
     {
         IsReady = ready;
     }
 
-    public void AssignHand(IEnumerable<Card> cards)
+    internal void AssignHand(IEnumerable<Card> cards)
     {
         _hand.Clear();
         _hand.AddRange(cards);
     }
 
-    public void ClearHand()
+    internal void ClearHand()
     {
         _hand.Clear();
     }
 
-    public bool HasCards(IEnumerable<CardId> cardIds)
+    internal bool HasCards(IEnumerable<CardId> cardIds)
     {
         var targetIds = cardIds.ToList();
         var availableIds = _hand.Select(c => c.Id).ToList();
@@ -64,7 +64,7 @@ public sealed class PlayerSeat
         return true;
     }
 
-    public Result<IReadOnlyList<Card>> RemoveCards(IEnumerable<CardId> cardIds)
+    internal Result<IReadOnlyList<Card>> RemoveCards(IEnumerable<CardId> cardIds)
     {
         var targetIds = cardIds.ToList();
         if (!HasCards(targetIds))
@@ -88,20 +88,20 @@ public sealed class PlayerSeat
         return Result<IReadOnlyList<Card>>.Success(removed);
     }
 
-    public void Disconnect(DateTimeOffset? disconnectedAt = null)
+    internal void Disconnect(DateTimeOffset? disconnectedAt = null)
     {
         Status = PlayerStatus.Disconnected;
         DisconnectedAtUtc = disconnectedAt ?? DateTimeOffset.UtcNow;
     }
 
-    public void Reconnect(string newConnectionId)
+    internal void Reconnect(string newConnectionId)
     {
         ConnectionId = newConnectionId;
         Status = PlayerStatus.Active;
         DisconnectedAtUtc = null;
     }
 
-    public void Eliminate()
+    internal void Eliminate()
     {
         Status = PlayerStatus.Eliminated;
         _hand.Clear();
