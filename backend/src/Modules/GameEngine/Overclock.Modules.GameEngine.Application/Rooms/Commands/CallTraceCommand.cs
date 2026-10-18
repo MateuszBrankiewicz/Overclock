@@ -2,6 +2,7 @@ using Ardalis.Result;
 using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
+using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
@@ -11,7 +12,10 @@ namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 public sealed record CallTraceCommand(string RoomCode, Guid AccuserPlayerId)
     : IRequest<Result<TraceResolutionDto>>;
 
-internal sealed class CallTraceCommandHandler(IGameRoomRegistry registry, IGameNotifier notifier)
+internal sealed class CallTraceCommandHandler(
+    IGameRoomRegistry registry,
+    IGameNotifier notifier,
+    ITurnTimerEngine turnTimer)
     : IRequestHandler<CallTraceCommand, Result<TraceResolutionDto>>
 {
     public async ValueTask<Result<TraceResolutionDto>> Handle(CallTraceCommand request, CancellationToken ct)
@@ -30,6 +34,7 @@ internal sealed class CallTraceCommandHandler(IGameRoomRegistry registry, IGameN
             }
 
             var res = result.Value;
+            turnTimer.Cancel(room.Id.Value);
             var dto = new TraceResolutionDto(
                 res.AccuserPlayerId.Value,
                 res.AccusedPlayerId.Value,

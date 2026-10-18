@@ -5,16 +5,16 @@ namespace Overclock.Modules.GameEngine.Application.Rooms;
 
 public interface IGameAction
 {
-    void Execute(GameRoom room);
+    ValueTask Execute(GameRoom room);
 }
 
 public sealed class GameAction : IGameAction
 {
-    private readonly Func<GameRoom, Result> _handler;
+    private readonly Func<GameRoom, ValueTask<Result>> _handler;
     private readonly TaskCompletionSource<Result> _completion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private GameAction(Func<GameRoom, Result> handler)
+    private GameAction(Func<GameRoom, ValueTask<Result>> handler)
     {
         _handler = handler;
     }
@@ -24,14 +24,20 @@ public sealed class GameAction : IGameAction
     public static GameAction Create(Func<GameRoom, Result> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
+        return new GameAction(room => ValueTask.FromResult(handler(room)));
+    }
+
+    public static GameAction Create(Func<GameRoom, ValueTask<Result>> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
         return new GameAction(handler);
     }
 
-    public void Execute(GameRoom room)
+    public async ValueTask Execute(GameRoom room)
     {
         try
         {
-            _completion.TrySetResult(_handler(room));
+            _completion.TrySetResult(await _handler(room).ConfigureAwait(false));
         }
         catch (Exception exception)
         {
@@ -42,11 +48,11 @@ public sealed class GameAction : IGameAction
 
 public sealed class GameAction<TResult> : IGameAction
 {
-    private readonly Func<GameRoom, Result<TResult>> _handler;
+    private readonly Func<GameRoom, ValueTask<Result<TResult>>> _handler;
     private readonly TaskCompletionSource<Result<TResult>> _completion =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private GameAction(Func<GameRoom, Result<TResult>> handler)
+    private GameAction(Func<GameRoom, ValueTask<Result<TResult>>> handler)
     {
         _handler = handler;
     }
@@ -56,14 +62,20 @@ public sealed class GameAction<TResult> : IGameAction
     public static GameAction<TResult> Create(Func<GameRoom, Result<TResult>> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
+        return new GameAction<TResult>(room => ValueTask.FromResult(handler(room)));
+    }
+
+    public static GameAction<TResult> Create(Func<GameRoom, ValueTask<Result<TResult>>> handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
         return new GameAction<TResult>(handler);
     }
 
-    public void Execute(GameRoom room)
+    public async ValueTask Execute(GameRoom room)
     {
         try
         {
-            _completion.TrySetResult(_handler(room));
+            _completion.TrySetResult(await _handler(room).ConfigureAwait(false));
         }
         catch (Exception exception)
         {

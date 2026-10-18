@@ -61,7 +61,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - Consumer background loop executing actions sequentially on a single thread, eliminating locks.
   - **Verification:** Concurrently submit 100 actions to a room; assert absence of race conditions and strict FIFO ordering.
 
-- [ ] **`TASK-0.4` | Turn Timer Engine**
+- [x] **`TASK-0.4` | Turn Timer Engine**
   - **Location:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Application/Services/`
   - **Scope:**
     - Manage turn duration with `CancellationTokenSource` and `TurnSequenceId`.
