@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Terminal, Shield, Zap, Activity } from 'lucide-react';
+import { Activity,Shield, Terminal, Zap } from 'lucide-react';
+
 import { useGameStore } from './features/game/stores/useGameStore';
 
 const queryClient = new QueryClient();

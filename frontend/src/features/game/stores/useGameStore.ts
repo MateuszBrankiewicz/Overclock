@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+
 import type { Card, TraceCalledEvent, TurnStartedEvent } from '../schemas/gameEvents';
 
 export interface RoomSlice {
