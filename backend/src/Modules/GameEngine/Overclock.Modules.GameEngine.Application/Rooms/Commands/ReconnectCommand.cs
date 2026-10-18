@@ -15,7 +15,8 @@ public sealed record ReconnectCommand(string RoomCode, Guid SessionToken, string
 internal sealed class ReconnectCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
-    IDisconnectGraceManager graceManager)
+    IDisconnectGraceManager graceManager,
+    IGameStateProjector projector)
     : IRequestHandler<ReconnectCommand, Result<PlayerGameStateDto>>
 {
     public async ValueTask<Result<PlayerGameStateDto>> Handle(ReconnectCommand request, CancellationToken ct)
@@ -37,7 +38,7 @@ internal sealed class ReconnectCommandHandler(
             }
 
             var seat = reconnectResult.Value;
-            var snapshot = GameStateProjector.Project(room, seat.Id);
+            var snapshot = projector.Project(room, seat.Id);
             return Result<ReconnectOutcome>.Success(new ReconnectOutcome(seat.Id.Value, snapshot));
         }, ct);
 
@@ -51,6 +52,11 @@ internal sealed class ReconnectCommandHandler(
             request.RoomCode,
             outcome.Value.PlayerId,
             PlayerStatus.Active,
+            CancellationToken.None);
+
+        await notifier.SendPlayerSnapshotAsync(
+            request.NewConnectionId,
+            outcome.Value.Snapshot,
             CancellationToken.None);
 
         return Result<PlayerGameStateDto>.Success(outcome.Value.Snapshot);

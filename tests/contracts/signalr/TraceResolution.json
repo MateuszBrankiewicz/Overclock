@@ -1,0 +1,13 @@
+{
+  "accuserPlayerId": "a0000000-0000-4000-8000-000000000001",
+  "accusedPlayerId": "a0000000-0000-4000-8000-000000000002",
+  "loserPlayerId": "a0000000-0000-4000-8000-000000000002",
+  "revealedCards": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "protocol": "Alpha"
+    }
+  ],
+  "declaredProtocol": "Alpha",
+  "bluffDetected": true
+}

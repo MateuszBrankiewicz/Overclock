@@ -2,6 +2,7 @@ using Ardalis.Result;
 using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
+using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
 
@@ -10,7 +11,10 @@ namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 public sealed record SetReadyCommand(string RoomCode, Guid PlayerId, bool IsReady)
     : IRequest<Result>;
 
-internal sealed class SetReadyCommandHandler(IGameRoomRegistry registry, IGameNotifier notifier)
+internal sealed class SetReadyCommandHandler(
+    IGameRoomRegistry registry,
+    IGameNotifier notifier,
+    IGameStateProjector projector)
     : IRequestHandler<SetReadyCommand, Result>
 {
     public async ValueTask<Result> Handle(SetReadyCommand request, CancellationToken ct)
@@ -25,10 +29,11 @@ internal sealed class SetReadyCommandHandler(IGameRoomRegistry registry, IGameNo
             var result = room.SetReady(new PlayerId(request.PlayerId), request.IsReady);
             if (!result.IsSuccess)
             {
-                return result.ToResult<IReadOnlyList<PlayerSeat>>();
+                return result.ToResult<IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)>>();
             }
 
-            return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
+            var snapshots = projector.ProjectForActiveConnections(room);
+            return Result<IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)>>.Success(snapshots);
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -36,9 +41,8 @@ internal sealed class SetReadyCommandHandler(IGameRoomRegistry registry, IGameNo
             return outcome.ToResult();
         }
 
-        await notifier.BroadcastGameStateAsync(
+        await notifier.BroadcastSnapshotsAsync(
             request.RoomCode,
-            id => GameStateProjector.Project(session.Room, id),
             outcome.Value,
             CancellationToken.None);
 

@@ -3,6 +3,7 @@ using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Services;
+using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Cards;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
@@ -19,7 +20,8 @@ public sealed record PlayCardsCommand(
 internal sealed class PlayCardsCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
-    ITurnTimerEngine turnTimer)
+    ITurnTimerEngine turnTimer,
+    IGameStateProjector projector)
     : IRequestHandler<PlayCardsCommand, Result>
 {
     public async ValueTask<Result> Handle(PlayCardsCommand request, CancellationToken ct)
@@ -36,7 +38,7 @@ internal sealed class PlayCardsCommandHandler(
             var result = room.PlayCards(new PlayerId(request.PlayerId), domainCardIds, request.DeclaredProtocol);
             if (!result.IsSuccess)
             {
-                return result.ToResult<IReadOnlyList<PlayerSeat>>();
+                return result.ToResult<PlayCardsOutcome>();
             }
 
             if (room.State == RoomState.TurnActive && room.CurrentTurnPlayerId is { } nextPlayerId)
@@ -48,7 +50,8 @@ internal sealed class PlayCardsCommandHandler(
                 turnTimer.Cancel(room.Id.Value);
             }
 
-            return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
+            var snapshots = projector.ProjectForActiveConnections(room);
+            return Result<PlayCardsOutcome>.Success(new PlayCardsOutcome(snapshots));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -63,12 +66,13 @@ internal sealed class PlayCardsCommandHandler(
             request.DeclaredProtocol,
             CancellationToken.None);
 
-        await notifier.BroadcastGameStateAsync(
+        await notifier.BroadcastSnapshotsAsync(
             request.RoomCode,
-            id => GameStateProjector.Project(session.Room, id),
-            outcome.Value,
+            outcome.Value.Snapshots,
             CancellationToken.None);
 
         return Result.Success();
     }
+
+    private sealed record PlayCardsOutcome(IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots);
 }

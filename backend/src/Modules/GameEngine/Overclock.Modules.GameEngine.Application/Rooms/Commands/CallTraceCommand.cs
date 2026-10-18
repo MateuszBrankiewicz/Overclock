@@ -15,7 +15,8 @@ public sealed record CallTraceCommand(string RoomCode, Guid AccuserPlayerId)
 internal sealed class CallTraceCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
-    ITurnTimerEngine turnTimer)
+    ITurnTimerEngine turnTimer,
+    IGameStateProjector projector)
     : IRequestHandler<CallTraceCommand, Result<TraceResolutionDto>>
 {
     public async ValueTask<Result<TraceResolutionDto>> Handle(CallTraceCommand request, CancellationToken ct)
@@ -43,7 +44,8 @@ internal sealed class CallTraceCommandHandler(
                 res.DeclaredProtocol.ToString(),
                 res.BluffDetected);
 
-            return Result<CallTraceOutcome>.Success(new CallTraceOutcome(dto, room.Seats.ToList()));
+            var snapshots = projector.ProjectForActiveConnections(room);
+            return Result<CallTraceOutcome>.Success(new CallTraceOutcome(dto, snapshots));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -53,14 +55,13 @@ internal sealed class CallTraceCommandHandler(
 
         await notifier.NotifyTraceCalledAsync(request.RoomCode, outcome.Value.Resolution, CancellationToken.None);
 
-        await notifier.BroadcastGameStateAsync(
+        await notifier.BroadcastSnapshotsAsync(
             request.RoomCode,
-            id => GameStateProjector.Project(session.Room, id),
-            outcome.Value.Seats,
+            outcome.Value.Snapshots,
             CancellationToken.None);
 
         return Result<TraceResolutionDto>.Success(outcome.Value.Resolution);
     }
 
-    private sealed record CallTraceOutcome(TraceResolutionDto Resolution, IReadOnlyList<PlayerSeat> Seats);
+    private sealed record CallTraceOutcome(TraceResolutionDto Resolution, IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots);
 }

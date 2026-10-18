@@ -3,6 +3,7 @@ using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Services;
+using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
 
@@ -15,6 +16,7 @@ internal sealed class StartRoundCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
     ITurnTimerEngine turnTimer,
+    IGameStateProjector projector,
     IRandomSource? randomSource = null)
     : IRequestHandler<StartRoundCommand, Result>
 {
@@ -30,12 +32,12 @@ internal sealed class StartRoundCommandHandler(
             var result = room.StartRound(new PlayerId(request.RequesterId), randomSource);
             if (!result.IsSuccess)
             {
-                return result.ToResult<IReadOnlyList<PlayerSeat>>();
+                return result.ToResult<IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)>>();
             }
 
             turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
-
-            return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
+            var snapshots = projector.ProjectForActiveConnections(room);
+            return Result<IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)>>.Success(snapshots);
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -43,9 +45,8 @@ internal sealed class StartRoundCommandHandler(
             return outcome.ToResult();
         }
 
-        await notifier.BroadcastGameStateAsync(
+        await notifier.BroadcastSnapshotsAsync(
             request.RoomCode,
-            id => GameStateProjector.Project(session.Room, id),
             outcome.Value,
             CancellationToken.None);
 

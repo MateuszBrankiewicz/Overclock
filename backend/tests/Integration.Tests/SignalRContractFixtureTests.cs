@@ -54,11 +54,72 @@ public class SignalRContractFixtureTests
             EliminatedPlayerId: player2Id,
             FinalVoltage: 240);
 
+        var playerCard = new PlayerCardDto(cardId, "Alpha");
+        var playerSeat1 = new PlayerSeatDto(player1Id, "AliceHost", "Active", true, 5);
+        var playerSeat2 = new PlayerSeatDto(player2Id, "BobGuest", "Active", true, 5);
+
+        var traceResolution = new TraceResolutionDto(
+            AccuserPlayerId: player1Id,
+            AccusedPlayerId: player2Id,
+            LoserPlayerId: player2Id,
+            RevealedCards: new List<PlayerCardDto> { playerCard },
+            DeclaredProtocol: "Alpha",
+            BluffDetected: true);
+
+        var roomStateSnapshot = new PlayerGameStateDto(
+            RoomCode: "CYBER-7X9",
+            State: "TurnActive",
+            HostId: player1Id,
+            MyPlayerId: player1Id,
+            MyHand: new List<PlayerCardDto> { playerCard },
+            Seats: new List<PlayerSeatDto> { playerSeat1, playerSeat2 },
+            TablePileCount: 2,
+            CurrentTargetProtocol: "Alpha",
+            CurrentTurnPlayerId: player1Id,
+            RoundNumber: 1,
+            LastTraceResolution: traceResolution,
+            WinnerId: null);
+
+        var cardsPlayed = new
+        {
+            type = "CardsPlayed",
+            roomCode = "CYBER-7X9",
+            playerId = player1Id,
+            cardCount = 2,
+            declaredProtocol = "Alpha"
+        };
+
+        var playerStatusChanged = new
+        {
+            type = "PlayerStatusChanged",
+            roomCode = "CYBER-7X9",
+            playerId = player2Id,
+            status = "Disconnected"
+        };
+
+        var roundStarted = new
+        {
+            type = "RoundStarted",
+            roomCode = "CYBER-7X9",
+            roundNumber = 1,
+            leadProtocol = "Alpha",
+            activePlayerId = player1Id
+        };
+
         await File.WriteAllTextAsync(Path.Combine(fixtureDir, "TraceCalled.json"), JsonSerializer.Serialize(traceCalled, JsonOptions));
         await File.WriteAllTextAsync(Path.Combine(fixtureDir, "TurnStarted.json"), JsonSerializer.Serialize(turnStarted, JsonOptions));
         await File.WriteAllTextAsync(Path.Combine(fixtureDir, "VoltageOverloaded.json"), JsonSerializer.Serialize(voltageOverloaded, JsonOptions));
+        await File.WriteAllTextAsync(Path.Combine(fixtureDir, "RoomStateSnapshot.json"), JsonSerializer.Serialize(roomStateSnapshot, JsonOptions));
+        await File.WriteAllTextAsync(Path.Combine(fixtureDir, "TraceResolution.json"), JsonSerializer.Serialize(traceResolution, JsonOptions));
+        await File.WriteAllTextAsync(Path.Combine(fixtureDir, "CardsPlayed.json"), JsonSerializer.Serialize(cardsPlayed, JsonOptions));
+        await File.WriteAllTextAsync(Path.Combine(fixtureDir, "PlayerStatusChanged.json"), JsonSerializer.Serialize(playerStatusChanged, JsonOptions));
+        await File.WriteAllTextAsync(Path.Combine(fixtureDir, "RoundStarted.json"), JsonSerializer.Serialize(roundStarted, JsonOptions));
 
         Assert.True(File.Exists(Path.Combine(fixtureDir, "TraceCalled.json")));
+        Assert.True(File.Exists(Path.Combine(fixtureDir, "RoomStateSnapshot.json")));
+        Assert.True(File.Exists(Path.Combine(fixtureDir, "CardsPlayed.json")));
+        Assert.True(File.Exists(Path.Combine(fixtureDir, "PlayerStatusChanged.json")));
+        Assert.True(File.Exists(Path.Combine(fixtureDir, "RoundStarted.json")));
     }
 
     private static string? FindRepoRoot()

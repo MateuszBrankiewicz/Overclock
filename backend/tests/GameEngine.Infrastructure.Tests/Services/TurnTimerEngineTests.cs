@@ -22,6 +22,10 @@ public sealed class TurnTimerEngineTests
         timer.Start(session, currentPlayerId, room.TurnSequenceId);
         delay.Release();
         await delay.Returned;
+        for (var i = 0; i < 50 && room.TurnSequenceId == 1; i++)
+        {
+            await Task.Delay(10);
+        }
         await session.EnqueueAsync(_ => Result.Success());
 
         Assert.Equal(RoomState.TurnActive, room.State);
@@ -41,6 +45,10 @@ public sealed class TurnTimerEngineTests
 
         // 1st timeout: Host -> Second player
         await delay.AdvanceAsync();
+        for (var i = 0; i < 50 && room.TurnSequenceId < 2; i++)
+        {
+            await Task.Delay(10);
+        }
         await session.EnqueueAsync(_ => Result.Success());
 
         Assert.Equal(RoomState.TurnActive, room.State);
@@ -52,6 +60,10 @@ public sealed class TurnTimerEngineTests
 
         // 2nd timeout: Second player -> Host
         await delay.AdvanceAsync();
+        for (var i = 0; i < 50 && room.TurnSequenceId < 3; i++)
+        {
+            await Task.Delay(10);
+        }
         await session.EnqueueAsync(_ => Result.Success());
 
         Assert.Equal(RoomState.TurnActive, room.State);
@@ -238,6 +250,21 @@ public sealed class TurnTimerEngineTests
             if (seats.Count > 0)
             {
                 LastBroadcastSample = snapshotFactory(seats[0].Id);
+            }
+            _broadcastReceived.TrySetResult();
+            return Task.CompletedTask;
+        }
+
+        public Task BroadcastSnapshotsAsync(
+            string roomCode,
+            IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> snapshots,
+            CancellationToken ct = default)
+        {
+            BroadcastCount++;
+            LastBroadcastRoomCode = roomCode;
+            if (snapshots.Count > 0)
+            {
+                LastBroadcastSample = snapshots[0].Snapshot;
             }
             _broadcastReceived.TrySetResult();
             return Task.CompletedTask;

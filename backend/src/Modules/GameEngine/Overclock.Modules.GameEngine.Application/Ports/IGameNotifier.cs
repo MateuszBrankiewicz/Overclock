@@ -21,4 +21,9 @@ public interface IGameNotifier
         Func<PlayerId, PlayerGameStateDto> snapshotFactory,
         IReadOnlyList<PlayerSeat> seats,
         CancellationToken ct = default);
+
+    Task BroadcastSnapshotsAsync(
+        string roomCode,
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> snapshots,
+        CancellationToken ct = default);
 }

@@ -88,7 +88,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
   - **Verification:** Integration test simulating client disconnect and reconnect preserving state.
 
 #### [Frontend React]
-- [ ] **`TASK-0.7` | Zod Validation Schemas for SignalR**
+- [x] **`TASK-0.7` | Zod Validation Schemas for SignalR**
   - **Location:** `frontend/src/features/game/schemas/gameEvents.ts`
   - **Scope:**
     - Zod schemas: `RoomStateSnapshotSchema`, `CardsPlayedEventSchema`, `TraceCalledEventSchema`, `RoundStartedEventSchema`, `PlayerStatusChangedEventSchema`.

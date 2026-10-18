@@ -49,4 +49,15 @@ public sealed class SignalRGameNotifier(IHubContext<GameHub, IGameClient> hubCon
             }
         }
     }
+
+    public async Task BroadcastSnapshotsAsync(
+        string roomCode,
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> snapshots,
+        CancellationToken ct = default)
+    {
+        foreach (var (connectionId, snapshot) in snapshots)
+        {
+            await hubContext.Clients.Client(connectionId).ReceiveGameState(snapshot);
+        }
+    }
 }
