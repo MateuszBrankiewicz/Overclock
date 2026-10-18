@@ -67,7 +67,6 @@ internal sealed class PlayCardsCommandHandler(
             CancellationToken.None);
 
         await notifier.BroadcastSnapshotsAsync(
-            request.RoomCode,
             outcome.Value.Snapshots,
             CancellationToken.None);
 

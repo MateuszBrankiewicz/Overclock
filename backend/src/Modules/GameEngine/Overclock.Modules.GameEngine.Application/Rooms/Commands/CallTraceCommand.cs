@@ -56,7 +56,6 @@ internal sealed class CallTraceCommandHandler(
         await notifier.NotifyTraceCalledAsync(request.RoomCode, outcome.Value.Resolution, CancellationToken.None);
 
         await notifier.BroadcastSnapshotsAsync(
-            request.RoomCode,
             outcome.Value.Snapshots,
             CancellationToken.None);
 

@@ -42,7 +42,6 @@ internal sealed class SetReadyCommandHandler(
         }
 
         await notifier.BroadcastSnapshotsAsync(
-            request.RoomCode,
             outcome.Value,
             CancellationToken.None);
 

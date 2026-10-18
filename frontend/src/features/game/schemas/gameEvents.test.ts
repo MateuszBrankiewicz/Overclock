@@ -6,6 +6,7 @@ import { describe, expect,it } from 'vitest';
 
 import {
   CardsPlayedEventSchema,
+  PlayerJoinedEventSchema,
   PlayerStatusChangedEventSchema,
   RoomStateSnapshotSchema,
   RoundStartedEventSchema,
@@ -130,6 +131,26 @@ describe('SignalR Contract Validation (ADR 0004 & ADR 0007)', () => {
       expect(result.data.roundNumber).toBe(1);
       expect(result.data.leadProtocol).toBe('Alpha');
     }
+  });
+
+  it('parses PlayerJoined payload both as direct seat and wrapped event', () => {
+    const directSeat = {
+      playerId: 'a0000000-0000-4000-8000-000000000001',
+      nickname: 'AliceHost',
+      status: 'Active',
+      isReady: true,
+      handCount: 5,
+    };
+    const directResult = PlayerJoinedEventSchema.safeParse(directSeat);
+    expect(directResult.success).toBe(true);
+
+    const wrappedEvent = {
+      type: 'PlayerJoined',
+      roomCode: 'CYBER-7X9',
+      player: directSeat,
+    };
+    const wrappedResult = PlayerJoinedEventSchema.safeParse(wrappedEvent);
+    expect(wrappedResult.success).toBe(true);
   });
 
   it('fails safely on corrupted payload without throwing', () => {

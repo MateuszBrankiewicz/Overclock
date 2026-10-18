@@ -409,10 +409,18 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
             }
         });
 
+        var roundStartedTcs = new TaskCompletionSource<RoundStartedDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        hostConnection.On<RoundStartedDto>("RoundStarted", r => roundStartedTcs.TrySetResult(r));
+
         await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
         await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
         var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
         Assert.True(startResponse.IsSuccess);
+
+        var roundStartedEvent = await roundStartedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(roundStartedEvent);
+        Assert.Equal(roomCode, roundStartedEvent.RoomCode);
+        Assert.Equal(1, roundStartedEvent.RoundNumber);
 
         var hostState = await hostTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var guestState = await guestTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -422,10 +430,18 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
         var activeHand = hostState.CurrentTurnPlayerId == hostPlayerId ? hostState.MyHand : guestState.MyHand;
         var activeTargetProtocol = Enum.Parse<CardProtocol>(hostState.CurrentTargetProtocol!);
 
+        var cardsPlayedTcs = new TaskCompletionSource<CardsPlayedDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        waitingConnection.On<CardsPlayedDto>("CardsPlayed", cp => cardsPlayedTcs.TrySetResult(cp));
+
         var playResponse = await activeConnection.InvokeAsync<HubResponse>(
             "PlayCards",
             new PlayCardsRequest(roomCode, [activeHand[0].Id], activeTargetProtocol));
         Assert.True(playResponse.IsSuccess);
+
+        var cardsPlayedEvent = await cardsPlayedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(cardsPlayedEvent);
+        Assert.Equal(1, cardsPlayedEvent.CardCount);
+        Assert.Equal(activeTargetProtocol.ToString(), cardsPlayedEvent.DeclaredProtocol);
 
         var traceBroadcastTcs = new TaskCompletionSource<TraceResolutionDto>(TaskCreationOptions.RunContinuationsAsynchronously);
         activeConnection.On<TraceResolutionDto>("TraceCalled", res => traceBroadcastTcs.TrySetResult(res));

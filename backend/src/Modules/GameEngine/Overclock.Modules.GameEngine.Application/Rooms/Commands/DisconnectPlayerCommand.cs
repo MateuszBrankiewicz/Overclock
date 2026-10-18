@@ -96,6 +96,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                         }
                         else
                         {
+                            var wasCurrentTurnPlayer = activeRoom.CurrentTurnPlayerId == info.PlayerId;
                             var eliminateResult = activeRoom.EliminatePlayer(info.PlayerId);
                             if (!eliminateResult.IsSuccess)
                             {
@@ -106,7 +107,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                             {
                                 turnTimer.Cancel(activeRoom.Id.Value);
                             }
-                            else if (activeRoom.State == RoomState.TurnActive && activeRoom.CurrentTurnPlayerId is { } nextPlayerId)
+                            else if (wasCurrentTurnPlayer && activeRoom.State == RoomState.TurnActive && activeRoom.CurrentTurnPlayerId is { } nextPlayerId)
                             {
                                 turnTimer.Start(activeSession, nextPlayerId, activeRoom.TurnSequenceId);
                             }
@@ -130,7 +131,6 @@ internal sealed class DisconnectPlayerCommandHandler(
                             else
                             {
                                 await notifier.BroadcastSnapshotsAsync(
-                                    info.RoomCode,
                                     outcomeData.Snapshots,
                                     CancellationToken.None);
                             }
@@ -144,7 +144,6 @@ internal sealed class DisconnectPlayerCommandHandler(
                                 CancellationToken.None);
 
                             await notifier.BroadcastSnapshotsAsync(
-                                info.RoomCode,
                                 outcomeData.Snapshots,
                                 CancellationToken.None);
                         }

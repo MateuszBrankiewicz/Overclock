@@ -116,6 +116,12 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
                     return actionResult.ToResult<(TurnExpired Outcome, IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots)>();
                 }
 
+                if (actionResult.Value.NextPlayerId is { } nextPlayerId &&
+                    room.State == RoomState.TurnActive)
+                {
+                    Start(entry.Session, nextPlayerId, room.TurnSequenceId);
+                }
+
                 var snapshots = _projector is not null
                     ? _projector.ProjectForActiveConnections(room)
                     : GameStateProjector.ProjectForActiveConnections(room);
@@ -125,20 +131,13 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
 
             if (result.IsSuccess)
             {
-                var (outcome, snapshots) = result.Value;
-
-                if (outcome.NextPlayerId is { } nextPlayerId &&
-                    entry.Session.Room.State == RoomState.TurnActive)
-                {
-                    Start(entry.Session, nextPlayerId, entry.Session.Room.TurnSequenceId);
-                }
+                var (_, snapshots) = result.Value;
 
                 if (_notifier is not null)
                 {
                     try
                     {
                         await _notifier.BroadcastSnapshotsAsync(
-                            roomCode,
                             snapshots,
                             CancellationToken.None).ConfigureAwait(false);
                     }

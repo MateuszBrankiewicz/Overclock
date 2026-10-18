@@ -80,31 +80,9 @@ public class SignalRContractFixtureTests
             LastTraceResolution: traceResolution,
             WinnerId: null);
 
-        var cardsPlayed = new
-        {
-            type = "CardsPlayed",
-            roomCode = "CYBER-7X9",
-            playerId = player1Id,
-            cardCount = 2,
-            declaredProtocol = "Alpha"
-        };
-
-        var playerStatusChanged = new
-        {
-            type = "PlayerStatusChanged",
-            roomCode = "CYBER-7X9",
-            playerId = player2Id,
-            status = "Disconnected"
-        };
-
-        var roundStarted = new
-        {
-            type = "RoundStarted",
-            roomCode = "CYBER-7X9",
-            roundNumber = 1,
-            leadProtocol = "Alpha",
-            activePlayerId = player1Id
-        };
+        var cardsPlayed = new CardsPlayedDto(player1Id, 2, "Alpha");
+        var playerStatusChanged = new PlayerStatusChangedDto(player2Id, "Disconnected");
+        var roundStarted = new RoundStartedDto("CYBER-7X9", 1, "Alpha", player1Id);
 
         await File.WriteAllTextAsync(Path.Combine(fixtureDir, "TraceCalled.json"), JsonSerializer.Serialize(traceCalled, JsonOptions));
         await File.WriteAllTextAsync(Path.Combine(fixtureDir, "TurnStarted.json"), JsonSerializer.Serialize(turnStarted, JsonOptions));

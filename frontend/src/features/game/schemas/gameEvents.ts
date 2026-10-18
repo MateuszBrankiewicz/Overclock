@@ -85,11 +85,13 @@ export const RoundStartedEventSchema = z.object({
 });
 export type RoundStartedEvent = z.infer<typeof RoundStartedEventSchema>;
 
-export const PlayerJoinedEventSchema = z.object({
-  type: z.literal('PlayerJoined').optional(),
-  roomCode: z.string().optional(),
-  player: PlayerSeatSchema,
-});
+export const PlayerJoinedEventSchema = PlayerSeatSchema.or(
+  z.object({
+    type: z.literal('PlayerJoined').optional(),
+    roomCode: z.string().optional(),
+    player: PlayerSeatSchema,
+  })
+);
 export type PlayerJoinedEvent = z.infer<typeof PlayerJoinedEventSchema>;
 
 // Legacy suit and card representations preserved for existing store and test fixtures

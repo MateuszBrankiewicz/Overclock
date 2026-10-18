@@ -32,12 +32,18 @@ internal sealed class StartRoundCommandHandler(
             var result = room.StartRound(new PlayerId(request.RequesterId), randomSource);
             if (!result.IsSuccess)
             {
-                return result.ToResult<IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)>>();
+                return result.ToResult<StartRoundOutcome>();
             }
 
             turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
             var snapshots = projector.ProjectForActiveConnections(room);
-            return Result<IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)>>.Success(snapshots);
+            var roundStartedDto = new RoundStartedDto(
+                room.Id.Value,
+                room.RoundNumber,
+                room.CurrentTargetProtocol?.ToString() ?? "Alpha",
+                room.CurrentTurnPlayerId!.Value.Value);
+
+            return Result<StartRoundOutcome>.Success(new StartRoundOutcome(snapshots, roundStartedDto));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -45,11 +51,19 @@ internal sealed class StartRoundCommandHandler(
             return outcome.ToResult();
         }
 
-        await notifier.BroadcastSnapshotsAsync(
+        await notifier.NotifyRoundStartedAsync(
             request.RoomCode,
-            outcome.Value,
+            outcome.Value.RoundStarted,
+            CancellationToken.None);
+
+        await notifier.BroadcastSnapshotsAsync(
+            outcome.Value.Snapshots,
             CancellationToken.None);
 
         return Result.Success();
     }
+
+    private sealed record StartRoundOutcome(
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots,
+        RoundStartedDto RoundStarted);
 }
