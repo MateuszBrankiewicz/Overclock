@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.SignalR.Client;
 using Overclock.Host.Hubs;
 using Overclock.Modules.GameEngine.Contracts;
+using Overclock.Modules.GameEngine.Domain.Cards;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Xunit;
 
@@ -246,4 +248,124 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
         Assert.NotNull(reconnectResponse);
         Assert.False(reconnectResponse.IsSuccess);
     }
+
+    [Fact]
+    public async Task AntiCheat_BroadcastAndSnapshot_NeverExposesOpponentCardsOrHiddenTableCards()
+    {
+        var roomCode = $"CYBER-A{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        // 1. Host creates room
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+
+        var hostCreateResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("AliceHost", roomCode));
+        Assert.True(hostCreateResponse.IsSuccess);
+
+        // 2. Guest joins room
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+
+        var guestJoinResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "BobGuest"));
+        Assert.True(guestJoinResponse.IsSuccess);
+
+        var hostPlayerId = hostCreateResponse.Data!.PlayerId;
+        var guestPlayerId = guestJoinResponse.Data!.PlayerId;
+
+        // 3. Register ReceiveGameState handlers
+        var hostReceivedInitialState = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        hostConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                hostReceivedInitialState.TrySetResult(s);
+            }
+        });
+
+        var guestReceivedInitialState = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                guestReceivedInitialState.TrySetResult(s);
+            }
+        });
+
+        // 4. Ready up
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+
+        // 5. Start round
+        var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResponse.IsSuccess);
+
+        var hostState = await hostReceivedInitialState.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var guestState = await guestReceivedInitialState.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(hostState);
+        Assert.NotNull(guestState);
+
+        // 6. Assert each player receives only their own cards
+        Assert.Equal(5, hostState.MyHand.Count);
+        Assert.Equal(5, guestState.MyHand.Count);
+
+        var hostCardIds = hostState.MyHand.Select(c => c.Id).ToHashSet();
+        var guestCardIds = guestState.MyHand.Select(c => c.Id).ToHashSet();
+
+        // The two hands must be completely disjoint
+        Assert.Empty(hostCardIds.Intersect(guestCardIds));
+
+        // Opponent seats must show hand count, but zero card contents
+        var guestSeatInHostView = hostState.Seats.First(s => s.PlayerId == guestPlayerId);
+        Assert.Equal(5, guestSeatInHostView.HandCount);
+
+        var hostSeatInGuestView = guestState.Seats.First(s => s.PlayerId == hostPlayerId);
+        Assert.Equal(5, hostSeatInGuestView.HandCount);
+
+        // Strict anti-cheat check: Host payload JSON has ZERO opponent card IDs, and vice-versa
+        var hostJson = JsonSerializer.Serialize(hostState);
+        foreach (var guestCardId in guestCardIds)
+        {
+            Assert.DoesNotContain(guestCardId.ToString(), hostJson);
+        }
+
+        var guestJson = JsonSerializer.Serialize(guestState);
+        foreach (var hostCardId in hostCardIds)
+        {
+            Assert.DoesNotContain(hostCardId.ToString(), guestJson);
+        }
+
+        // 7. Active player plays a card
+        var activePlayerConnection = hostState.CurrentTurnPlayerId == hostPlayerId ? hostConnection : guestConnection;
+        var waitingPlayerConnection = hostState.CurrentTurnPlayerId == hostPlayerId ? guestConnection : hostConnection;
+        var activeHand = hostState.CurrentTurnPlayerId == hostPlayerId ? hostState.MyHand : guestState.MyHand;
+        var activeTargetProtocol = Enum.Parse<CardProtocol>(hostState.CurrentTargetProtocol!);
+
+        var playedCardId = activeHand[0].Id;
+        var waitingReceivedPostPlayState = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        waitingPlayerConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.TablePileCount > 0)
+            {
+                waitingReceivedPostPlayState.TrySetResult(s);
+            }
+        });
+
+        var playResponse = await activePlayerConnection.InvokeAsync<HubResponse>(
+            "PlayCards",
+            new PlayCardsRequest(roomCode, [playedCardId], activeTargetProtocol));
+        Assert.True(playResponse.IsSuccess);
+
+        var postPlayWaitingState = await waitingReceivedPostPlayState.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(postPlayWaitingState);
+        Assert.Equal(1, postPlayWaitingState.TablePileCount);
+
+        // Strict anti-cheat check: The card played face-down is NOT leaked to waiting player
+        var postPlayJson = JsonSerializer.Serialize(postPlayWaitingState);
+        Assert.DoesNotContain(playedCardId.ToString(), postPlayJson);
+    }
 }
+

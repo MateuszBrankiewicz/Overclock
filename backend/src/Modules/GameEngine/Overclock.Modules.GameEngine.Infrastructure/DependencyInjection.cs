@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Overclock.Modules.GameEngine.Application.Ports;
+using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Rooms;
 using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Infrastructure.Rooms;
@@ -20,6 +21,7 @@ public static class DependencyInjection
                 sp.GetRequiredService<ITurnDelay>(),
                 sp.GetService<IGameNotifier>()));
         services.AddSingleton<IRandomSource>(CryptoRandomSource.Instance);
+        services.AddSingleton<IGameStateProjector, GameStateProjector>();
 
         return services;
     }
