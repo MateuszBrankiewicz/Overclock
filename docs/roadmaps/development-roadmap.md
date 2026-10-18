@@ -95,7 +95,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - Export inferred TypeScript types (`z.infer<typeof ...>`).
   - **Verification:** Vitest tests parsing JSON fixtures in `tests/contracts/signalr/`.
 
-- [ ] **`TASK-0.8` | SignalR Connection Manager**
+- [x] **`TASK-0.8` | SignalR Connection Manager**
   - **Location:** `frontend/src/shared/realtime/gameConnection.ts`
   - **Scope:**
     - Initialize `@microsoft/signalr` with `withAutomaticReconnect`.
