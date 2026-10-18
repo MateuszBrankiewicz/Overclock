@@ -309,6 +309,7 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(useGameStore.getState().tablePileCount).toBe(3);
       expect(useGameStore.getState().players.find((p) => p.playerId === myId)?.handCount).toBe(4);
       expect(useGameStore.getState().selectedCardIds).toEqual([]);
+      expect(useGameStore.getState().myCards).toEqual([{ id: 'c2', protocol: 'Alpha' }]);
     });
 
     it('handles TraceCalled event and transitions room state to BluffCheck', () => {

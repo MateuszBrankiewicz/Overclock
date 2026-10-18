@@ -23,6 +23,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       tablePileCount: 0,
       lastPlayedCards: null,
       lastTraceResolution: null,
+      lastTrace: null,
       remainingTimeSeconds: 15,
     }),
 
@@ -41,6 +42,9 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
               }
             : seat
         ),
+        myCards: isSelf
+          ? state.myCards.filter((card) => !state.selectedCardIds.includes(card.id))
+          : state.myCards,
         selectedCardIds: isSelf ? [] : state.selectedCardIds,
       };
     }),

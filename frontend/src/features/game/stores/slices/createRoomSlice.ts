@@ -37,6 +37,8 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       activePlayerId: snapshot.currentTurnPlayerId ?? null,
       roundNumber: snapshot.roundNumber,
       lastTraceResolution: snapshot.lastTraceResolution ?? null,
+      lastPlayedCards: null,
+      lastTrace: null,
     })),
 
   applyPlayerJoined: (event) =>
