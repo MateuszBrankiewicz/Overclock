@@ -3,6 +3,7 @@ using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Services;
+using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
 
@@ -14,7 +15,9 @@ public sealed record DisconnectPlayerCommand(string RoomCode, string ConnectionI
 internal sealed class DisconnectPlayerCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
-    IDisconnectGraceManager graceManager)
+    IDisconnectGraceManager graceManager,
+    ITurnTimerEngine turnTimer,
+    IGameStateProjector projector)
     : IRequestHandler<DisconnectPlayerCommand, Result>
 {
     private static readonly TimeSpan DefaultGracePeriod = TimeSpan.FromSeconds(30);
@@ -76,7 +79,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                         if (targetSeat is null || targetSeat.Status != PlayerStatus.Disconnected)
                         {
                             return Result<GracePeriodOutcome>.Success(
-                                new GracePeriodOutcome(GraceAction.None, activeRoom.Seats.ToList(), 0));
+                                new GracePeriodOutcome(GraceAction.None, [], 0));
                         }
 
                         if (activeRoom.State == RoomState.Lobby)
@@ -87,21 +90,31 @@ internal sealed class DisconnectPlayerCommandHandler(
                                 return removeResult.ToResult<GracePeriodOutcome>();
                             }
 
-                            var remainingSeats = activeRoom.Seats.ToList();
+                            var snapshots = projector.ProjectForActiveConnections(activeRoom);
                             return Result<GracePeriodOutcome>.Success(
-                                new GracePeriodOutcome(GraceAction.RemovedFromLobby, remainingSeats, remainingSeats.Count));
+                                new GracePeriodOutcome(GraceAction.RemovedFromLobby, snapshots, activeRoom.Seats.Count));
                         }
                         else
                         {
+                            var wasCurrentTurnPlayer = activeRoom.CurrentTurnPlayerId == info.PlayerId;
                             var eliminateResult = activeRoom.EliminatePlayer(info.PlayerId);
                             if (!eliminateResult.IsSuccess)
                             {
                                 return eliminateResult.ToResult<GracePeriodOutcome>();
                             }
 
-                            var remainingSeats = activeRoom.Seats.ToList();
+                            if (activeRoom.State == RoomState.GameOver)
+                            {
+                                turnTimer.Cancel(activeRoom.Id.Value);
+                            }
+                            else if (wasCurrentTurnPlayer && activeRoom.State == RoomState.TurnActive && activeRoom.CurrentTurnPlayerId is { } nextPlayerId)
+                            {
+                                turnTimer.Start(activeSession, nextPlayerId, activeRoom.TurnSequenceId);
+                            }
+
+                            var snapshots = projector.ProjectForActiveConnections(activeRoom);
                             return Result<GracePeriodOutcome>.Success(
-                                new GracePeriodOutcome(GraceAction.Eliminated, remainingSeats, remainingSeats.Count));
+                                new GracePeriodOutcome(GraceAction.Eliminated, snapshots, activeRoom.Seats.Count));
                         }
                     });
 
@@ -112,14 +125,13 @@ internal sealed class DisconnectPlayerCommandHandler(
                         {
                             if (outcomeData.RemainingPlayerCount == 0)
                             {
+                                turnTimer.Cancel(info.RoomCode);
                                 registry.Remove(info.RoomCode);
                             }
                             else
                             {
-                                await notifier.BroadcastGameStateAsync(
-                                    info.RoomCode,
-                                    id => GameStateProjector.Project(activeSession.Room, id),
-                                    outcomeData.Seats,
+                                await notifier.BroadcastSnapshotsAsync(
+                                    outcomeData.Snapshots,
                                     CancellationToken.None);
                             }
                         }
@@ -131,10 +143,8 @@ internal sealed class DisconnectPlayerCommandHandler(
                                 PlayerStatus.Eliminated,
                                 CancellationToken.None);
 
-                            await notifier.BroadcastGameStateAsync(
-                                info.RoomCode,
-                                id => GameStateProjector.Project(activeSession.Room, id),
-                                outcomeData.Seats,
+                            await notifier.BroadcastSnapshotsAsync(
+                                outcomeData.Snapshots,
                                 CancellationToken.None);
                         }
                     }
@@ -153,5 +163,8 @@ internal sealed class DisconnectPlayerCommandHandler(
 
     private sealed record DisconnectInfo(PlayerId PlayerId, Guid SessionToken, string RoomCode);
 
-    private sealed record GracePeriodOutcome(GraceAction Action, IReadOnlyList<PlayerSeat> Seats, int RemainingPlayerCount);
+    private sealed record GracePeriodOutcome(
+        GraceAction Action,
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots,
+        int RemainingPlayerCount);
 }

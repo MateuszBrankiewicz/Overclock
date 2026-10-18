@@ -8,9 +8,11 @@ public interface IGameClient
 
     Task PlayerJoined(PlayerSeatDto player);
 
-    Task PlayerStatusChanged(Guid playerId, string status);
+    Task PlayerStatusChanged(PlayerStatusChangedDto notification);
 
-    Task CardsPlayed(Guid playerId, int count, string declaredProtocol);
+    Task CardsPlayed(CardsPlayedDto notification);
 
     Task TraceCalled(TraceResolutionDto resolution);
+
+    Task RoundStarted(RoundStartedDto notification);
 }

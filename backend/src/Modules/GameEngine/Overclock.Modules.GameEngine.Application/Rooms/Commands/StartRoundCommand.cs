@@ -3,6 +3,7 @@ using Mediator;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Services;
+using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.SharedKernel;
 
@@ -15,6 +16,7 @@ internal sealed class StartRoundCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
     ITurnTimerEngine turnTimer,
+    IGameStateProjector projector,
     IRandomSource? randomSource = null)
     : IRequestHandler<StartRoundCommand, Result>
 {
@@ -30,12 +32,18 @@ internal sealed class StartRoundCommandHandler(
             var result = room.StartRound(new PlayerId(request.RequesterId), randomSource);
             if (!result.IsSuccess)
             {
-                return result.ToResult<IReadOnlyList<PlayerSeat>>();
+                return result.ToResult<StartRoundOutcome>();
             }
 
             turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
+            var snapshots = projector.ProjectForActiveConnections(room);
+            var roundStartedDto = new RoundStartedDto(
+                room.Id.Value,
+                room.RoundNumber,
+                room.CurrentTargetProtocol?.ToString() ?? "Alpha",
+                room.CurrentTurnPlayerId!.Value.Value);
 
-            return Result<IReadOnlyList<PlayerSeat>>.Success(room.Seats.ToList());
+            return Result<StartRoundOutcome>.Success(new StartRoundOutcome(snapshots, roundStartedDto));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -43,12 +51,19 @@ internal sealed class StartRoundCommandHandler(
             return outcome.ToResult();
         }
 
-        await notifier.BroadcastGameStateAsync(
+        await notifier.NotifyRoundStartedAsync(
             request.RoomCode,
-            id => GameStateProjector.Project(session.Room, id),
-            outcome.Value,
+            outcome.Value.RoundStarted,
+            CancellationToken.None);
+
+        await notifier.BroadcastSnapshotsAsync(
+            outcome.Value.Snapshots,
             CancellationToken.None);
 
         return Result.Success();
     }
+
+    private sealed record StartRoundOutcome(
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots,
+        RoundStartedDto RoundStarted);
 }

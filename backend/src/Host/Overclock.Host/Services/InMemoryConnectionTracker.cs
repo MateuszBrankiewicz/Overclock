@@ -8,6 +8,14 @@ public sealed class InMemoryConnectionTracker : IConnectionTracker
 
     public void Track(string connectionId, string roomCode, Guid playerId, Guid sessionToken)
     {
+        foreach (var kvp in _connections)
+        {
+            if (kvp.Value.SessionToken == sessionToken && kvp.Key != connectionId)
+            {
+                _connections.TryRemove(kvp.Key, out _);
+            }
+        }
+
         _connections[connectionId] = (roomCode, playerId, sessionToken);
     }
 

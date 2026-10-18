@@ -1,8 +1,11 @@
 using System.Collections.Concurrent;
+using Ardalis.Result;
 using Overclock.Modules.GameEngine.Application.Ports;
 using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Application.Rooms;
+using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Rooms;
+using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Services;
 
@@ -14,10 +17,11 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ITurnDelay _delay;
     private readonly IGameNotifier? _notifier;
+    private readonly IGameStateProjector? _projector;
     private readonly TimeSpan _turnDuration;
 
     public TurnTimerEngine(ITurnDelay delay, TimeSpan? turnDuration = null)
-        : this(delay, null, turnDuration)
+        : this(delay, null, null, turnDuration)
     {
     }
 
@@ -25,9 +29,19 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
         ITurnDelay delay,
         IGameNotifier? notifier,
         TimeSpan? turnDuration = null)
+        : this(delay, notifier, null, turnDuration)
+    {
+    }
+
+    public TurnTimerEngine(
+        ITurnDelay delay,
+        IGameNotifier? notifier,
+        IGameStateProjector? projector,
+        TimeSpan? turnDuration = null)
     {
         _delay = delay;
         _notifier = notifier;
+        _projector = projector;
         _turnDuration = turnDuration ?? DefaultTurnDuration;
     }
 
@@ -94,27 +108,37 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
             }
 
             var action = new TurnExpiredAction(entry.PlayerId, entry.TurnSequenceId);
-            var result = await entry.Session.EnqueueAsync(action.Execute, CancellationToken.None)
-                .ConfigureAwait(false);
+            var result = await entry.Session.EnqueueAsync(room =>
+            {
+                var actionResult = action.Execute(room);
+                if (!actionResult.IsSuccess)
+                {
+                    return actionResult.ToResult<(TurnExpired Outcome, IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots)>();
+                }
+
+                if (actionResult.Value.NextPlayerId is { } nextPlayerId &&
+                    room.State == RoomState.TurnActive)
+                {
+                    Start(entry.Session, nextPlayerId, room.TurnSequenceId);
+                }
+
+                var snapshots = _projector is not null
+                    ? _projector.ProjectForActiveConnections(room)
+                    : GameStateProjector.ProjectForActiveConnections(room);
+
+                return Result<(TurnExpired, IReadOnlyList<(string, PlayerGameStateDto)>)>.Success((actionResult.Value, snapshots));
+            }, CancellationToken.None).ConfigureAwait(false);
 
             if (result.IsSuccess)
             {
-                var outcome = result.Value;
-
-                if (outcome.NextPlayerId is { } nextPlayerId &&
-                    entry.Session.Room.State == RoomState.TurnActive)
-                {
-                    Start(entry.Session, nextPlayerId, entry.Session.Room.TurnSequenceId);
-                }
+                var (_, snapshots) = result.Value;
 
                 if (_notifier is not null)
                 {
                     try
                     {
-                        await _notifier.BroadcastGameStateAsync(
-                            roomCode,
-                            id => GameStateProjector.Project(entry.Session.Room, id),
-                            entry.Session.Room.Seats.ToList(),
+                        await _notifier.BroadcastSnapshotsAsync(
+                            snapshots,
                             CancellationToken.None).ConfigureAwait(false);
                     }
                     catch

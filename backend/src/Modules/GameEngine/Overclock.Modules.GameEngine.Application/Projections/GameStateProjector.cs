@@ -7,6 +7,25 @@ public sealed class GameStateProjector : IGameStateProjector
 {
     PlayerGameStateDto IGameStateProjector.Project(GameRoom room, PlayerId recipientId) => Project(room, recipientId);
 
+    IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> IGameStateProjector.ProjectForActiveConnections(GameRoom room) =>
+        ProjectForActiveConnections(room);
+
+    public static IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> ProjectForActiveConnections(GameRoom room)
+    {
+        ArgumentNullException.ThrowIfNull(room);
+
+        var list = new List<(string ConnectionId, PlayerGameStateDto Snapshot)>();
+        foreach (var seat in room.Seats)
+        {
+            if (seat.ConnectionId is not null && seat.Status != PlayerStatus.Disconnected)
+            {
+                list.Add((seat.ConnectionId, Project(room, seat.Id)));
+            }
+        }
+
+        return list;
+    }
+
     public static PlayerGameStateDto Project(GameRoom room, PlayerId recipientId)
     {
         ArgumentNullException.ThrowIfNull(room);

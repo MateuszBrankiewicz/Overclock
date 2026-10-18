@@ -367,5 +367,138 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
         var postPlayJson = JsonSerializer.Serialize(postPlayWaitingState);
         Assert.DoesNotContain(playedCardId.ToString(), postPlayJson);
     }
+
+    [Fact]
+    public async Task CallTrace_ResolvesBluffAndBroadcastsResolution()
+    {
+        var roomCode = $"CYBER-T{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+
+        var hostPlayerId = hostResponse.Data!.PlayerId;
+
+        var hostTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        hostConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                hostTcs.TrySetResult(s);
+            }
+        });
+
+        var guestTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                guestTcs.TrySetResult(s);
+            }
+        });
+
+        var roundStartedTcs = new TaskCompletionSource<RoundStartedDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        hostConnection.On<RoundStartedDto>("RoundStarted", r => roundStartedTcs.TrySetResult(r));
+
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResponse.IsSuccess);
+
+        var roundStartedEvent = await roundStartedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(roundStartedEvent);
+        Assert.Equal(roomCode, roundStartedEvent.RoomCode);
+        Assert.Equal(1, roundStartedEvent.RoundNumber);
+
+        var hostState = await hostTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var guestState = await guestTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var activeConnection = hostState.CurrentTurnPlayerId == hostPlayerId ? hostConnection : guestConnection;
+        var waitingConnection = hostState.CurrentTurnPlayerId == hostPlayerId ? guestConnection : hostConnection;
+        var activeHand = hostState.CurrentTurnPlayerId == hostPlayerId ? hostState.MyHand : guestState.MyHand;
+        var activeTargetProtocol = Enum.Parse<CardProtocol>(hostState.CurrentTargetProtocol!);
+
+        var cardsPlayedTcs = new TaskCompletionSource<CardsPlayedDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        waitingConnection.On<CardsPlayedDto>("CardsPlayed", cp => cardsPlayedTcs.TrySetResult(cp));
+
+        var playResponse = await activeConnection.InvokeAsync<HubResponse>(
+            "PlayCards",
+            new PlayCardsRequest(roomCode, [activeHand[0].Id], activeTargetProtocol));
+        Assert.True(playResponse.IsSuccess);
+
+        var cardsPlayedEvent = await cardsPlayedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(cardsPlayedEvent);
+        Assert.Equal(1, cardsPlayedEvent.CardCount);
+        Assert.Equal(activeTargetProtocol.ToString(), cardsPlayedEvent.DeclaredProtocol);
+
+        var traceBroadcastTcs = new TaskCompletionSource<TraceResolutionDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        activeConnection.On<TraceResolutionDto>("TraceCalled", res => traceBroadcastTcs.TrySetResult(res));
+
+        var traceResponse = await waitingConnection.InvokeAsync<HubResponse<TraceResolutionDto>>(
+            "CallTrace",
+            new CallTraceRequest(roomCode));
+
+        Assert.NotNull(traceResponse);
+        Assert.True(traceResponse.IsSuccess, traceResponse.Error);
+        Assert.NotNull(traceResponse.Data);
+        Assert.NotEmpty(traceResponse.Data.RevealedCards);
+
+        var broadcastRes = await traceBroadcastTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(broadcastRes);
+        Assert.Equal(traceResponse.Data.LoserPlayerId, broadcastRes.LoserPlayerId);
+    }
+
+    [Fact]
+    public async Task Reconnect_PushesSnapshotViaReceiveGameState()
+    {
+        var roomCode = $"CYBER-P{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+
+        var guestSessionToken = guestResponse.Data!.SessionToken;
+        await guestConnection.StopAsync();
+        await guestConnection.DisposeAsync();
+        await Task.Delay(100);
+
+        await using var reconnectedConnection = CreateHubConnection();
+        var snapshotTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        reconnectedConnection.On<PlayerGameStateDto>("ReceiveGameState", s => snapshotTcs.TrySetResult(s));
+
+        await reconnectedConnection.StartAsync();
+        var reconnectResponse = await reconnectedConnection.InvokeAsync<HubResponse<PlayerGameStateDto>>(
+            "Reconnect",
+            new ReconnectRequest(roomCode, guestSessionToken));
+
+        Assert.True(reconnectResponse.IsSuccess);
+        var pushedSnapshot = await snapshotTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(pushedSnapshot);
+        Assert.Equal(roomCode, pushedSnapshot.RoomCode);
+    }
 }
 

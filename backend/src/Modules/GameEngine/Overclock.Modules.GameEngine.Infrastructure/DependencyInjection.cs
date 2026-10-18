@@ -16,12 +16,13 @@ public static class DependencyInjection
         services.AddSingleton<IGameRoomRegistry>(sp => sp.GetRequiredService<InMemoryGameRoomRegistry>());
         services.AddSingleton<IDisconnectGraceManager, DisconnectGraceManager>();
         services.AddSingleton<ITurnDelay, TaskTurnDelay>();
+        services.AddSingleton<IGameStateProjector, GameStateProjector>();
         services.AddSingleton<ITurnTimerEngine>(sp =>
             new TurnTimerEngine(
                 sp.GetRequiredService<ITurnDelay>(),
-                sp.GetService<IGameNotifier>()));
+                sp.GetService<IGameNotifier>(),
+                sp.GetService<IGameStateProjector>()));
         services.AddSingleton<IRandomSource>(CryptoRandomSource.Instance);
-        services.AddSingleton<IGameStateProjector, GameStateProjector>();
 
         return services;
     }

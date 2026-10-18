@@ -1,0 +1,46 @@
+{
+  "roomCode": "CYBER-7X9",
+  "state": "TurnActive",
+  "hostId": "a0000000-0000-4000-8000-000000000001",
+  "myPlayerId": "a0000000-0000-4000-8000-000000000001",
+  "myHand": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "protocol": "Alpha"
+    }
+  ],
+  "seats": [
+    {
+      "playerId": "a0000000-0000-4000-8000-000000000001",
+      "nickname": "AliceHost",
+      "status": "Active",
+      "isReady": true,
+      "handCount": 5
+    },
+    {
+      "playerId": "a0000000-0000-4000-8000-000000000002",
+      "nickname": "BobGuest",
+      "status": "Active",
+      "isReady": true,
+      "handCount": 5
+    }
+  ],
+  "tablePileCount": 2,
+  "currentTargetProtocol": "Alpha",
+  "currentTurnPlayerId": "a0000000-0000-4000-8000-000000000001",
+  "roundNumber": 1,
+  "lastTraceResolution": {
+    "accuserPlayerId": "a0000000-0000-4000-8000-000000000001",
+    "accusedPlayerId": "a0000000-0000-4000-8000-000000000002",
+    "loserPlayerId": "a0000000-0000-4000-8000-000000000002",
+    "revealedCards": [
+      {
+        "id": "a0000000-0000-4000-8000-000000000003",
+        "protocol": "Alpha"
+      }
+    ],
+    "declaredProtocol": "Alpha",
+    "bluffDetected": true
+  },
+  "winnerId": null
+}

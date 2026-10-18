@@ -11,7 +11,10 @@ namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 public sealed record JoinRoomCommand(string RoomCode, string Nickname, string ConnectionId)
     : IRequest<Result<RoomJoinResultDto>>;
 
-internal sealed class JoinRoomCommandHandler(IGameRoomRegistry registry, IGameNotifier notifier)
+internal sealed class JoinRoomCommandHandler(
+    IGameRoomRegistry registry,
+    IGameNotifier notifier,
+    IGameStateProjector projector)
     : IRequestHandler<JoinRoomCommand, Result<RoomJoinResultDto>>
 {
     public async ValueTask<Result<RoomJoinResultDto>> Handle(JoinRoomCommand request, CancellationToken ct)
@@ -34,7 +37,7 @@ internal sealed class JoinRoomCommandHandler(IGameRoomRegistry registry, IGameNo
 
             var seat = addResult.Value;
             var seatDto = new PlayerSeatDto(seat.Id.Value, seat.Nickname, seat.Status.ToString(), seat.IsReady, seat.Hand.Count);
-            var gameState = GameStateProjector.Project(room, playerId);
+            var gameState = projector.Project(room, playerId);
 
             var joinResultDto = new RoomJoinResultDto(
                 room.Id.Value,

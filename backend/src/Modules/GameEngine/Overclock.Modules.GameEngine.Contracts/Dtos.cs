@@ -36,3 +36,18 @@ public sealed record RoomJoinResultDto(
     Guid PlayerId,
     Guid SessionToken,
     PlayerGameStateDto GameState);
+
+public sealed record CardsPlayedDto(
+    Guid PlayerId,
+    int CardCount,
+    string DeclaredProtocol);
+
+public sealed record PlayerStatusChangedDto(
+    Guid PlayerId,
+    string Status);
+
+public sealed record RoundStartedDto(
+    string RoomCode,
+    int RoundNumber,
+    string LeadProtocol,
+    Guid ActivePlayerId);

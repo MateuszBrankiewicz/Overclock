@@ -14,11 +14,11 @@ public interface IGameNotifier
 
     Task NotifyTraceCalledAsync(string roomCode, TraceResolutionDto resolution, CancellationToken ct = default);
 
+    Task NotifyRoundStartedAsync(string roomCode, RoundStartedDto notification, CancellationToken ct = default);
+
     Task SendPlayerSnapshotAsync(string connectionId, PlayerGameStateDto snapshot, CancellationToken ct = default);
 
-    Task BroadcastGameStateAsync(
-        string roomCode,
-        Func<PlayerId, PlayerGameStateDto> snapshotFactory,
-        IReadOnlyList<PlayerSeat> seats,
+    Task BroadcastSnapshotsAsync(
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> snapshots,
         CancellationToken ct = default);
 }

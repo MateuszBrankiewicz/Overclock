@@ -16,12 +16,12 @@ public sealed class SignalRGameNotifier(IHubContext<GameHub, IGameClient> hubCon
 
     public Task NotifyPlayerStatusChangedAsync(string roomCode, Guid playerId, PlayerStatus status, CancellationToken ct = default)
     {
-        return hubContext.Clients.Group(roomCode).PlayerStatusChanged(playerId, status.ToString());
+        return hubContext.Clients.Group(roomCode).PlayerStatusChanged(new PlayerStatusChangedDto(playerId, status.ToString()));
     }
 
     public Task NotifyCardsPlayedAsync(string roomCode, Guid playerId, int cardCount, CardProtocol declaredProtocol, CancellationToken ct = default)
     {
-        return hubContext.Clients.Group(roomCode).CardsPlayed(playerId, cardCount, declaredProtocol.ToString());
+        return hubContext.Clients.Group(roomCode).CardsPlayed(new CardsPlayedDto(playerId, cardCount, declaredProtocol.ToString()));
     }
 
     public Task NotifyTraceCalledAsync(string roomCode, TraceResolutionDto resolution, CancellationToken ct = default)
@@ -29,24 +29,23 @@ public sealed class SignalRGameNotifier(IHubContext<GameHub, IGameClient> hubCon
         return hubContext.Clients.Group(roomCode).TraceCalled(resolution);
     }
 
+    public Task NotifyRoundStartedAsync(string roomCode, RoundStartedDto notification, CancellationToken ct = default)
+    {
+        return hubContext.Clients.Group(roomCode).RoundStarted(notification);
+    }
+
     public Task SendPlayerSnapshotAsync(string connectionId, PlayerGameStateDto snapshot, CancellationToken ct = default)
     {
         return hubContext.Clients.Client(connectionId).ReceiveGameState(snapshot);
     }
 
-    public async Task BroadcastGameStateAsync(
-        string roomCode,
-        Func<PlayerId, PlayerGameStateDto> snapshotFactory,
-        IReadOnlyList<PlayerSeat> seats,
+    public async Task BroadcastSnapshotsAsync(
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> snapshots,
         CancellationToken ct = default)
     {
-        foreach (var seat in seats)
+        foreach (var (connectionId, snapshot) in snapshots)
         {
-            if (seat.ConnectionId is not null && seat.Status != PlayerStatus.Disconnected)
-            {
-                var snapshot = snapshotFactory(seat.Id);
-                await hubContext.Clients.Client(seat.ConnectionId).ReceiveGameState(snapshot);
-            }
+            await hubContext.Clients.Client(connectionId).ReceiveGameState(snapshot);
         }
     }
 }
