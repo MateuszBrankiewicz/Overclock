@@ -103,7 +103,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - Validate every incoming payload via `safeParse` — reject malformed packets and log contract errors.
   - **Verification:** Vitest test: malformed JSON does not crash client and is safely rejected by Zod.
 
-- [ ] **`TASK-0.9` | Ephemeral Game Store (Zustand)**
+- [x] **`TASK-0.9` | Ephemeral Game Store (Zustand)**
   - **Location:** `frontend/src/features/game/stores/useGameStore.ts`
   - **Scope:**
     - Slices: `roomSlice` (room status, players), `handSlice` (my cards, selection), `turnSlice` (active player, remaining time).
