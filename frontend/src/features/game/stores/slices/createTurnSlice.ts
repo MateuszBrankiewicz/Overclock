@@ -21,6 +21,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       currentTargetProtocol: event.leadProtocol ?? null,
       activePlayerId: event.activePlayerId ?? null,
       tablePileCount: 0,
+      selectedCardIds: [],
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,
@@ -30,6 +31,8 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
   applyCardsPlayed: (event) =>
     set((state) => {
       const isSelf = state.playerId === event.playerId;
+      const canPruneSelectedCards = isSelf && state.selectedCardIds.length === event.cardCount;
+
       return {
         currentTargetProtocol: state.currentTargetProtocol ?? event.declaredProtocol,
         tablePileCount: state.tablePileCount + event.cardCount,
@@ -42,7 +45,9 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
               }
             : seat
         ),
-        myCards: isSelf
+        // Optimistically prune played cards if selected card count matches the event payload.
+        // Full hand state is authoritatively synced via applyRoomSnapshot.
+        myCards: canPruneSelectedCards
           ? state.myCards.filter((card) => !state.selectedCardIds.includes(card.id))
           : state.myCards,
         selectedCardIds: isSelf ? [] : state.selectedCardIds,
@@ -50,11 +55,11 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
     }),
 
   applyTraceResolution: (resolution) =>
-    set({
+    set((state) => ({
       lastTraceResolution: resolution,
       tablePileCount: 0,
-      roomState: 'RoundOver',
-    }),
+      roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
+    })),
 
   setTurnStarted: (event) => {
     let diffSeconds = 15;

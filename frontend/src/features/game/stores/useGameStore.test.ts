@@ -243,7 +243,11 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(useGameStore.getState().currentTargetProtocol).toBe('Beta');
     });
 
-    it('handles RoundStarted event and resets round state', () => {
+    it('handles RoundStarted event and resets round state and card selection', () => {
+      useGameStore.getState().setMyCards([{ id: 'c1', protocol: 'Alpha' }]);
+      useGameStore.getState().selectCard('c1');
+      expect(useGameStore.getState().selectedCardIds).toEqual(['c1']);
+
       useGameStore.getState().applyRoundStarted({
         type: 'RoundStarted',
         roomCode: 'CYBER-7X9',
@@ -259,6 +263,8 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(state.activePlayerId).toBe('33333333-3333-4333-8333-333333333333');
       expect(state.tablePileCount).toBe(0);
       expect(state.remainingTimeSeconds).toBe(15);
+      expect(state.selectedCardIds).toEqual([]);
+      expect(state.lastTrace).toBeNull();
     });
 
     it('handles CardsPlayed event and updates pile, seat counts, and selection', () => {
@@ -299,7 +305,7 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       // Alice's selection not cleared when Bob plays
       expect(useGameStore.getState().selectedCardIds).toEqual(['c1']);
 
-      // Local player plays 1 card -> clears selection
+      // Local player plays 1 card -> clears selection and prunes myCards
       useGameStore.getState().applyCardsPlayed({
         playerId: myId,
         cardCount: 1,
@@ -310,6 +316,27 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(useGameStore.getState().players.find((p) => p.playerId === myId)?.handCount).toBe(4);
       expect(useGameStore.getState().selectedCardIds).toEqual([]);
       expect(useGameStore.getState().myCards).toEqual([{ id: 'c2', protocol: 'Alpha' }]);
+    });
+
+    it('safely retains myCards when selectedCardIds count does not match cardCount in CardsPlayed', () => {
+      const myId = '11111111-1111-4111-8111-111111111111';
+      useGameStore.getState().setRoom('CYBER-7X9', myId);
+      useGameStore.getState().setMyCards([
+        { id: 'c1', protocol: 'Alpha' },
+        { id: 'c2', protocol: 'Alpha' },
+      ]);
+      // Selection cleared before network event arrived
+      useGameStore.getState().clearSelection();
+
+      useGameStore.getState().applyCardsPlayed({
+        playerId: myId,
+        cardCount: 2,
+        declaredProtocol: 'Alpha',
+      });
+
+      // Does not prune cards randomly; preserves hand for authoritative snapshot
+      expect(useGameStore.getState().myCards).toHaveLength(2);
+      expect(useGameStore.getState().selectedCardIds).toEqual([]);
     });
 
     it('handles TraceCalled event and transitions room state to BluffCheck', () => {
@@ -327,7 +354,7 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(state.roomState).toBe('BluffCheck');
     });
 
-    it('handles TraceResolution event and transitions room state', () => {
+    it('handles TraceResolution event and transitions room state respecting GameOver', () => {
       const resolution: TraceResolution = {
         accuserPlayerId: '11111111-1111-4111-8111-111111111111',
         accusedPlayerId: '22222222-2222-4222-8222-222222222222',
@@ -338,11 +365,17 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       };
 
       useGameStore.getState().applyTraceResolution(resolution);
-      const state = useGameStore.getState();
+      let state = useGameStore.getState();
 
       expect(state.lastTraceResolution).toEqual(resolution);
       expect(state.tablePileCount).toBe(0);
       expect(state.roomState).toBe('RoundOver');
+
+      // If room is already in GameOver, applyTraceResolution should not downgrade to RoundOver
+      useGameStore.setState({ roomState: 'GameOver' });
+      useGameStore.getState().applyTraceResolution(resolution);
+      state = useGameStore.getState();
+      expect(state.roomState).toBe('GameOver');
     });
 
     it('calculates remaining seconds accurately without resetting to 15s when deadline is in the past', () => {
