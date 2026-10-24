@@ -41,6 +41,8 @@ internal sealed class PlayCardsCommandHandler(
                 return result.ToResult<PlayCardsOutcome>();
             }
 
+            var sequenceNumber = room.NextEventSequence();
+
             if (room.State == RoomState.TurnActive && room.CurrentTurnPlayerId is { } nextPlayerId)
             {
                 turnTimer.Start(session, nextPlayerId, room.TurnSequenceId);
@@ -51,7 +53,7 @@ internal sealed class PlayCardsCommandHandler(
             }
 
             var snapshots = projector.ProjectForActiveConnections(room);
-            return Result<PlayCardsOutcome>.Success(new PlayCardsOutcome(snapshots));
+            return Result<PlayCardsOutcome>.Success(new PlayCardsOutcome(snapshots, sequenceNumber));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -64,6 +66,7 @@ internal sealed class PlayCardsCommandHandler(
             request.PlayerId,
             request.CardIds.Count,
             request.DeclaredProtocol,
+            outcome.Value.SequenceNumber,
             CancellationToken.None);
 
         await notifier.BroadcastSnapshotsAsync(
@@ -73,5 +76,7 @@ internal sealed class PlayCardsCommandHandler(
         return Result.Success();
     }
 
-    private sealed record PlayCardsOutcome(IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots);
+    private sealed record PlayCardsOutcome(
+        IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots,
+        long SequenceNumber);
 }

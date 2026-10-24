@@ -47,7 +47,8 @@ internal sealed class DisconnectPlayerCommandHandler(
                 return result.ToResult<DisconnectInfo>();
             }
 
-            return Result<DisconnectInfo>.Success(new DisconnectInfo(playerId, sessionToken, roomCode));
+            var sequenceNumber = room.NextEventSequence();
+            return Result<DisconnectInfo>.Success(new DisconnectInfo(playerId, sessionToken, roomCode, sequenceNumber));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -61,6 +62,7 @@ internal sealed class DisconnectPlayerCommandHandler(
             info.RoomCode,
             info.PlayerId.Value,
             PlayerStatus.Disconnected,
+            info.SequenceNumber,
             CancellationToken.None);
 
         // Start 30s grace timer before automatic removal or elimination
@@ -113,8 +115,9 @@ internal sealed class DisconnectPlayerCommandHandler(
                             }
 
                             var snapshots = projector.ProjectForActiveConnections(activeRoom);
+                            var sequenceNumber = activeRoom.NextEventSequence();
                             return Result<GracePeriodOutcome>.Success(
-                                new GracePeriodOutcome(GraceAction.Eliminated, snapshots, activeRoom.Seats.Count));
+                                new GracePeriodOutcome(GraceAction.Eliminated, snapshots, activeRoom.Seats.Count, sequenceNumber));
                         }
                     });
 
@@ -141,6 +144,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                                 info.RoomCode,
                                 info.PlayerId.Value,
                                 PlayerStatus.Eliminated,
+                                outcomeData.SequenceNumber,
                                 CancellationToken.None);
 
                             await notifier.BroadcastSnapshotsAsync(
@@ -161,10 +165,11 @@ internal sealed class DisconnectPlayerCommandHandler(
         Eliminated
     }
 
-    private sealed record DisconnectInfo(PlayerId PlayerId, Guid SessionToken, string RoomCode);
+    private sealed record DisconnectInfo(PlayerId PlayerId, Guid SessionToken, string RoomCode, long SequenceNumber);
 
     private sealed record GracePeriodOutcome(
         GraceAction Action,
         IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots,
-        int RemainingPlayerCount);
+        int RemainingPlayerCount,
+        long SequenceNumber = 1);
 }

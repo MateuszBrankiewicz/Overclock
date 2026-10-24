@@ -16,17 +16,20 @@ public sealed record TraceCalledEvent(
     Guid CallerId,
     Guid AccusedPlayerId,
     IReadOnlyList<CardDto> RevealedCards,
-    bool BluffDetected);
+    bool BluffDetected,
+    long SequenceNumber = 1);
 
 public sealed record TurnStartedEvent(
     string Type,
     string RoomCode,
     Guid ActivePlayerId,
     DateTime TurnDeadlineUtc,
-    int CurrentVoltage);
+    int CurrentVoltage,
+    long SequenceNumber = 1);
 
 public sealed record VoltageOverloadedEvent(
     string Type,
     string RoomCode,
     Guid EliminatedPlayerId,
-    int FinalVoltage);
+    int FinalVoltage,
+    long SequenceNumber = 1);

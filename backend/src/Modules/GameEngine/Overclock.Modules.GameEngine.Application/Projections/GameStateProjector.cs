@@ -32,7 +32,7 @@ public sealed class GameStateProjector : IGameStateProjector
 
         var recipientSeat = room.Seats.FirstOrDefault(s => s.Id == recipientId);
         var myHand = recipientSeat?.Hand
-            .Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString()))
+            .Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString(), VisualSeedGenerator.FromCardId(c.Id.Value)))
             .ToList() ?? [];
 
         var seats = room.Seats
@@ -52,9 +52,10 @@ public sealed class GameStateProjector : IGameStateProjector
                 res.AccuserPlayerId.Value,
                 res.AccusedPlayerId.Value,
                 res.LoserPlayerId.Value,
-                res.RevealedCards.Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString())).ToList(),
+                res.RevealedCards.Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString(), VisualSeedGenerator.FromCardId(c.Id.Value))).ToList(),
                 res.DeclaredProtocol.ToString(),
-                res.BluffDetected);
+                res.BluffDetected,
+                room.EventSequenceNumber);
         }
 
         return new PlayerGameStateDto(
@@ -69,6 +70,7 @@ public sealed class GameStateProjector : IGameStateProjector
             room.CurrentTurnPlayerId?.Value,
             room.RoundNumber,
             traceResolutionDto,
-            room.WinnerId?.Value);
+            room.WinnerId?.Value,
+            room.EventSequenceNumber);
     }
 }

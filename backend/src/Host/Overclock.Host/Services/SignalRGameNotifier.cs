@@ -14,14 +14,14 @@ public sealed class SignalRGameNotifier(IHubContext<GameHub, IGameClient> hubCon
         return hubContext.Clients.Group(roomCode).PlayerJoined(player);
     }
 
-    public Task NotifyPlayerStatusChangedAsync(string roomCode, Guid playerId, PlayerStatus status, CancellationToken ct = default)
+    public Task NotifyPlayerStatusChangedAsync(string roomCode, Guid playerId, PlayerStatus status, long sequenceNumber = 1, CancellationToken ct = default)
     {
-        return hubContext.Clients.Group(roomCode).PlayerStatusChanged(new PlayerStatusChangedDto(playerId, status.ToString()));
+        return hubContext.Clients.Group(roomCode).PlayerStatusChanged(new PlayerStatusChangedDto(playerId, status.ToString(), sequenceNumber));
     }
 
-    public Task NotifyCardsPlayedAsync(string roomCode, Guid playerId, int cardCount, CardProtocol declaredProtocol, CancellationToken ct = default)
+    public Task NotifyCardsPlayedAsync(string roomCode, Guid playerId, int cardCount, CardProtocol declaredProtocol, long sequenceNumber = 1, CancellationToken ct = default)
     {
-        return hubContext.Clients.Group(roomCode).CardsPlayed(new CardsPlayedDto(playerId, cardCount, declaredProtocol.ToString()));
+        return hubContext.Clients.Group(roomCode).CardsPlayed(new CardsPlayedDto(playerId, cardCount, declaredProtocol.ToString(), sequenceNumber));
     }
 
     public Task NotifyTraceCalledAsync(string roomCode, TraceResolutionDto resolution, CancellationToken ct = default)

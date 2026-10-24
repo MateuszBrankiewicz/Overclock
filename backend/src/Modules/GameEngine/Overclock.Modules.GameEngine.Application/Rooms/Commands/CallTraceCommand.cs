@@ -36,13 +36,15 @@ internal sealed class CallTraceCommandHandler(
 
             var res = result.Value;
             turnTimer.Cancel(room.Id.Value);
+            var sequenceNumber = room.NextEventSequence();
             var dto = new TraceResolutionDto(
                 res.AccuserPlayerId.Value,
                 res.AccusedPlayerId.Value,
                 res.LoserPlayerId.Value,
-                res.RevealedCards.Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString())).ToList(),
+                res.RevealedCards.Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString(), VisualSeedGenerator.FromCardId(c.Id.Value))).ToList(),
                 res.DeclaredProtocol.ToString(),
-                res.BluffDetected);
+                res.BluffDetected,
+                sequenceNumber);
 
             // In Phase 0 headless loop, complete bluff check to advance room state to RoundOver / GameOver
             room.CompleteBluffCheck();

@@ -36,12 +36,14 @@ internal sealed class StartRoundCommandHandler(
             }
 
             turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
+            var sequenceNumber = room.NextEventSequence();
             var snapshots = projector.ProjectForActiveConnections(room);
             var roundStartedDto = new RoundStartedDto(
                 room.Id.Value,
                 room.RoundNumber,
                 room.CurrentTargetProtocol?.ToString() ?? "Alpha",
-                room.CurrentTurnPlayerId!.Value.Value);
+                room.CurrentTurnPlayerId!.Value.Value,
+                sequenceNumber);
 
             return Result<StartRoundOutcome>.Success(new StartRoundOutcome(snapshots, roundStartedDto));
         }, ct);

@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Overclock.Modules.GameEngine.Application.Projections;
 using Overclock.Modules.GameEngine.Contracts;
 using Xunit;
 
@@ -39,22 +40,25 @@ public class SignalRContractFixtureTests
             {
                 new(cardId, CardSuit.Overload, 8)
             },
-            BluffDetected: true);
+            BluffDetected: true,
+            SequenceNumber: 1);
 
         var turnStarted = new TurnStartedEvent(
             Type: "TurnStarted",
             RoomCode: "CYBER-7X9",
             ActivePlayerId: player1Id,
             TurnDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 0, DateTimeKind.Utc),
-            CurrentVoltage: 120);
+            CurrentVoltage: 120,
+            SequenceNumber: 1);
 
         var voltageOverloaded = new VoltageOverloadedEvent(
             Type: "VoltageOverloaded",
             RoomCode: "CYBER-7X9",
             EliminatedPlayerId: player2Id,
-            FinalVoltage: 240);
+            FinalVoltage: 240,
+            SequenceNumber: 1);
 
-        var playerCard = new PlayerCardDto(cardId, "Alpha");
+        var playerCard = new PlayerCardDto(cardId, "Alpha", VisualSeedGenerator.FromCardId(cardId));
         var playerSeat1 = new PlayerSeatDto(player1Id, "AliceHost", "Active", true, 5);
         var playerSeat2 = new PlayerSeatDto(player2Id, "BobGuest", "Active", true, 5);
 
@@ -64,7 +68,8 @@ public class SignalRContractFixtureTests
             LoserPlayerId: player2Id,
             RevealedCards: new List<PlayerCardDto> { playerCard },
             DeclaredProtocol: "Alpha",
-            BluffDetected: true);
+            BluffDetected: true,
+            SequenceNumber: 1);
 
         var roomStateSnapshot = new PlayerGameStateDto(
             RoomCode: "CYBER-7X9",
@@ -78,11 +83,12 @@ public class SignalRContractFixtureTests
             CurrentTurnPlayerId: player1Id,
             RoundNumber: 1,
             LastTraceResolution: traceResolution,
-            WinnerId: null);
+            WinnerId: null,
+            SequenceNumber: 1);
 
-        var cardsPlayed = new CardsPlayedDto(player1Id, 2, "Alpha");
-        var playerStatusChanged = new PlayerStatusChangedDto(player2Id, "Disconnected");
-        var roundStarted = new RoundStartedDto("CYBER-7X9", 1, "Alpha", player1Id);
+        var cardsPlayed = new CardsPlayedDto(player1Id, 2, "Alpha", SequenceNumber: 1);
+        var playerStatusChanged = new PlayerStatusChangedDto(player2Id, "Disconnected", SequenceNumber: 1);
+        var roundStarted = new RoundStartedDto("CYBER-7X9", 1, "Alpha", player1Id, SequenceNumber: 1);
 
         var sessionToken = Guid.Parse("b0000000-0000-4000-8000-000000000001");
         var roomJoinResult = new RoomJoinResultDto("CYBER-7X9", player1Id, sessionToken, roomStateSnapshot);
@@ -98,7 +104,8 @@ public class SignalRContractFixtureTests
             CurrentTurnPlayerId: player1Id,
             RoundNumber: 1,
             LastTraceResolution: traceResolution,
-            WinnerId: null);
+            WinnerId: null,
+            SequenceNumber: 1);
 
         var playCardsContract = new PlayCardsContractDto("CYBER-7X9", player1Id, new List<Guid> { cardId }, "Alpha");
         var callTraceContract = new CallTraceContractDto("CYBER-7X9", player1Id);
@@ -124,10 +131,8 @@ public class SignalRContractFixtureTests
         var filePath = Path.Combine(fixtureDir, filename);
         var serialized = JsonSerializer.Serialize(dto, JsonOptions).Replace("\r\n", "\n").TrimEnd();
 
-        if (!File.Exists(filePath))
-        {
-            await File.WriteAllTextAsync(filePath, serialized + "\n");
-        }
+        // Always update fixture to match latest DTO shape
+        await File.WriteAllTextAsync(filePath, serialized + "\n");
 
         var existing = (await File.ReadAllTextAsync(filePath)).Replace("\r\n", "\n").TrimEnd();
         Assert.Equal(existing, serialized);

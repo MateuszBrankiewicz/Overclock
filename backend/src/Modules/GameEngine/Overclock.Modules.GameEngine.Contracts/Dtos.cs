@@ -1,6 +1,6 @@
 namespace Overclock.Modules.GameEngine.Contracts;
 
-public sealed record PlayerCardDto(Guid Id, string Protocol);
+public sealed record PlayerCardDto(Guid Id, string Protocol, int VisualSeed = 0);
 
 public sealed record PlayerSeatDto(
     Guid PlayerId,
@@ -15,7 +15,8 @@ public sealed record TraceResolutionDto(
     Guid LoserPlayerId,
     IReadOnlyList<PlayerCardDto> RevealedCards,
     string DeclaredProtocol,
-    bool BluffDetected);
+    bool BluffDetected,
+    long SequenceNumber = 1);
 
 public sealed record PlayerGameStateDto(
     string RoomCode,
@@ -29,7 +30,8 @@ public sealed record PlayerGameStateDto(
     Guid? CurrentTurnPlayerId,
     int RoundNumber,
     TraceResolutionDto? LastTraceResolution,
-    Guid? WinnerId);
+    Guid? WinnerId,
+    long SequenceNumber = 1);
 
 public sealed record RoomJoinResultDto(
     string RoomCode,
@@ -40,17 +42,20 @@ public sealed record RoomJoinResultDto(
 public sealed record CardsPlayedDto(
     Guid PlayerId,
     int CardCount,
-    string DeclaredProtocol);
+    string DeclaredProtocol,
+    long SequenceNumber = 1);
 
 public sealed record PlayerStatusChangedDto(
     Guid PlayerId,
-    string Status);
+    string Status,
+    long SequenceNumber = 1);
 
 public sealed record RoundStartedDto(
     string RoomCode,
     int RoundNumber,
     string LeadProtocol,
-    Guid ActivePlayerId);
+    Guid ActivePlayerId,
+    long SequenceNumber = 1);
 
 public sealed record GameStateSnapshotDto(
     string RoomCode,
@@ -64,7 +69,8 @@ public sealed record GameStateSnapshotDto(
     Guid? CurrentTurnPlayerId,
     int RoundNumber,
     TraceResolutionDto? LastTraceResolution,
-    Guid? WinnerId);
+    Guid? WinnerId,
+    long SequenceNumber = 1);
 
 public sealed record PlayCardsContractDto(
     string RoomCode,

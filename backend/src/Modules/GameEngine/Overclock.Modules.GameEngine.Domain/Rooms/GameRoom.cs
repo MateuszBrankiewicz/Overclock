@@ -28,6 +28,10 @@ public sealed class GameRoom
     public PlayedTurn? LastPlay { get; private set; }
     public TraceResolution? LastTraceResolution { get; private set; }
     public int RoundNumber { get; private set; }
+    public long EventSequenceNumber => _eventSequenceNumberInternal;
+
+    public long NextEventSequence() => Interlocked.Increment(ref _eventSequenceNumberInternal);
+    private long _eventSequenceNumberInternal = 1;
 
     public PlayerId? WinnerId => State == RoomState.GameOver
         ? _seats.FirstOrDefault(s => s.Status != PlayerStatus.Eliminated)?.Id
@@ -154,7 +158,7 @@ public sealed class GameRoom
 
     public Result StartRound(PlayerId requesterId, IRandomSource? randomSource = null)
     {
-        if (State != RoomState.Lobby && State != RoomState.RoundOver)
+        if (State != RoomState.Lobby && State != RoomState.RoundOver && State != RoomState.GameOver)
         {
             return Result.Conflict("Room.CannotStartRound", $"Cannot start a round in state '{State}'.");
         }
@@ -164,6 +168,18 @@ public sealed class GameRoom
             return Result.Invalid(new ValidationError(
                 "Room.OnlyHostCanStart",
                 $"Only the room host '{HostId}' can start the round."));
+        }
+
+        if (State == RoomState.GameOver)
+        {
+            // Reset eliminated players back to Active for Rematch / Play Again
+            foreach (var seat in _seats)
+            {
+                if (seat.Status == PlayerStatus.Eliminated)
+                {
+                    seat.Reconnect(seat.ConnectionId ?? string.Empty);
+                }
+            }
         }
 
         var activePlayers = _seats.Where(s => s.Status != PlayerStatus.Eliminated).ToList();

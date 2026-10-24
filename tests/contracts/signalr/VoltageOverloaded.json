@@ -2,5 +2,6 @@
   "type": "VoltageOverloaded",
   "roomCode": "CYBER-7X9",
   "eliminatedPlayerId": "a0000000-0000-4000-8000-000000000002",
-  "finalVoltage": 240
+  "finalVoltage": 240,
+  "sequenceNumber": 1
 }

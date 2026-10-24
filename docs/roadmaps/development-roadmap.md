@@ -153,7 +153,7 @@ A fully responsive 2D/2.5D operating table featuring a diegetic Printed Circuit 
 ### Task Breakdown
 
 #### [Backend .NET]
-- [ ] **`TASK-1.1` | Deterministic Visual Card Seed**
+- [x] **`TASK-1.1` | Deterministic Visual Card Seed**
   - **Location:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Application/`
   - **Scope:**
     - Compute `VisualSeed` (int) for each card based on `CardId` hash.
@@ -161,7 +161,7 @@ A fully responsive 2D/2.5D operating table featuring a diegetic Printed Circuit 
   - **Verification:** Unit test: identical `CardId` always produces identical `VisualSeed`.
 
 #### [Frontend React]
-- [ ] **`TASK-1.2` | FIFO Action Queue Manager (ActionQueue)**
+- [x] **`TASK-1.2` | FIFO Action Queue Manager (ActionQueue)**
   - **Location:** `frontend/src/features/game/stores/useActionQueue.ts`
   - **Scope:**
     - FIFO buffer storing SignalR events: `{ id, type, payload, minDurationMs }`.
@@ -169,7 +169,7 @@ A fully responsive 2D/2.5D operating table featuring a diegetic Printed Circuit 
     - Fallback timeout (2000ms) forcing progression if an animation hangs.
   - **Verification:** Vitest test: 3 events arriving within 10ms are executed sequentially with minimum 300ms separation.
 
-- [ ] **`TASK-1.3` | Vector PCB Card Component (`<PcbCard />`)**
+- [x] **`TASK-1.3` | Vector PCB Card Component (`<PcbCard />`)**
   - **Location:** `frontend/src/features/game/components/PcbCard.tsx`
   - **Scope:**
     - Pure SVG/Tailwind rendering PCB substrate:
@@ -182,7 +182,7 @@ A fully responsive 2D/2.5D operating table featuring a diegetic Printed Circuit 
     - States: `selected`, `disabled`, `hovered`, `faceDown`.
   - **Verification:** Storybook / component tests rendering soldermask variants and card backs.
 
-- [ ] **`TASK-1.4` | Table Animations with Framer Motion**
+- [x] **`TASK-1.4` | Table Animations with Framer Motion**
   - **Location:** `frontend/src/features/game/components/OperatingTable.tsx`
   - **Scope:**
     - Smooth card flight from hand to center table with dynamic rotation (-5° to +5°) and substrate shadow.
@@ -190,7 +190,7 @@ A fully responsive 2D/2.5D operating table featuring a diegetic Printed Circuit 
     - Center table pile component (`<TablePile />`).
   - **Verification:** Playwright test verifying card trajectory and layout transitions.
 
-- [ ] **`TASK-1.5` | Cascading Card Reveal [TRACE] (3D Flip)**
+- [x] **`TASK-1.5` | Cascading Card Reveal [TRACE] (3D Flip)**
   - **Location:** `frontend/src/features/game/components/CardRevealSequence.tsx`
   - **Scope:**
     - CSS 3D Transforms (`rotateY: 180deg`, `transform-style: preserve-3d`).
@@ -199,7 +199,7 @@ A fully responsive 2D/2.5D operating table featuring a diegetic Printed Circuit 
   - **Verification:** Assertion on animation completion and event emission to `ActionQueue`.
 
 #### [Protocol / DTO]
-- [ ] **`TASK-1.6` | Sequence Signature Extension for Events**
+- [x] **`TASK-1.6` | Sequence Signature Extension for Events**
   - **Location:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Contracts/`
   - **Scope:**
     - Add `SequenceNumber` to all gameplay events for client-side continuity checks.
