@@ -5,8 +5,22 @@ using Overclock.Modules.GameEngine.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 builder.Services.AddOpenApi("overclock");
-builder.Services.AddSignalR();
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 builder.Services.AddMediator();
 builder.Services.AddGameEngine();
 builder.Services.AddSingleton<IConnectionTracker, InMemoryConnectionTracker>();
@@ -15,6 +29,7 @@ builder.Services.AddGameEngineInfrastructure();
 
 var app = builder.Build();
 
+app.UseCors();
 app.MapOpenApi();
 app.MapHub<GameHub>("/hubs/game");
 

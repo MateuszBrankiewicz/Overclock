@@ -110,7 +110,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
     - Actions updating state from parsed SignalR events.
   - **Verification:** Vitest reducer tests verifying valid state transitions upon network events.
 
-- [ ] **`TASK-0.10` | Headless Debug Terminal UI**
+- [x] **`TASK-0.10` | Headless Debug Terminal UI**
   - **Location:** `frontend/src/features/game/components/DebugTerminal.tsx`
   - **Scope:**
     - Raw retro-text interface for multi-tab manual testing.
@@ -119,7 +119,7 @@ A functional, authoritative game loop for 2–4 players running in a raw test in
   - **Verification:** Manually play through a full match across 3 incognito browser tabs.
 
 #### [Protocol / DTO]
-- [ ] **`TASK-0.11` | C# Contracts & JSON Fixtures**
+- [x] **`TASK-0.11` | C# Contracts & JSON Fixtures**
   - **Location:** `backend/src/Modules/GameEngine/Overclock.Modules.GameEngine.Contracts/` and `tests/contracts/signalr/`
   - **Scope:**
     - Define C# records: `PlayCardsCommand`, `CallTraceCommand`, `ReconnectCommand`, `GameStateSnapshotDto`.

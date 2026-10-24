@@ -1,14 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Activity,Shield, Terminal, Zap } from 'lucide-react';
+import { Activity, Terminal } from 'lucide-react';
 
-import { useGameStore } from './features/game/stores/useGameStore';
+import { DebugTerminal } from './features/game/components/DebugTerminal';
 
 const queryClient = new QueryClient();
 
 export function App() {
-  const isInRoom = useGameStore((state) => state.isInRoom);
-  const roomCode = useGameStore((state) => state.roomCode);
-
   return (
     <QueryClientProvider client={queryClient}>
       <div className="relative min-h-screen bg-zinc-950 text-emerald-400 font-mono flex flex-col p-6 overflow-hidden">
@@ -35,50 +32,8 @@ export function App() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col justify-center items-center max-w-4xl mx-auto w-full">
-          <div className="w-full bg-zinc-900/60 border border-zinc-800 rounded-lg p-8 shadow-2xl backdrop-blur">
-            <div className="border-b border-zinc-800/80 pb-4 mb-6 flex justify-between items-center">
-              <div className="flex items-center space-x-2 text-amber-400">
-                <Zap className="w-5 h-5 text-amber-400" />
-                <span className="font-bold tracking-wide">SYSTEM READY FOR PROTOCOL HANDSHAKE</span>
-              </div>
-              <span className="text-xs text-zinc-500">PORT: 5000</span>
-            </div>
-
-            <div className="space-y-4 text-sm text-zinc-300">
-              <p>
-                Authoritative real-time game engine with single-writer room loop and runtime
-                validated contracts.
-              </p>
-
-              <div className="bg-black/50 border border-zinc-800 p-4 rounded text-xs space-y-2">
-                <div className="text-zinc-400 flex justify-between">
-                  <span>ROOM STATUS:</span>
-                  <span className={isInRoom ? 'text-emerald-400' : 'text-zinc-500'}>
-                    {isInRoom ? `CONNECTED [${roomCode}]` : 'STANDBY'}
-                  </span>
-                </div>
-                <div className="text-zinc-400 flex justify-between">
-                  <span>VOLTAGE BUS:</span>
-                  <span className="text-amber-400">0V / NOMINAL</span>
-                </div>
-                <div className="text-zinc-400 flex justify-between">
-                  <span>RUNTIME VALIDATION:</span>
-                  <span className="text-emerald-400">ZOD ACTIVE</span>
-                </div>
-              </div>
-
-              <div className="pt-4 flex gap-4">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-emerald-500 text-black font-bold rounded hover:bg-emerald-400 transition-colors flex items-center space-x-2 text-xs"
-                >
-                  <Shield className="w-4 h-4" />
-                  <span>INITIALIZE COMBAT NODE</span>
-                </button>
-              </div>
-            </div>
-          </div>
+        <main className="flex-1 flex flex-col justify-start items-center max-w-5xl mx-auto w-full space-y-6">
+          <DebugTerminal />
         </main>
 
         {/* Footer Bar */}
