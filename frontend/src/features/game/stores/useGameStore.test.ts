@@ -1,0 +1,434 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import type {
+  PlayerCard,
+  PlayerJoinedEvent,
+  PlayerSeat,
+  RoomStateSnapshot,
+  TraceResolution,
+} from '../schemas/gameEvents';
+import { useGameStore } from './useGameStore';
+
+describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
+  beforeEach(() => {
+    useGameStore.getState().leaveRoom();
+  });
+
+  describe('Initial State & Room Slice', () => {
+    it('initializes with clean default values', () => {
+      const state = useGameStore.getState();
+
+      expect(state.roomCode).toBeNull();
+      expect(state.roomState).toBeNull();
+      expect(state.hostId).toBeNull();
+      expect(state.playerId).toBeNull();
+      expect(state.isInRoom).toBe(false);
+      expect(state.players).toEqual([]);
+      expect(state.myCards).toEqual([]);
+      expect(state.selectedCardIds).toEqual([]);
+      expect(state.tablePileCount).toBe(0);
+      expect(state.roundNumber).toBe(0);
+      expect(state.remainingTimeSeconds).toBe(15);
+    });
+
+    it('sets room code and player ID via setRoom', () => {
+      useGameStore.getState().setRoom('CYBER-7X9', '11111111-1111-4111-8111-111111111111');
+      const state = useGameStore.getState();
+
+      expect(state.roomCode).toBe('CYBER-7X9');
+      expect(state.playerId).toBe('11111111-1111-4111-8111-111111111111');
+      expect(state.isInRoom).toBe(true);
+    });
+
+    it('applies RoomStateSnapshot correctly across room, hand, and turn slices', () => {
+      const mockSnapshot: RoomStateSnapshot = {
+        roomCode: 'CYBER-7X9',
+        state: 'TurnActive',
+        hostId: '22222222-2222-4222-8222-222222222222',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        myHand: [
+          { id: 'c1111111-1111-4111-8111-111111111111', protocol: 'Alpha' },
+          { id: 'c2222222-2222-4222-8222-222222222222', protocol: 'Beta' },
+        ],
+        seats: [
+          {
+            playerId: '11111111-1111-4111-8111-111111111111',
+            nickname: 'PlayerOne',
+            status: 'Active',
+            isReady: true,
+            handCount: 2,
+          },
+          {
+            playerId: '22222222-2222-4222-8222-222222222222',
+            nickname: 'PlayerTwo',
+            status: 'Active',
+            isReady: true,
+            handCount: 3,
+          },
+        ],
+        tablePileCount: 4,
+        currentTargetProtocol: 'Alpha',
+        currentTurnPlayerId: '11111111-1111-4111-8111-111111111111',
+        roundNumber: 2,
+        winnerId: null,
+      };
+
+      useGameStore.getState().applyRoomSnapshot(mockSnapshot);
+      const state = useGameStore.getState();
+
+      expect(state.roomCode).toBe('CYBER-7X9');
+      expect(state.roomState).toBe('TurnActive');
+      expect(state.playerId).toBe('11111111-1111-4111-8111-111111111111');
+      expect(state.hostId).toBe('22222222-2222-4222-8222-222222222222');
+      expect(state.isInRoom).toBe(true);
+      expect(state.myCards).toHaveLength(2);
+      expect(state.players).toHaveLength(2);
+      expect(state.tablePileCount).toBe(4);
+      expect(state.currentTargetProtocol).toBe('Alpha');
+      expect(state.activePlayerId).toBe('11111111-1111-4111-8111-111111111111');
+      expect(state.roundNumber).toBe(2);
+    });
+
+    it('adds or updates players on applyPlayerJoined', () => {
+      const seat1: PlayerSeat = {
+        playerId: '11111111-1111-4111-8111-111111111111',
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: false,
+        handCount: 5,
+      };
+
+      useGameStore.getState().applyPlayerJoined(seat1);
+      expect(useGameStore.getState().players).toEqual([seat1]);
+
+      // Wrapped event
+      const wrappedEvent: PlayerJoinedEvent = {
+        type: 'PlayerJoined',
+        roomCode: 'CYBER-7X9',
+        player: {
+          playerId: '22222222-2222-4222-8222-222222222222',
+          nickname: 'Bob',
+          status: 'Active',
+          isReady: true,
+          handCount: 5,
+        },
+      };
+
+      useGameStore.getState().applyPlayerJoined(wrappedEvent);
+      expect(useGameStore.getState().players).toHaveLength(2);
+
+      // Re-joining or updating same player ID updates in-place
+      const updatedSeat1: PlayerSeat = { ...seat1, isReady: true };
+      useGameStore.getState().applyPlayerJoined(updatedSeat1);
+      expect(useGameStore.getState().players).toHaveLength(2);
+      expect(useGameStore.getState().players[0].isReady).toBe(true);
+    });
+
+    it('updates player status via applyPlayerStatusChanged', () => {
+      const seat: PlayerSeat = {
+        playerId: '11111111-1111-4111-8111-111111111111',
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: true,
+        handCount: 4,
+      };
+
+      useGameStore.getState().applyPlayerJoined(seat);
+      useGameStore.getState().applyPlayerStatusChanged({
+        playerId: '11111111-1111-4111-8111-111111111111',
+        status: 'Disconnected',
+      });
+
+      expect(useGameStore.getState().players[0].status).toBe('Disconnected');
+    });
+
+    it('applies voltage overload and marks eliminated player', () => {
+      const seat: PlayerSeat = {
+        playerId: '11111111-1111-4111-8111-111111111111',
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: true,
+        handCount: 4,
+      };
+
+      useGameStore.getState().applyPlayerJoined(seat);
+      useGameStore.getState().applyVoltageOverloaded({
+        type: 'VoltageOverloaded',
+        roomCode: 'CYBER-7X9',
+        eliminatedPlayerId: '11111111-1111-4111-8111-111111111111',
+        finalVoltage: 240,
+      });
+
+      const state = useGameStore.getState();
+      expect(state.currentVoltage).toBe(240);
+      expect(state.players[0].status).toBe('Eliminated');
+    });
+  });
+
+  describe('Hand Slice & Card Selection', () => {
+    const cards: PlayerCard[] = [
+      { id: 'card-1', protocol: 'Alpha' },
+      { id: 'card-2', protocol: 'Alpha' },
+      { id: 'card-3', protocol: 'Beta' },
+      { id: 'card-4', protocol: 'Glitch' },
+    ];
+
+    beforeEach(() => {
+      useGameStore.getState().setMyCards(cards);
+    });
+
+    it('toggles card selection respecting maximum of 3 cards', () => {
+      const store = useGameStore.getState();
+
+      store.toggleCardSelection('card-1');
+      store.toggleCardSelection('card-2');
+      store.toggleCardSelection('card-3');
+      expect(useGameStore.getState().selectedCardIds).toEqual(['card-1', 'card-2', 'card-3']);
+
+      // Attempting 4th selection is ignored
+      useGameStore.getState().toggleCardSelection('card-4');
+      expect(useGameStore.getState().selectedCardIds).toEqual(['card-1', 'card-2', 'card-3']);
+
+      // Toggling off
+      useGameStore.getState().toggleCardSelection('card-2');
+      expect(useGameStore.getState().selectedCardIds).toEqual(['card-1', 'card-3']);
+    });
+
+    it('ignores selecting cards not in my hand', () => {
+      useGameStore.getState().toggleCardSelection('not-in-hand');
+      expect(useGameStore.getState().selectedCardIds).toEqual([]);
+
+      useGameStore.getState().selectCard('not-in-hand');
+      expect(useGameStore.getState().selectedCardIds).toEqual([]);
+    });
+
+    it('selects, deselects and clears selection explicitly', () => {
+      useGameStore.getState().selectCard('card-1');
+      useGameStore.getState().selectCard('card-2');
+      expect(useGameStore.getState().selectedCardIds).toEqual(['card-1', 'card-2']);
+
+      useGameStore.getState().deselectCard('card-1');
+      expect(useGameStore.getState().selectedCardIds).toEqual(['card-2']);
+
+      useGameStore.getState().clearSelection();
+      expect(useGameStore.getState().selectedCardIds).toEqual([]);
+    });
+
+    it('prunes selected cards when myCards is updated', () => {
+      useGameStore.getState().selectCard('card-1');
+      useGameStore.getState().selectCard('card-2');
+
+      // Update hand omitting card-2
+      useGameStore.getState().setMyCards([{ id: 'card-1', protocol: 'Alpha' }]);
+      expect(useGameStore.getState().selectedCardIds).toEqual(['card-1']);
+    });
+
+    it('avoids state mutation when deselecting an unselected card or clearing empty selection', () => {
+      const stateBefore = useGameStore.getState();
+      useGameStore.getState().deselectCard('card-999');
+      expect(useGameStore.getState().selectedCardIds).toBe(stateBefore.selectedCardIds);
+
+      useGameStore.getState().clearSelection();
+      expect(useGameStore.getState().selectedCardIds).toBe(stateBefore.selectedCardIds);
+    });
+  });
+
+  describe('Turn Slice & Gameplay Transitions', () => {
+    it('sets currentTargetProtocol from CardsPlayed when initially null', () => {
+      useGameStore.getState().applyCardsPlayed({
+        playerId: '22222222-2222-4222-8222-222222222222',
+        cardCount: 2,
+        declaredProtocol: 'Beta',
+      });
+      expect(useGameStore.getState().currentTargetProtocol).toBe('Beta');
+    });
+
+    it('handles RoundStarted event and resets round state and card selection', () => {
+      useGameStore.getState().setMyCards([{ id: 'c1', protocol: 'Alpha' }]);
+      useGameStore.getState().selectCard('c1');
+      expect(useGameStore.getState().selectedCardIds).toEqual(['c1']);
+
+      useGameStore.getState().applyRoundStarted({
+        type: 'RoundStarted',
+        roomCode: 'CYBER-7X9',
+        roundNumber: 3,
+        leadProtocol: 'Gamma',
+        activePlayerId: '33333333-3333-4333-8333-333333333333',
+      });
+
+      const state = useGameStore.getState();
+      expect(state.roundNumber).toBe(3);
+      expect(state.roomState).toBe('TurnActive');
+      expect(state.currentTargetProtocol).toBe('Gamma');
+      expect(state.activePlayerId).toBe('33333333-3333-4333-8333-333333333333');
+      expect(state.tablePileCount).toBe(0);
+      expect(state.remainingTimeSeconds).toBe(15);
+      expect(state.selectedCardIds).toEqual([]);
+      expect(state.lastTrace).toBeNull();
+    });
+
+    it('handles CardsPlayed event and updates pile, seat counts, and selection', () => {
+      const myId = '11111111-1111-4111-8111-111111111111';
+      const otherId = '22222222-2222-4222-8222-222222222222';
+
+      useGameStore.getState().setRoom('CYBER-7X9', myId);
+      useGameStore.getState().applyPlayerJoined({
+        playerId: myId,
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: true,
+        handCount: 5,
+      });
+      useGameStore.getState().applyPlayerJoined({
+        playerId: otherId,
+        nickname: 'Bob',
+        status: 'Active',
+        isReady: true,
+        handCount: 5,
+      });
+
+      useGameStore.getState().setMyCards([
+        { id: 'c1', protocol: 'Alpha' },
+        { id: 'c2', protocol: 'Alpha' },
+      ]);
+      useGameStore.getState().selectCard('c1');
+
+      // Other player plays 2 cards
+      useGameStore.getState().applyCardsPlayed({
+        playerId: otherId,
+        cardCount: 2,
+        declaredProtocol: 'Alpha',
+      });
+
+      expect(useGameStore.getState().tablePileCount).toBe(2);
+      expect(useGameStore.getState().players.find((p) => p.playerId === otherId)?.handCount).toBe(3);
+      // Alice's selection not cleared when Bob plays
+      expect(useGameStore.getState().selectedCardIds).toEqual(['c1']);
+
+      // Local player plays 1 card -> clears selection and prunes myCards
+      useGameStore.getState().applyCardsPlayed({
+        playerId: myId,
+        cardCount: 1,
+        declaredProtocol: 'Alpha',
+      });
+
+      expect(useGameStore.getState().tablePileCount).toBe(3);
+      expect(useGameStore.getState().players.find((p) => p.playerId === myId)?.handCount).toBe(4);
+      expect(useGameStore.getState().selectedCardIds).toEqual([]);
+      expect(useGameStore.getState().myCards).toEqual([{ id: 'c2', protocol: 'Alpha' }]);
+    });
+
+    it('safely retains myCards when selectedCardIds count does not match cardCount in CardsPlayed', () => {
+      const myId = '11111111-1111-4111-8111-111111111111';
+      useGameStore.getState().setRoom('CYBER-7X9', myId);
+      useGameStore.getState().setMyCards([
+        { id: 'c1', protocol: 'Alpha' },
+        { id: 'c2', protocol: 'Alpha' },
+      ]);
+      // Selection cleared before network event arrived
+      useGameStore.getState().clearSelection();
+
+      useGameStore.getState().applyCardsPlayed({
+        playerId: myId,
+        cardCount: 2,
+        declaredProtocol: 'Alpha',
+      });
+
+      // Does not prune cards randomly; preserves hand for authoritative snapshot
+      expect(useGameStore.getState().myCards).toHaveLength(2);
+      expect(useGameStore.getState().selectedCardIds).toEqual([]);
+    });
+
+    it('handles TraceCalled event and transitions room state to BluffCheck', () => {
+      useGameStore.getState().applyTraceCalled({
+        type: 'TraceCalled',
+        roomCode: 'CYBER-7X9',
+        callerId: '11111111-1111-4111-8111-111111111111',
+        accusedPlayerId: '22222222-2222-4222-8222-222222222222',
+        revealedCards: [],
+        bluffDetected: true,
+      });
+
+      const state = useGameStore.getState();
+      expect(state.lastTrace).not.toBeNull();
+      expect(state.roomState).toBe('BluffCheck');
+    });
+
+    it('handles TraceResolution event and transitions room state respecting GameOver', () => {
+      const resolution: TraceResolution = {
+        accuserPlayerId: '11111111-1111-4111-8111-111111111111',
+        accusedPlayerId: '22222222-2222-4222-8222-222222222222',
+        loserPlayerId: '22222222-2222-4222-8222-222222222222',
+        revealedCards: [{ id: 'c1', protocol: 'Corrupted' }],
+        declaredProtocol: 'Alpha',
+        bluffDetected: true,
+      };
+
+      useGameStore.getState().applyTraceResolution(resolution);
+      let state = useGameStore.getState();
+
+      expect(state.lastTraceResolution).toEqual(resolution);
+      expect(state.tablePileCount).toBe(0);
+      expect(state.roomState).toBe('RoundOver');
+
+      // If room is already in GameOver, applyTraceResolution should not downgrade to RoundOver
+      useGameStore.setState({ roomState: 'GameOver' });
+      useGameStore.getState().applyTraceResolution(resolution);
+      state = useGameStore.getState();
+      expect(state.roomState).toBe('GameOver');
+    });
+
+    it('calculates remaining seconds accurately without resetting to 15s when deadline is in the past', () => {
+      const pastDeadline = new Date(Date.now() - 5000).toISOString();
+      useGameStore.getState().setTurnStarted({
+        type: 'TurnStarted',
+        roomCode: 'CYBER-7X9',
+        activePlayerId: '11111111-1111-4111-8111-111111111111',
+        turnDeadlineUtc: pastDeadline,
+        currentVoltage: 20,
+      });
+
+      const state = useGameStore.getState();
+      expect(state.remainingTimeSeconds).toBe(0);
+      expect(state.roomState).toBe('TurnActive');
+    });
+
+    it('manages timer ticks without going negative', () => {
+      useGameStore.getState().setRemainingTime(2);
+      expect(useGameStore.getState().remainingTimeSeconds).toBe(2);
+
+      useGameStore.getState().tickRemainingTime();
+      expect(useGameStore.getState().remainingTimeSeconds).toBe(1);
+
+      useGameStore.getState().tickRemainingTime();
+      expect(useGameStore.getState().remainingTimeSeconds).toBe(0);
+
+      useGameStore.getState().tickRemainingTime();
+      expect(useGameStore.getState().remainingTimeSeconds).toBe(0);
+    });
+
+    it('resets game state while retaining room membership', () => {
+      useGameStore.getState().setRoom('CYBER-7X9', '11111111-1111-4111-8111-111111111111');
+      useGameStore.getState().setMyCards([{ id: 'c1', protocol: 'Alpha' }]);
+      useGameStore.getState().applyTraceResolution({
+        accuserPlayerId: '11111111-1111-4111-8111-111111111111',
+        accusedPlayerId: '22222222-2222-4222-8222-222222222222',
+        loserPlayerId: '22222222-2222-4222-8222-222222222222',
+        revealedCards: [],
+        declaredProtocol: 'Alpha',
+        bluffDetected: false,
+      });
+      useGameStore.getState().resetGame();
+
+      const state = useGameStore.getState();
+      expect(state.roomCode).toBe('CYBER-7X9');
+      expect(state.playerId).toBe('11111111-1111-4111-8111-111111111111');
+      expect(state.isInRoom).toBe(true);
+      expect(state.roomState).toBe('Lobby');
+      expect(state.winnerId).toBeNull();
+      expect(state.myCards).toEqual([]);
+      expect(state.tablePileCount).toBe(0);
+    });
+  });
+});
+
