@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
+    "test:contracts": "vitest run src/features/game/schemas/gameEvents.test.ts",
     "codegen:api": "orval",
     "preview": "vite preview"
   },

@@ -51,3 +51,32 @@ public sealed record RoundStartedDto(
     int RoundNumber,
     string LeadProtocol,
     Guid ActivePlayerId);
+
+public sealed record GameStateSnapshotDto(
+    string RoomCode,
+    string State,
+    Guid HostId,
+    Guid MyPlayerId,
+    IReadOnlyList<PlayerCardDto> MyHand,
+    IReadOnlyList<PlayerSeatDto> Seats,
+    int TablePileCount,
+    string? CurrentTargetProtocol,
+    Guid? CurrentTurnPlayerId,
+    int RoundNumber,
+    TraceResolutionDto? LastTraceResolution,
+    Guid? WinnerId);
+
+public sealed record PlayCardsContractDto(
+    string RoomCode,
+    Guid PlayerId,
+    IReadOnlyList<Guid> CardIds,
+    string DeclaredProtocol);
+
+public sealed record CallTraceContractDto(
+    string RoomCode,
+    Guid AccuserPlayerId);
+
+public sealed record ReconnectContractDto(
+    string RoomCode,
+    Guid SessionToken,
+    string NewConnectionId);

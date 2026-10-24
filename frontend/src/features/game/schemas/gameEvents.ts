@@ -58,6 +58,37 @@ export const RoomStateSnapshotSchema = z.object({
 export type RoomStateSnapshot = z.infer<typeof RoomStateSnapshotSchema>;
 export const PlayerGameStateSchema = RoomStateSnapshotSchema;
 export type PlayerGameState = RoomStateSnapshot;
+export const GameStateSnapshotSchema = RoomStateSnapshotSchema;
+export type GameStateSnapshot = RoomStateSnapshot;
+
+export const RoomJoinResultSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  sessionToken: z.string().uuid(),
+  gameState: RoomStateSnapshotSchema,
+});
+export type RoomJoinResult = z.infer<typeof RoomJoinResultSchema>;
+
+export const PlayCardsContractSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  cardIds: z.array(z.string().uuid()),
+  declaredProtocol: CardProtocolSchema,
+});
+export type PlayCardsContract = z.infer<typeof PlayCardsContractSchema>;
+
+export const CallTraceContractSchema = z.object({
+  roomCode: z.string(),
+  accuserPlayerId: z.string().uuid(),
+});
+export type CallTraceContract = z.infer<typeof CallTraceContractSchema>;
+
+export const ReconnectContractSchema = z.object({
+  roomCode: z.string(),
+  sessionToken: z.string().uuid(),
+  newConnectionId: z.string().min(1),
+});
+export type ReconnectContract = z.infer<typeof ReconnectContractSchema>;
 
 export const CardsPlayedEventSchema = z.object({
   type: z.literal('CardsPlayed').optional(),

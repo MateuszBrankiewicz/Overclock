@@ -44,6 +44,9 @@ internal sealed class CallTraceCommandHandler(
                 res.DeclaredProtocol.ToString(),
                 res.BluffDetected);
 
+            // In Phase 0 headless loop, complete bluff check to advance room state to RoundOver / GameOver
+            room.CompleteBluffCheck();
+
             var snapshots = projector.ProjectForActiveConnections(room);
             return Result<CallTraceOutcome>.Success(new CallTraceOutcome(dto, snapshots));
         }, ct);
