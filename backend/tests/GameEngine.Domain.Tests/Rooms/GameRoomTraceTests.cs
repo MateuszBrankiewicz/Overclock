@@ -92,9 +92,16 @@ public class GameRoomTraceTests
         Assert.Equal(RoomState.BluffCheck, room.State);
         Assert.Null(room.CurrentTurnPlayerId);
 
-        // Complete bluff check transitions to RoundOver
+        // Complete bluff check transitions to VoltageTest
         var completeResult = room.CompleteBluffCheck();
         Assert.True(completeResult.IsSuccess);
+        Assert.Equal(RoomState.VoltageTest, room.State);
+        Assert.Equal(hostId, room.PendingDischargePlayerId);
+
+        // Safe capacitor discharge transitions to RoundOver
+        var dischargeResult = room.DischargeCapacitor(hostId, new ConstantRandomSource(6));
+        Assert.True(dischargeResult.IsSuccess);
+        Assert.False(dischargeResult.Value.Overloaded);
         Assert.Equal(RoomState.RoundOver, room.State);
     }
 

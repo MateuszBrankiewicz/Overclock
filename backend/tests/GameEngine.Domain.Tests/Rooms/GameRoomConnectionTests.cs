@@ -146,6 +146,7 @@ public class GameRoomConnectionTests
         room.PlayCards(p2Id, [room.Seats[1].Hand[0].Id], CardProtocol.Alpha);
         room.CallTrace(p3Id);
         room.CompleteBluffCheck();
+        room.DischargeCapacitor(room.PendingDischargePlayerId!.Value, new ConstantRandomSource(6));
 
         Assert.Equal(RoomState.RoundOver, room.State);
 

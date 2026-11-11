@@ -46,8 +46,12 @@ internal sealed class CallTraceCommandHandler(
                 res.BluffDetected,
                 sequenceNumber);
 
-            // In Phase 0 headless loop, complete bluff check to advance room state to RoundOver / GameOver
+            // Complete bluff check to enter VoltageTest and auto-discharge for baseline loop
             room.CompleteBluffCheck();
+            if (room.PendingDischargePlayerId is not null)
+            {
+                room.DischargeCapacitor(room.PendingDischargePlayerId.Value);
+            }
 
             var snapshots = projector.ProjectForActiveConnections(room);
             return Result<CallTraceOutcome>.Success(new CallTraceOutcome(dto, snapshots));

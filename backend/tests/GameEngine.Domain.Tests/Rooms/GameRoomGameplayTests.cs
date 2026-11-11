@@ -227,9 +227,10 @@ public class GameRoomGameplayTests
         // Host plays cards -> turn rotates to P2
         room.PlayCards(hostId, [room.Seats[0].Hand[0].Id], CardProtocol.Alpha);
 
-        // P2 calls trace -> BluffCheck -> RoundOver
+        // P2 calls trace -> BluffCheck -> VoltageTest -> RoundOver
         room.CallTrace(p2Id);
         room.CompleteBluffCheck();
+        room.DischargeCapacitor(room.PendingDischargePlayerId!.Value, new ConstantRandomSource(6));
 
         Assert.Equal(RoomState.RoundOver, room.State);
 

@@ -11,6 +11,7 @@ export const RoomStateSchema = z.enum([
   'Dealing',
   'TurnActive',
   'BluffCheck',
+  'VoltageTest',
   'RoundOver',
   'GameOver',
 ]);

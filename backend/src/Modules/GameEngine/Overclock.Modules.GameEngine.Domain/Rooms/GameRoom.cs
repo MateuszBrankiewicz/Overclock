@@ -1,5 +1,8 @@
 using Ardalis.Result;
 using Overclock.Modules.GameEngine.Domain.Cards;
+using Overclock.Modules.GameEngine.Domain.Exploits;
+using Overclock.Modules.GameEngine.Domain.Services;
+using Overclock.Modules.GameEngine.Domain.Voltage;
 using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Domain.Rooms;
@@ -27,6 +30,8 @@ public sealed class GameRoom
     public long TurnSequenceId { get; private set; }
     public PlayedTurn? LastPlay { get; private set; }
     public TraceResolution? LastTraceResolution { get; private set; }
+    public PlayerId? PendingDischargePlayerId { get; private set; }
+    public DischargeOutcome? LastDischargeOutcome { get; private set; }
     public int RoundNumber { get; private set; }
     public long EventSequenceNumber => _eventSequenceNumberInternal;
 
@@ -170,15 +175,24 @@ public sealed class GameRoom
                 $"Only the room host '{HostId}' can start the round."));
         }
 
-        if (State == RoomState.GameOver)
+        var isNewMatch = State == RoomState.Lobby || State == RoomState.GameOver;
+        var rng = randomSource ?? CryptoRandomSource.Instance;
+
+        if (isNewMatch)
         {
-            // Reset eliminated players back to Active for Rematch / Play Again
+            // Reset seats for new match: assign fresh exploit and reset risk to 1/6
             foreach (var seat in _seats)
             {
-                if (seat.Status == PlayerStatus.Eliminated)
-                {
-                    seat.Reconnect(seat.ConnectionId ?? string.Empty);
-                }
+                var exploitType = ExploitCatalog.All[rng.Next(0, ExploitCatalog.All.Count)];
+                seat.ResetForMatch(new ExploitModule(exploitType));
+            }
+        }
+        else
+        {
+            // Reset seats for next round in same match: clear hands, preserve survived risk & burned exploit status
+            foreach (var seat in _seats.Where(s => s.Status != PlayerStatus.Eliminated))
+            {
+                seat.ResetForNewRound();
             }
         }
 
@@ -196,8 +210,6 @@ public sealed class GameRoom
                 "Room.NotAllPlayersReady",
                 "All players must be ready before starting the match."));
         }
-
-        var rng = randomSource ?? CryptoRandomSource.Instance;
 
         State = RoomState.Dealing;
 
@@ -417,6 +429,7 @@ public sealed class GameRoom
             bluffDetected);
 
         LastTraceResolution = resolution;
+        PendingDischargePlayerId = loserId;
         CurrentTurnPlayerId = null;
 
         return Result<TraceResolution>.Success(resolution);
@@ -429,15 +442,54 @@ public sealed class GameRoom
             return Result.Conflict("Room.NotInBluffCheck", $"Cannot complete bluff check in state '{State}'.");
         }
 
-        var remainingActive = _seats.Count(s => s.Status != PlayerStatus.Eliminated);
-        if (remainingActive <= 1)
+        State = RoomState.VoltageTest;
+        return Result.Success();
+    }
+
+    public Result<DischargeOutcome> DischargeCapacitor(PlayerId targetPlayerId, IRandomSource? randomSource = null)
+    {
+        if (State != RoomState.VoltageTest)
         {
-            State = RoomState.GameOver;
-            return Result.Success();
+            return Result<DischargeOutcome>.Conflict("Voltage.NotActive", $"Cannot discharge capacitor in room state '{State}'.");
         }
 
-        State = RoomState.RoundOver;
-        return Result.Success();
+        if (PendingDischargePlayerId != targetPlayerId)
+        {
+            return Result<DischargeOutcome>.Invalid(new ValidationError(
+                "Voltage.NotPendingPlayer",
+                $"Player '{targetPlayerId}' is not the pending discharge player '{PendingDischargePlayerId}'."));
+        }
+
+        var seat = _seats.Find(s => s.Id == targetPlayerId);
+        if (seat is null || seat.Status == PlayerStatus.Eliminated)
+        {
+            return Result<DischargeOutcome>.NotFound(
+                "Voltage.PlayerNotFound",
+                $"Player '{targetPlayerId}' is not found or is eliminated.");
+        }
+
+        var rng = randomSource ?? CryptoRandomSource.Instance;
+        var outcome = CapacitorDischargeEngine.Discharge(seat.Risk, rng);
+        seat.ApplyDischarge(outcome);
+        LastDischargeOutcome = outcome;
+        PendingDischargePlayerId = null;
+
+        if (outcome.Overloaded)
+        {
+            EliminatePlayer(targetPlayerId);
+            if (State != RoomState.GameOver)
+            {
+                State = RoomState.RoundOver;
+            }
+        }
+        else
+        {
+            var remainingActive = _seats.Count(s => s.Status != PlayerStatus.Eliminated);
+            State = remainingActive <= 1 ? RoomState.GameOver : RoomState.RoundOver;
+            CurrentTurnPlayerId = null;
+        }
+
+        return Result<DischargeOutcome>.Success(outcome);
     }
 
     public Result HandleDisconnect(string connectionId)
