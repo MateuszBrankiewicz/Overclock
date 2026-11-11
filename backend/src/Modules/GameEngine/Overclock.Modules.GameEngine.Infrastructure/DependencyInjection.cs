@@ -21,7 +21,14 @@ public static class DependencyInjection
             new TurnTimerEngine(
                 sp.GetRequiredService<ITurnDelay>(),
                 sp.GetService<IGameNotifier>(),
-                sp.GetService<IGameStateProjector>()));
+                sp.GetService<IGameStateProjector>(),
+                sp.GetService<IRandomSource>()));
+        services.AddSingleton<VoltageTestCoordinator>(sp =>
+            new VoltageTestCoordinator(
+                sp.GetRequiredService<ITurnTimerEngine>(),
+                sp.GetService<IGameNotifier>(),
+                sp.GetService<IGameStateProjector>(),
+                sp.GetService<IRandomSource>()));
         services.AddSingleton<IRandomSource>(CryptoRandomSource.Instance);
 
         return services;

@@ -1,6 +1,10 @@
 namespace Overclock.Modules.GameEngine.Domain.Rooms;
 
-public readonly record struct TurnExpired(
-    PlayerId PlayerId,
-    long TurnSequenceId,
-    PlayerId? NextPlayerId);
+public abstract record TurnExpiredOutcome
+{
+    private TurnExpiredOutcome() { }
+
+    public sealed record AutoTrace(TraceResolution Resolution) : TurnExpiredOutcome;
+
+    public sealed record LeadForfeit(PlayerId ForfeitingPlayerId) : TurnExpiredOutcome;
+}

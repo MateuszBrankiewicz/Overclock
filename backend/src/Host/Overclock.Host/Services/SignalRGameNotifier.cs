@@ -34,6 +34,31 @@ public sealed class SignalRGameNotifier(IHubContext<GameHub, IGameClient> hubCon
         return hubContext.Clients.Group(roomCode).RoundStarted(notification);
     }
 
+    public Task NotifyCapacitorDischargedAsync(string roomCode, CapacitorDischargedEvent notification, CancellationToken ct = default)
+    {
+        return hubContext.Clients.Group(roomCode).CapacitorDischarged(notification);
+    }
+
+    public Task NotifyPlayerEliminatedAsync(string roomCode, PlayerEliminatedEvent notification, CancellationToken ct = default)
+    {
+        return hubContext.Clients.Group(roomCode).PlayerEliminated(notification);
+    }
+
+    public Task NotifyExploitTriggeredAsync(string roomCode, ExploitTriggeredEvent notification, CancellationToken ct = default)
+    {
+        return hubContext.Clients.Group(roomCode).ExploitTriggered(notification);
+    }
+
+    public Task NotifyPacketSniffedAsync(string connectionId, PacketSniffedEvent notification, CancellationToken ct = default)
+    {
+        return hubContext.Clients.Client(connectionId).PacketSniffed(notification);
+    }
+
+    public Task NotifyVoltageTestStartedAsync(string roomCode, VoltageTestStartedEvent notification, CancellationToken ct = default)
+    {
+        return hubContext.Clients.Group(roomCode).VoltageTestStarted(notification);
+    }
+
     public Task SendPlayerSnapshotAsync(string connectionId, PlayerGameStateDto snapshot, CancellationToken ct = default)
     {
         return hubContext.Clients.Client(connectionId).ReceiveGameState(snapshot);

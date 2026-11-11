@@ -5,9 +5,13 @@ namespace Overclock.Modules.GameEngine.Application.Services;
 
 public interface ITurnTimerEngine : IAsyncDisposable
 {
-    void Start(GameRoomSession session, PlayerId playerId, long turnSequenceId);
+    void Start(GameRoomSession session, PlayerId playerId, long turnSequenceId, TimeSpan? duration = null);
 
-    void Cancel(string roomCode);
+    void StartDischargeWatchdog(GameRoomSession session, PlayerId playerId, long dischargeSequenceId, TimeSpan? duration = null);
+
+    bool RescheduleTurn(string roomCode, long turnSequenceId, TimeSpan newRemainingDuration);
+
+    void Cancel(string roomCode, TimerKind? kind = null);
 }
 
 public interface ITurnDelay

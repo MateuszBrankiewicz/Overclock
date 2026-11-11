@@ -5,6 +5,6 @@ namespace Overclock.Modules.GameEngine.Application.Rooms;
 
 public sealed record TurnExpiredAction(PlayerId PlayerId, long TurnSequenceId)
 {
-    public Result<TurnExpired> Execute(GameRoom room) =>
+    public Result<TurnExpiredOutcome> Execute(GameRoom room) =>
         room.ExpireTurn(PlayerId, TurnSequenceId);
 }
