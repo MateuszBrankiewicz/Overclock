@@ -258,7 +258,7 @@ export const OperatingTable: React.FC = () => {
             <ExploitChipSlot
               exploit={me?.exploit}
               canActivate={canActivateExploit && Boolean(me?.exploit && !me.exploit.isBurned)}
-              onActivate={(exploit) => void session.activateExploit(exploit)}
+              onActivate={(exploit, newTargetProtocol) => void session.activateExploit(exploit, newTargetProtocol)}
               size="sm"
             />
           </div>
