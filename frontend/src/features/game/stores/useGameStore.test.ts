@@ -557,6 +557,59 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       });
       expect(useGameStore.getState().lastDischargeOutcome).toBeNull();
     });
+
+    it('maintains dischargeCinematic through room snapshots until explicitly cleared', () => {
+      useGameStore.getState().applyCapacitorDischarged({
+        type: 'CapacitorDischarged',
+        sequenceNumber: 42,
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        roll: 1,
+        riskLevel: 3,
+        resultingRiskLevel: 3,
+        overloaded: true,
+      });
+
+      const cinematic = useGameStore.getState().dischargeCinematic;
+      expect(cinematic).not.toBeNull();
+      expect(cinematic?.event.roll).toBe(1);
+      expect(cinematic?.event.overloaded).toBe(true);
+      expect(typeof cinematic?.startedAtMs).toBe('number');
+
+      // Room snapshots (TurnActive or VoltageTest) must NOT interrupt the 3D cinematic sequence
+      useGameStore.getState().applyRoomSnapshot({
+        roomCode: 'CYBER-7X9',
+        state: 'TurnActive',
+        hostId: '11111111-1111-4111-8111-111111111111',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        roundNumber: 2,
+        currentTurnPlayerId: '22222222-2222-4222-8222-222222222222',
+        currentTargetProtocol: 'Beta',
+        tablePileCount: 0,
+        myHand: [],
+        seats: [],
+      });
+
+      expect(useGameStore.getState().dischargeCinematic).not.toBeNull();
+      expect(useGameStore.getState().dischargeCinematic?.event.roll).toBe(1);
+
+      // Duplicate sequenceNumber is ignored
+      useGameStore.getState().applyCapacitorDischarged({
+        type: 'CapacitorDischarged',
+        sequenceNumber: 42,
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        roll: 1,
+        riskLevel: 3,
+        resultingRiskLevel: 3,
+        overloaded: true,
+      });
+      expect(useGameStore.getState().dischargeCinematic?.startedAtMs).toBe(cinematic?.startedAtMs);
+
+      // Explicit clear removes cinematic
+      useGameStore.getState().clearDischargeCinematic();
+      expect(useGameStore.getState().dischargeCinematic).toBeNull();
+    });
   });
 });
 

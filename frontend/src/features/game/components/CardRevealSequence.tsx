@@ -63,48 +63,48 @@ export const CardRevealSequence: React.FC<CardRevealSequenceProps> = ({
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       className={clsx(
-        'flex flex-col items-center justify-center p-6 rounded-2xl border-2 font-mono transition-all duration-700 max-w-2xl mx-auto w-full backdrop-blur-md',
+        'flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-xl border font-mono transition-all duration-700 max-w-xl mx-auto w-full backdrop-blur-md pointer-events-none select-none',
         showVerdict
           ? bluffDetected
-            ? 'bg-gradient-to-b from-red-950/90 via-black to-red-950/60 border-red-500 shadow-[0_0_60px_rgba(239,68,68,0.5)]'
-            : 'bg-gradient-to-b from-emerald-950/90 via-black to-emerald-950/60 border-emerald-500 shadow-[0_0_60px_rgba(16,185,129,0.5)]'
-          : 'bg-zinc-950/90 border-zinc-700 shadow-2xl'
+            ? 'bg-gradient-to-b from-red-950/95 via-black/95 to-red-950/80 border-red-500 shadow-[0_0_35px_rgba(239,68,68,0.6)]'
+            : 'bg-gradient-to-b from-emerald-950/95 via-black/95 to-emerald-950/80 border-emerald-500 shadow-[0_0_35px_rgba(16,185,129,0.5)]'
+          : 'bg-zinc-950/95 border-zinc-700 shadow-2xl'
       )}
     >
-      <div className="text-xs tracking-widest font-black mb-5 flex items-center gap-3">
+      <div className="text-xs tracking-wider font-black mb-2 flex items-center gap-2">
         <span
           className={clsx(
-            'px-2.5 py-1 rounded text-xs animate-pulse font-extrabold',
+            'px-2 py-0.5 rounded text-[11px] animate-pulse font-extrabold',
             bluffDetected && showVerdict ? 'bg-red-500 text-black' : 'bg-emerald-400 text-black'
           )}
         >
           [DIAGNOSTIC TRACE SCAN]
         </span>
-        <span className="text-zinc-300">
-          DECLARED PROTOCOL:{' '}
-          <strong className="text-amber-400 font-bold px-2 py-0.5 bg-amber-950/80 rounded border border-amber-800">
+        <span className="text-zinc-300 text-xs">
+          DECLARED:{' '}
+          <strong className="text-amber-400 font-bold px-1.5 py-0.5 bg-amber-950/80 rounded border border-amber-800">
             {declaredProtocol}
           </strong>
         </span>
       </div>
 
       {/* Isometric 3D Stage with Motion Card Flips */}
-      <div className="flex gap-4 justify-center items-center py-4" style={{ perspective: '1200px' }}>
+      <div className="flex gap-2.5 justify-center items-center py-1.5" style={{ perspective: '1200px' }}>
         {revealedCards.map((card, idx) => {
           const isFlipped = idx < flippedCount;
           return (
             <motion.div
               key={card.id}
-              initial={{ opacity: 0, y: 30, rotateX: 30 }}
+              initial={{ opacity: 0, y: 20, rotateX: 30 }}
               animate={{
                 opacity: 1,
-                y: isFlipped ? -8 : 0,
+                y: isFlipped ? -4 : 0,
                 rotateX: 0,
                 rotateY: isFlipped ? 180 : 0,
                 scale: isFlipped ? 1.05 : 1,
               }}
               transition={{
-                duration: 0.6,
+                duration: 0.5,
                 ease: [0.34, 1.56, 0.64, 1],
               }}
               className="relative"
@@ -120,7 +120,7 @@ export const CardRevealSequence: React.FC<CardRevealSequenceProps> = ({
                   transform: 'rotateY(0deg)',
                 }}
               >
-                <PcbCard faceDown size="lg" hoverable={false} />
+                <PcbCard faceDown size="md" hoverable={false} />
               </div>
 
               {/* Front Face (Visible after 180deg flip) */}
@@ -134,7 +134,7 @@ export const CardRevealSequence: React.FC<CardRevealSequenceProps> = ({
                   id={card.id}
                   protocol={card.protocol}
                   visualSeed={card.visualSeed}
-                  size="lg"
+                  size="md"
                   hoverable={false}
                 />
               </div>

@@ -1,7 +1,18 @@
 import type { StateCreator } from 'zustand';
 
 import type { PlayerSeat } from '../../schemas/gameEvents';
+import type { CharacterId } from '../../utils/characterCatalog';
 import type { GameState, RoomSlice } from '../types';
+
+const getInitialCharacterId = (): CharacterId => {
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('overclock_character');
+    if (saved === 'ghost' || saved === 'volt' || saved === 'proxy' || saved === 'null') {
+      return saved;
+    }
+  }
+  return 'ghost';
+};
 
 export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set) => ({
   roomCode: null,
@@ -15,14 +26,49 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   dischargeDeadlineUtc: null,
   canActivateExploit: false,
   lastDischargeOutcome: null,
+  dischargeCinematic: null,
   sniffedCard: null,
+  selectedCharacterId: getInitialCharacterId(),
+  characterByPlayerId: {},
+  cameraFocus: 'overview',
+
+  clearDischargeCinematic: () => set({ dischargeCinematic: null }),
+
+  setSelectedCharacter: (characterId) => {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.setItem('overclock_character', characterId);
+    }
+    set((state) => ({
+      selectedCharacterId: characterId,
+      characterByPlayerId: state.playerId
+        ? { ...state.characterByPlayerId, [state.playerId]: characterId }
+        : state.characterByPlayerId,
+    }));
+  },
+
+  setPlayerCharacter: (playerId, characterId) =>
+    set((state) => ({
+      characterByPlayerId: {
+        ...state.characterByPlayerId,
+        [playerId]: characterId,
+      },
+    })),
+
+  setCameraFocus: (focus) =>
+    set({
+      cameraFocus: focus,
+    }),
 
   setRoom: (roomCode, playerId) =>
-    set({
+    set((state) => ({
       roomCode,
       playerId,
       isInRoom: true,
-    }),
+      characterByPlayerId: {
+        ...state.characterByPlayerId,
+        [playerId]: state.selectedCharacterId,
+      },
+    })),
 
   applyRoomSnapshot: (snapshot) =>
     set((state) => {
@@ -34,6 +80,12 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       const shouldClearLastDischarge =
         snapshot.state === 'TurnActive' ||
         snapshot.state === 'Lobby' ||
+        snapshot.state === 'VoltageTest';
+
+      const shouldClearTraceResolution =
+        snapshot.state === 'TurnActive' ||
+        snapshot.state === 'Lobby' ||
+        snapshot.state === 'GameOver' ||
         snapshot.state === 'VoltageTest';
 
       return {
@@ -59,7 +111,9 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         currentTargetProtocol: snapshot.currentTargetProtocol ?? null,
         activePlayerId: snapshot.currentTurnPlayerId ?? null,
         roundNumber: snapshot.roundNumber,
-        lastTraceResolution: snapshot.lastTraceResolution ?? null,
+        lastTraceResolution: shouldClearTraceResolution
+          ? null
+          : (snapshot.lastTraceResolution ?? state.lastTraceResolution),
         lastPlayedCards: null,
         lastTrace: null,
       };
@@ -89,20 +143,33 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
     })),
 
   applyCapacitorDischarged: (event) =>
-    set((state) => ({
-      lastDischargeOutcome: event,
-      pendingDischargePlayerId: null,
-      dischargeDeadlineUtc: null,
-      players: state.players.map((seat) =>
-        seat.playerId === event.playerId
-          ? {
-              ...seat,
-              riskLevel: event.resultingRiskLevel,
-              status: event.overloaded ? 'Eliminated' : seat.status,
-            }
-          : seat
-      ),
-    })),
+    set((state) => {
+      if (
+        state.dischargeCinematic &&
+        event.sequenceNumber !== undefined &&
+        state.dischargeCinematic.event.sequenceNumber === event.sequenceNumber
+      ) {
+        return state;
+      }
+      return {
+        lastDischargeOutcome: event,
+        dischargeCinematic: {
+          event,
+          startedAtMs: Date.now(),
+        },
+        pendingDischargePlayerId: null,
+        dischargeDeadlineUtc: null,
+        players: state.players.map((seat) =>
+          seat.playerId === event.playerId
+            ? {
+                ...seat,
+                riskLevel: event.resultingRiskLevel,
+                status: event.overloaded ? 'Eliminated' : seat.status,
+              }
+            : seat
+        ),
+      };
+    }),
 
   applyPlayerEliminated: (event) =>
     set((state) => ({
@@ -156,6 +223,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       dischargeDeadlineUtc: null,
       canActivateExploit: false,
       lastDischargeOutcome: null,
+      dischargeCinematic: null,
       sniffedCard: null,
       myCards: [],
       selectedCardIds: [],

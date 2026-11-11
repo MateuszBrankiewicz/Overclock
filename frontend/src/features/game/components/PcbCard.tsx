@@ -13,6 +13,7 @@ export interface PcbCardProps {
   disabled?: boolean;
   hoverable?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  badge?: 'match' | 'wild' | 'bluff' | null;
   onClick?: () => void;
   className?: string;
 }
@@ -77,6 +78,7 @@ export const PcbCard: React.FC<PcbCardProps> = ({
   disabled = false,
   hoverable = true,
   size = 'md',
+  badge,
   onClick,
   className,
 }) => {
@@ -142,9 +144,22 @@ export const PcbCard: React.FC<PcbCardProps> = ({
       {/* Top Header */}
       <div className="flex justify-between items-center z-10">
         <span className={clsx('font-black tracking-tight', config.textColor)}>{config.token}</span>
-        <span className="text-[8px] text-zinc-300 font-bold bg-black/70 px-1 py-0.2 rounded border border-zinc-800">
-          {id ? id.slice(0, 4) : 'BUS'}
-        </span>
+        {badge ? (
+          <span
+            className={clsx(
+              'text-[7px] font-black uppercase px-1 py-0.2 rounded border shadow-xs',
+              badge === 'match' && 'bg-emerald-950 text-emerald-300 border-emerald-500',
+              badge === 'wild' && 'bg-fuchsia-950 text-fuchsia-300 border-fuchsia-500 animate-pulse',
+              badge === 'bluff' && 'bg-amber-950 text-amber-300 border-amber-600'
+            )}
+          >
+            {badge === 'match' ? 'MATCH' : badge === 'wild' ? 'WILD' : 'BLUFF'}
+          </span>
+        ) : (
+          <span className="text-[8px] text-zinc-300 font-bold bg-black/70 px-1 py-0.2 rounded border border-zinc-800">
+            {id ? id.slice(0, 4) : 'BUS'}
+          </span>
+        )}
       </div>
 
       {/* SVG PCB Traces Layer */}

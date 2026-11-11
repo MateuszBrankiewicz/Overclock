@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import React from 'react';
 
+import { useI18n } from '../../../shared/i18n';
 import type { PlayerSeat } from '../schemas/gameEvents';
 import { CapacitorMeter } from './CapacitorMeter';
 import { ExploitChipSlot } from './ExploitChipSlot';
@@ -17,15 +18,28 @@ export const OpponentSeats: React.FC<OpponentSeatsProps> = ({
   myPlayerId,
   activePlayerId,
 }) => {
+  const { language } = useI18n();
   const opponents = seats.filter((s) => s.playerId !== myPlayerId);
 
   if (opponents.length === 0) {
     return (
-      <div className="text-zinc-600 font-mono text-xs italic text-center py-2">
-        AWAITING OPPONENTS TO ENTER SEATS...
+      <div className="text-zinc-500 font-mono text-xs italic text-center py-2">
+        {language === 'pl'
+          ? 'Oczekiwanie na dołączenie rywali do stołu...'
+          : 'AWAITING OPPONENTS TO ENTER SEATS...'}
       </div>
     );
   }
+
+  const getStatusLabel = (status: string) => {
+    if (language === 'pl') {
+      if (status === 'Active') return 'W GRZE';
+      if (status === 'Ready') return 'GOTOWY';
+      if (status === 'Eliminated') return 'ODPADŁ';
+      return status;
+    }
+    return status;
+  };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 w-full font-mono">
@@ -51,13 +65,15 @@ export const OpponentSeats: React.FC<OpponentSeatsProps> = ({
                     : 'text-amber-400 bg-amber-950/40'
                 )}
               >
-                {opp.status}
+                {getStatusLabel(opp.status)}
               </span>
             </div>
 
             <div className="flex items-center gap-1.5 pt-2 min-h-[46px] overflow-x-auto">
               {opp.handCount === 0 ? (
-                <span className="text-[10px] text-zinc-600 italic">No packets</span>
+                <span className="text-[10px] text-zinc-600 italic">
+                  {language === 'pl' ? 'Brak kart' : 'No packets'}
+                </span>
               ) : (
                 Array.from({ length: Math.min(opp.handCount, 8) }).map((_, i) => (
                   <PcbCard key={i} faceDown size="sm" hoverable={false} className="shrink-0" />
@@ -66,8 +82,14 @@ export const OpponentSeats: React.FC<OpponentSeatsProps> = ({
             </div>
 
             <div className="flex justify-between items-center text-[10px] text-zinc-500 pt-1 border-t border-zinc-900 mt-1">
-              <span>PACKETS: {opp.handCount}</span>
-              {isTurn && <span className="text-emerald-400 font-bold animate-pulse">● ACTIVE TURN</span>}
+              <span>
+                {language === 'pl' ? 'KARTY' : 'PACKETS'}: {opp.handCount}
+              </span>
+              {isTurn && (
+                <span className="text-emerald-400 font-bold animate-pulse">
+                  ● {language === 'pl' ? 'RUCH GRACZA' : 'ACTIVE TURN'}
+                </span>
+              )}
             </div>
 
             {/* Capacitor Voltage & Exploit Chip */}
@@ -92,4 +114,3 @@ export const OpponentSeats: React.FC<OpponentSeatsProps> = ({
     </div>
   );
 };
-
