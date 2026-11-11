@@ -142,26 +142,87 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(useGameStore.getState().players[0].status).toBe('Disconnected');
     });
 
-    it('applies voltage overload and marks eliminated player', () => {
+    it('applies capacitor discharge updating resulting risk and overload status', () => {
       const seat: PlayerSeat = {
         playerId: '11111111-1111-4111-8111-111111111111',
         nickname: 'Alice',
         status: 'Active',
         isReady: true,
         handCount: 4,
+        riskLevel: 1,
       };
 
       useGameStore.getState().applyPlayerJoined(seat);
-      useGameStore.getState().applyVoltageOverloaded({
-        type: 'VoltageOverloaded',
+      useGameStore.getState().applyCapacitorDischarged({
+        type: 'CapacitorDischarged',
         roomCode: 'CYBER-7X9',
-        eliminatedPlayerId: '11111111-1111-4111-8111-111111111111',
-        finalVoltage: 240,
+        playerId: '11111111-1111-4111-8111-111111111111',
+        roll: 4,
+        riskLevel: 2,
+        resultingRiskLevel: 3,
+        overloaded: false,
       });
 
       const state = useGameStore.getState();
-      expect(state.currentVoltage).toBe(240);
-      expect(state.players[0].status).toBe('Eliminated');
+      expect(state.players[0].riskLevel).toBe(3);
+      expect(state.players[0].status).toBe('Active');
+      expect(state.lastDischargeOutcome?.overloaded).toBe(false);
+    });
+
+    it('marks player as eliminated on overload or elimination event', () => {
+      const seat: PlayerSeat = {
+        playerId: '11111111-1111-4111-8111-111111111111',
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: true,
+        handCount: 4,
+        riskLevel: 5,
+      };
+
+      useGameStore.getState().applyPlayerJoined(seat);
+      useGameStore.getState().applyCapacitorDischarged({
+        type: 'CapacitorDischarged',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        roll: 3,
+        riskLevel: 5,
+        resultingRiskLevel: 5,
+        overloaded: true,
+      });
+
+      expect(useGameStore.getState().players[0].status).toBe('Eliminated');
+
+      useGameStore.getState().applyPlayerEliminated({
+        type: 'PlayerEliminated',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        placement: 2,
+      });
+
+      expect(useGameStore.getState().players[0].status).toBe('Eliminated');
+    });
+
+    it('applies exploit triggered and burns exploit on seat', () => {
+      const seat: PlayerSeat = {
+        playerId: '11111111-1111-4111-8111-111111111111',
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: true,
+        handCount: 4,
+        riskLevel: 2,
+        exploit: { type: 'PacketSniffer', isBurned: false },
+      };
+
+      useGameStore.getState().applyPlayerJoined(seat);
+      useGameStore.getState().applyExploitTriggered({
+        type: 'ExploitTriggered',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        exploit: 'PacketSniffer',
+      });
+
+      const state = useGameStore.getState();
+      expect(state.players[0].exploit?.isBurned).toBe(true);
     });
   });
 
@@ -385,7 +446,6 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
         roomCode: 'CYBER-7X9',
         activePlayerId: '11111111-1111-4111-8111-111111111111',
         turnDeadlineUtc: pastDeadline,
-        currentVoltage: 20,
       });
 
       const state = useGameStore.getState();

@@ -500,37 +500,36 @@ public sealed class GameRoom
         return Result<DischargeOutcome>.Success(outcome);
     }
 
-    public Result<ExploitEffect> ActivateExploit(
+    public Result ValidateExploitActivation(
         PlayerId playerId,
         ExploitType exploit,
-        CardProtocol? newTargetProtocol = null,
-        IRandomSource? randomSource = null)
+        CardProtocol? newTargetProtocol = null)
     {
         var seat = _seats.Find(s => s.Id == playerId);
         if (seat is null)
         {
-            return Result<ExploitEffect>.NotFound(
+            return Result.NotFound(
                 "Exploit.PlayerNotFound",
                 $"Player '{playerId}' is not found in this room.");
         }
 
         if (seat.Status == PlayerStatus.Eliminated)
         {
-            return Result<ExploitEffect>.Invalid(new ValidationError(
+            return Result.Invalid(new ValidationError(
                 "Exploit.PlayerEliminated",
                 $"Eliminated player '{playerId}' cannot activate exploits."));
         }
 
         if (seat.Exploit is null || seat.Exploit.Type != exploit)
         {
-            return Result<ExploitEffect>.Invalid(new ValidationError(
+            return Result.Invalid(new ValidationError(
                 "Exploit.TypeMismatch",
                 $"Player '{playerId}' does not hold exploit '{exploit}'. Held: '{seat.Exploit?.Type}'."));
         }
 
         if (seat.Exploit.IsBurned)
         {
-            return Result<ExploitEffect>.Invalid(new ValidationError(
+            return Result.Invalid(new ValidationError(
                 "Exploit.AlreadyBurned",
                 $"Exploit '{exploit}' held by player '{playerId}' is burned and cannot be activated again."));
         }
@@ -542,7 +541,7 @@ public sealed class GameRoom
             case ExploitTimingWindow.PreAction:
                 if (State != RoomState.TurnActive || CurrentTurnPlayerId != playerId)
                 {
-                    return Result<ExploitEffect>.Conflict(
+                    return Result.Conflict(
                         "Exploit.InvalidTimingWindow",
                         $"Pre-Action exploit '{exploit}' can only be activated during the player's active turn.");
                 }
@@ -551,20 +550,111 @@ public sealed class GameRoom
                 {
                     if (LastPlay is null || LastPlay.Cards.Count == 0)
                     {
-                        return Result<ExploitEffect>.Invalid(new ValidationError(
+                        return Result.Invalid(new ValidationError(
                             "Exploit.NoCardsToSniff",
                             "Cannot activate Packet Sniffer before any cards have been played this round."));
                     }
+                }
+                else if (exploit == ExploitType.EmpFlare)
+                {
+                    if (newTargetProtocol is not null && !ValidTargetProtocols.Contains(newTargetProtocol.Value))
+                    {
+                        return Result.Invalid(new ValidationError(
+                            "Exploit.InvalidNewTargetProtocol",
+                            "EMP Flare requires declaring a valid new target protocol (Alpha, Beta, or Gamma)."));
+                    }
+                }
 
+                break;
+
+            case ExploitTimingWindow.PreDischarge:
+                if (State != RoomState.VoltageTest || PendingDischargePlayerId != playerId)
+                {
+                    return Result.Conflict(
+                        "Exploit.InvalidTimingWindow",
+                        $"Pre-Discharge exploit '{exploit}' can only be activated while awaiting capacitor discharge.");
+                }
+
+                break;
+
+            case ExploitTimingWindow.Interrupt:
+                if (State != RoomState.TurnActive)
+                {
+                    return Result.Conflict(
+                        "Exploit.InvalidTimingWindow",
+                        $"Interrupt exploit '{exploit}' can only be activated while a turn is active.");
+                }
+
+                if (CurrentTurnPlayerId == playerId)
+                {
+                    return Result.Invalid(new ValidationError(
+                        "Exploit.CannotInterruptSelf",
+                        "Cannot interrupt your own active turn."));
+                }
+
+                if (LastPlay is null)
+                {
+                    return Result.Invalid(new ValidationError(
+                        "Exploit.NoCardsToInterrupt",
+                        "Cannot interrupt before an opponent has played cards."));
+                }
+
+                if (LastInjectedTurnSequenceId == TurnSequenceId)
+                {
+                    return Result.Conflict(
+                        "Exploit.AlreadyInjected",
+                        "An Overclock Injector has already been applied to the current turn.");
+                }
+
+                break;
+
+            default:
+                return Result.Invalid(new ValidationError(
+                    "Exploit.Unsupported",
+                    $"Exploit '{exploit}' is not supported."));
+        }
+
+        return Result.Success();
+    }
+
+    public bool CanActivateExploit(PlayerId playerId)
+    {
+        var seat = _seats.Find(s => s.Id == playerId);
+        if (seat?.Exploit is null || seat.Exploit.IsBurned)
+        {
+            return false;
+        }
+
+        return ValidateExploitActivation(playerId, seat.Exploit.Type).IsSuccess;
+    }
+
+    public Result<ExploitEffect> ActivateExploit(
+        PlayerId playerId,
+        ExploitType exploit,
+        CardProtocol? newTargetProtocol = null,
+        IRandomSource? randomSource = null)
+    {
+        var validation = ValidateExploitActivation(playerId, exploit, newTargetProtocol);
+        if (!validation.IsSuccess)
+        {
+            return validation.ToResult<ExploitEffect>();
+        }
+
+        var seat = _seats.Find(s => s.Id == playerId)!;
+
+        switch (exploit)
+        {
+            case ExploitType.PacketSniffer:
+                {
                     seat.BurnExploit();
                     var rng = randomSource ?? CryptoRandomSource.Instance;
-                    var peekIndex = rng.Next(0, LastPlay.Cards.Count);
+                    var peekIndex = rng.Next(0, LastPlay!.Cards.Count);
                     var peekedCard = LastPlay.Cards[peekIndex];
 
                     return Result<ExploitEffect>.Success(new ExploitEffect.SnifferPeek(peekedCard));
                 }
 
-                if (exploit == ExploitType.EmpFlare)
+            case ExploitType.EmpFlare:
                 {
                     if (newTargetProtocol is null || !ValidTargetProtocols.Contains(newTargetProtocol.Value))
                     {
@@ -582,17 +672,7 @@ public sealed class GameRoom
                     return Result<ExploitEffect>.Success(new ExploitEffect.TableReset(newTargetProtocol.Value));
                 }
 
-                break;
-
-            case ExploitTimingWindow.PreDischarge:
-                if (State != RoomState.VoltageTest || PendingDischargePlayerId != playerId)
-                {
-                    return Result<ExploitEffect>.Conflict(
-                        "Exploit.InvalidTimingWindow",
-                        $"Pre-Discharge exploit '{exploit}' can only be activated while awaiting capacitor discharge.");
-                }
-
-                if (exploit == ExploitType.GroundWire)
+            case ExploitType.GroundWire:
                 {
                     seat.BurnExploit();
                     var prevRisk = seat.Risk;
@@ -601,51 +681,19 @@ public sealed class GameRoom
                     return Result<ExploitEffect>.Success(new ExploitEffect.RiskGrounded(prevRisk, seat.Risk));
                 }
 
-                break;
-
-            case ExploitTimingWindow.Interrupt:
-                if (State != RoomState.TurnActive)
-                {
-                    return Result<ExploitEffect>.Conflict(
-                        "Exploit.InvalidTimingWindow",
-                        $"Interrupt exploit '{exploit}' can only be activated while a turn is active.");
-                }
-
-                if (CurrentTurnPlayerId == playerId)
-                {
-                    return Result<ExploitEffect>.Invalid(new ValidationError(
-                        "Exploit.CannotInterruptSelf",
-                        "Cannot interrupt your own active turn."));
-                }
-
-                if (LastPlay is null)
-                {
-                    return Result<ExploitEffect>.Invalid(new ValidationError(
-                        "Exploit.NoCardsToInterrupt",
-                        "Cannot interrupt before an opponent has played cards."));
-                }
-
-                if (LastInjectedTurnSequenceId == TurnSequenceId)
-                {
-                    return Result<ExploitEffect>.Conflict(
-                        "Exploit.AlreadyInjected",
-                        "An Overclock Injector has already been applied to the current turn.");
-                }
-
-                if (exploit == ExploitType.OverclockInjector)
+            case ExploitType.OverclockInjector:
                 {
                     seat.BurnExploit();
                     LastInjectedTurnSequenceId = TurnSequenceId;
 
-                    return Result<ExploitEffect>.Success(new ExploitEffect.TurnTimerShortened(TurnSequenceId, 5));
+                    return Result<ExploitEffect>.Success(new ExploitEffect.TurnTimerShortened(TurnSequenceId, ExploitCatalog.OverclockInjectorDuration));
                 }
 
-                break;
+            default:
+                return Result<ExploitEffect>.Invalid(new ValidationError(
+                    "Exploit.Unsupported",
+                    $"Exploit '{exploit}' is not supported."));
         }
-
-        return Result<ExploitEffect>.Invalid(new ValidationError(
-            "Exploit.Unsupported",
-            $"Exploit '{exploit}' is not supported."));
     }
 
     public Result HandleDisconnect(string connectionId)

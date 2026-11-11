@@ -1,0 +1,10 @@
+{
+  "type": "CapacitorDischarged",
+  "roomCode": "CYBER-7X9",
+  "playerId": "a0000000-0000-4000-8000-000000000002",
+  "roll": 4,
+  "riskLevel": 3,
+  "resultingRiskLevel": 4,
+  "overloaded": false,
+  "sequenceNumber": 1
+}

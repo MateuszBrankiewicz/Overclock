@@ -41,7 +41,9 @@ public sealed class GameStateProjector : IGameStateProjector
                 s.Nickname,
                 s.Status.ToString(),
                 s.IsReady,
-                s.Hand.Count))
+                s.Hand.Count,
+                s.Risk.Level,
+                s.Exploit is not null ? new ExploitDto(s.Exploit.Type.ToString(), s.Exploit.IsBurned) : null))
             .ToList();
 
         TraceResolutionDto? traceResolutionDto = null;
@@ -71,6 +73,9 @@ public sealed class GameStateProjector : IGameStateProjector
             room.RoundNumber,
             traceResolutionDto,
             room.WinnerId?.Value,
-            room.EventSequenceNumber);
+            room.PendingDischargePlayerId?.Value,
+            DischargeDeadlineUtc: null,
+            CanActivateExploit: room.CanActivateExploit(recipientId),
+            SequenceNumber: room.EventSequenceNumber);
     }
 }

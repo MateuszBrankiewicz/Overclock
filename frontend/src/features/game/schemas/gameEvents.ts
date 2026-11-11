@@ -17,6 +17,20 @@ export const RoomStateSchema = z.enum([
 ]);
 export type RoomState = z.infer<typeof RoomStateSchema>;
 
+export const ExploitTypeSchema = z.enum([
+  'PacketSniffer',
+  'GroundWire',
+  'OverclockInjector',
+  'EmpFlare',
+]);
+export type ExploitType = z.infer<typeof ExploitTypeSchema>;
+
+export const ExploitModuleSchema = z.object({
+  type: ExploitTypeSchema,
+  isBurned: z.boolean(),
+});
+export type ExploitModule = z.infer<typeof ExploitModuleSchema>;
+
 export const PlayerCardSchema = z.object({
   id: z.string().uuid(),
   protocol: CardProtocolSchema,
@@ -34,8 +48,18 @@ export const PlayerSeatSchema = z.object({
   status: PlayerStatusSchema,
   isReady: z.boolean(),
   handCount: z.number().int().nonnegative(),
+  riskLevel: z.number().int().min(1).max(6).default(1),
+  exploit: ExploitModuleSchema.nullable().optional(),
 });
-export type PlayerSeat = z.infer<typeof PlayerSeatSchema>;
+export type PlayerSeat = {
+  playerId: string;
+  nickname: string;
+  status: PlayerStatus;
+  isReady: boolean;
+  handCount: number;
+  riskLevel?: number;
+  exploit?: ExploitModule | null;
+};
 
 export const TraceResolutionSchema = z.object({
   accuserPlayerId: z.string().uuid(),
@@ -69,6 +93,9 @@ export const RoomStateSnapshotSchema = z.object({
   roundNumber: z.number().int().nonnegative(),
   lastTraceResolution: TraceResolutionSchema.nullable().optional(),
   winnerId: z.string().uuid().nullable().optional(),
+  pendingDischargePlayerId: z.string().uuid().nullable().optional(),
+  dischargeDeadlineUtc: z.string().datetime().nullable().optional(),
+  canActivateExploit: z.boolean().default(false),
   sequenceNumber: z.number().int().nonnegative().optional(),
 });
 export type RoomStateSnapshot = {
@@ -84,6 +111,9 @@ export type RoomStateSnapshot = {
   roundNumber: number;
   lastTraceResolution?: TraceResolution | null;
   winnerId?: string | null;
+  pendingDischargePlayerId?: string | null;
+  dischargeDeadlineUtc?: string | null;
+  canActivateExploit?: boolean;
   sequenceNumber?: number;
 };
 export const PlayerGameStateSchema = RoomStateSnapshotSchema;
@@ -181,7 +211,13 @@ export const PlayerJoinedEventSchema = PlayerSeatSchema.or(
     player: PlayerSeatSchema,
   })
 );
-export type PlayerJoinedEvent = z.infer<typeof PlayerJoinedEventSchema>;
+export type PlayerJoinedEvent =
+  | PlayerSeat
+  | {
+      type?: 'PlayerJoined';
+      roomCode?: string;
+      player: PlayerSeat;
+    };
 
 // Legacy suit and card representations preserved for existing store and test fixtures
 export const CardSuitSchema = z.enum(['signal', 'clock', 'overload', 'ground']);
@@ -218,7 +254,6 @@ export const TurnStartedEventSchema = z.object({
   roomCode: z.string(),
   activePlayerId: z.string().uuid(),
   turnDeadlineUtc: z.string().datetime(),
-  currentVoltage: z.number().int().min(0),
   sequenceNumber: z.number().int().nonnegative().optional(),
 });
 export type TurnStartedEvent = {
@@ -226,21 +261,106 @@ export type TurnStartedEvent = {
   roomCode: string;
   activePlayerId: string;
   turnDeadlineUtc: string;
-  currentVoltage: number;
   sequenceNumber?: number;
 };
 
-export const VoltageOverloadedEventSchema = z.object({
-  type: z.literal('VoltageOverloaded'),
+export const CapacitorDischargedEventSchema = z.object({
+  type: z.literal('CapacitorDischarged'),
   roomCode: z.string(),
-  eliminatedPlayerId: z.string().uuid(),
-  finalVoltage: z.number().int(),
+  playerId: z.string().uuid(),
+  roll: z.number().int().min(1).max(6),
+  riskLevel: z.number().int().min(1).max(6),
+  resultingRiskLevel: z.number().int().min(1).max(6),
+  overloaded: z.boolean(),
   sequenceNumber: z.number().int().nonnegative().optional(),
 });
-export type VoltageOverloadedEvent = {
-  type: 'VoltageOverloaded';
+export type CapacitorDischargedEvent = {
+  type: 'CapacitorDischarged';
   roomCode: string;
-  eliminatedPlayerId: string;
-  finalVoltage: number;
+  playerId: string;
+  roll: number;
+  riskLevel: number;
+  resultingRiskLevel: number;
+  overloaded: boolean;
   sequenceNumber?: number;
 };
+
+export const PlayerEliminatedEventSchema = z.object({
+  type: z.literal('PlayerEliminated'),
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  placement: z.number().int().min(1),
+  sequenceNumber: z.number().int().nonnegative().optional(),
+});
+export type PlayerEliminatedEvent = {
+  type: 'PlayerEliminated';
+  roomCode: string;
+  playerId: string;
+  placement: number;
+  sequenceNumber?: number;
+};
+
+export const ExploitTriggeredEventSchema = z.object({
+  type: z.literal('ExploitTriggered'),
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  exploit: ExploitTypeSchema,
+  newTargetProtocol: CardProtocolSchema.nullable().optional(),
+  newRiskLevel: z.number().int().min(1).max(6).nullable().optional(),
+  turnDeadlineUtc: z.string().datetime().nullable().optional(),
+  sequenceNumber: z.number().int().nonnegative().optional(),
+});
+export type ExploitTriggeredEvent = {
+  type: 'ExploitTriggered';
+  roomCode: string;
+  playerId: string;
+  exploit: ExploitType;
+  newTargetProtocol?: CardProtocol | null;
+  newRiskLevel?: number | null;
+  turnDeadlineUtc?: string | null;
+  sequenceNumber?: number;
+};
+
+export const PacketSniffedEventSchema = z.object({
+  type: z.literal('PacketSniffed'),
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  card: PlayerCardSchema,
+  sequenceNumber: z.number().int().nonnegative().optional(),
+});
+export type PacketSniffedEvent = {
+  type: 'PacketSniffed';
+  roomCode: string;
+  playerId: string;
+  card: PlayerCard;
+  sequenceNumber?: number;
+};
+
+export const VoltageTestStartedEventSchema = z.object({
+  type: z.literal('VoltageTestStarted'),
+  roomCode: z.string(),
+  pendingPlayerId: z.string().uuid(),
+  decisionDeadlineUtc: z.string().datetime().nullable().optional(),
+  sequenceNumber: z.number().int().nonnegative().optional(),
+});
+export type VoltageTestStartedEvent = {
+  type: 'VoltageTestStarted';
+  roomCode: string;
+  pendingPlayerId: string;
+  decisionDeadlineUtc?: string | null;
+  sequenceNumber?: number;
+};
+
+export const ActivateExploitContractSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  exploit: ExploitTypeSchema,
+  newTargetProtocol: CardProtocolSchema.nullable().optional(),
+});
+export type ActivateExploitContract = z.infer<typeof ActivateExploitContractSchema>;
+
+export const TriggerDischargeContractSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+});
+export type TriggerDischargeContract = z.infer<typeof TriggerDischargeContractSchema>;

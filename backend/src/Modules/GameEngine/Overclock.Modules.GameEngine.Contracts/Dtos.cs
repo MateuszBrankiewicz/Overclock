@@ -1,5 +1,15 @@
 namespace Overclock.Modules.GameEngine.Contracts;
 
+public enum ExploitType
+{
+    PacketSniffer,
+    GroundWire,
+    OverclockInjector,
+    EmpFlare
+}
+
+public sealed record ExploitDto(string Type, bool IsBurned);
+
 public sealed record PlayerCardDto(Guid Id, string Protocol, int VisualSeed = 0);
 
 public sealed record PlayerSeatDto(
@@ -7,7 +17,9 @@ public sealed record PlayerSeatDto(
     string Nickname,
     string Status,
     bool IsReady,
-    int HandCount);
+    int HandCount,
+    int RiskLevel = 1,
+    ExploitDto? Exploit = null);
 
 public sealed record TraceResolutionDto(
     Guid AccuserPlayerId,
@@ -31,6 +43,9 @@ public sealed record PlayerGameStateDto(
     int RoundNumber,
     TraceResolutionDto? LastTraceResolution,
     Guid? WinnerId,
+    Guid? PendingDischargePlayerId = null,
+    DateTime? DischargeDeadlineUtc = null,
+    bool CanActivateExploit = false,
     long SequenceNumber = 1);
 
 public sealed record RoomJoinResultDto(
@@ -70,6 +85,9 @@ public sealed record GameStateSnapshotDto(
     int RoundNumber,
     TraceResolutionDto? LastTraceResolution,
     Guid? WinnerId,
+    Guid? PendingDischargePlayerId = null,
+    DateTime? DischargeDeadlineUtc = null,
+    bool CanActivateExploit = false,
     long SequenceNumber = 1);
 
 public sealed record PlayCardsContractDto(
@@ -86,3 +104,13 @@ public sealed record ReconnectContractDto(
     string RoomCode,
     Guid SessionToken,
     string NewConnectionId);
+
+public sealed record ActivateExploitContractDto(
+    string RoomCode,
+    Guid PlayerId,
+    string Exploit,
+    string? NewTargetProtocol = null);
+
+public sealed record TriggerDischargeContractDto(
+    string RoomCode,
+    Guid PlayerId);

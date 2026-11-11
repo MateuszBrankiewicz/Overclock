@@ -9,7 +9,6 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
   tablePileCount: 0,
   remainingTimeSeconds: 15,
   turnDeadlineUtc: null,
-  currentVoltage: 0,
   lastPlayedCards: null,
   lastTraceResolution: null,
   lastTrace: null,
@@ -73,7 +72,6 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
     set({
       activePlayerId: event.activePlayerId,
       turnDeadlineUtc: event.turnDeadlineUtc,
-      currentVoltage: event.currentVoltage,
       remainingTimeSeconds: diffSeconds,
       roomState: 'TurnActive',
     });
@@ -108,7 +106,6 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       tablePileCount: 0,
       remainingTimeSeconds: 15,
       turnDeadlineUtc: null,
-      currentVoltage: 0,
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,

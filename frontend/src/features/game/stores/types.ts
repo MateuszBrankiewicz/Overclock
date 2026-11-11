@@ -1,8 +1,12 @@
 import type {
+  CapacitorDischargedEvent,
   Card,
   CardProtocol,
   CardsPlayedEvent,
+  ExploitTriggeredEvent,
+  PacketSniffedEvent,
   PlayerCard,
+  PlayerEliminatedEvent,
   PlayerJoinedEvent,
   PlayerSeat,
   PlayerStatusChangedEvent,
@@ -12,7 +16,7 @@ import type {
   TraceCalledEvent,
   TraceResolution,
   TurnStartedEvent,
-  VoltageOverloadedEvent,
+  VoltageTestStartedEvent,
 } from '../schemas/gameEvents';
 
 export interface RoomSlice {
@@ -23,11 +27,20 @@ export interface RoomSlice {
   isInRoom: boolean;
   players: PlayerSeat[];
   winnerId: string | null;
+  pendingDischargePlayerId: string | null;
+  dischargeDeadlineUtc: string | null;
+  canActivateExploit: boolean;
+  lastDischargeOutcome: CapacitorDischargedEvent | null;
+  sniffedCard: PlayerCard | null;
   setRoom: (roomCode: string, playerId: string) => void;
   applyRoomSnapshot: (snapshot: RoomStateSnapshot) => void;
   applyPlayerJoined: (event: PlayerJoinedEvent) => void;
   applyPlayerStatusChanged: (event: PlayerStatusChangedEvent) => void;
-  applyVoltageOverloaded: (event: VoltageOverloadedEvent) => void;
+  applyCapacitorDischarged: (event: CapacitorDischargedEvent) => void;
+  applyPlayerEliminated: (event: PlayerEliminatedEvent) => void;
+  applyExploitTriggered: (event: ExploitTriggeredEvent) => void;
+  applyPacketSniffed: (event: PacketSniffedEvent) => void;
+  applyVoltageTestStarted: (event: VoltageTestStartedEvent) => void;
   leaveRoom: () => void;
 }
 
@@ -52,7 +65,6 @@ export interface TurnSlice {
   tablePileCount: number;
   remainingTimeSeconds: number;
   turnDeadlineUtc: string | null;
-  currentVoltage: number;
   lastPlayedCards: CardsPlayedEvent | null;
   lastTraceResolution: TraceResolution | null;
   lastTrace: TraceCalledEvent | null;

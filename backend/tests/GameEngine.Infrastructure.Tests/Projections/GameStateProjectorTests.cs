@@ -282,6 +282,37 @@ public sealed class GameStateProjectorTests
     }
 
     [Fact]
+    public void Project_ProjectsRiskLevelAndExploitPerSeat()
+    {
+        var (room, hostId, _, _) = CreateActiveThreePlayerRoom();
+
+        var snapshot = GameStateProjector.Project(room, hostId);
+
+        Assert.Equal(3, snapshot.Seats.Count);
+        var validExploits = new[] { "PacketSniffer", "GroundWire", "OverclockInjector", "EmpFlare" };
+        foreach (var seat in snapshot.Seats)
+        {
+            Assert.InRange(seat.RiskLevel, 1, 6);
+            Assert.NotNull(seat.Exploit);
+            Assert.False(seat.Exploit.IsBurned);
+            Assert.Contains(seat.Exploit.Type, validExploits);
+        }
+    }
+
+    [Fact]
+    public void Project_ProjectsCanActivateExploit_BasedOnDomainRule()
+    {
+        var (room, hostId, p2Id, _) = CreateActiveThreePlayerRoom();
+
+        var hostSnapshot = GameStateProjector.Project(room, hostId);
+        var p2Snapshot = GameStateProjector.Project(room, p2Id);
+
+        // Host can activate only if their assigned exploit allows activation right now (e.g., EMP Flare, or Packet Sniffer if cards played)
+        Assert.Equal(room.CanActivateExploit(hostId), hostSnapshot.CanActivateExploit);
+        Assert.Equal(room.CanActivateExploit(p2Id), p2Snapshot.CanActivateExploit);
+    }
+
+    [Fact]
     public void Project_IGameStateProjector_InstanceMethod_ProducesSameResult()
     {
         var (room, hostId, _, _) = CreateActiveThreePlayerRoom();
