@@ -38,8 +38,9 @@ internal sealed class ReconnectCommandHandler(
             }
 
             var seat = reconnectResult.Value;
+            var sequenceNumber = room.NextEventSequence();
             var snapshot = projector.Project(room, seat.Id);
-            return Result<ReconnectOutcome>.Success(new ReconnectOutcome(seat.Id.Value, snapshot));
+            return Result<ReconnectOutcome>.Success(new ReconnectOutcome(seat.Id.Value, snapshot, sequenceNumber));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -52,6 +53,7 @@ internal sealed class ReconnectCommandHandler(
             request.RoomCode,
             outcome.Value.PlayerId,
             PlayerStatus.Active,
+            outcome.Value.SequenceNumber,
             CancellationToken.None);
 
         await notifier.SendPlayerSnapshotAsync(
@@ -62,5 +64,5 @@ internal sealed class ReconnectCommandHandler(
         return Result<PlayerGameStateDto>.Success(outcome.Value.Snapshot);
     }
 
-    private sealed record ReconnectOutcome(Guid PlayerId, PlayerGameStateDto Snapshot);
+    private sealed record ReconnectOutcome(Guid PlayerId, PlayerGameStateDto Snapshot, long SequenceNumber);
 }

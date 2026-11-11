@@ -5,9 +5,11 @@
   "revealedCards": [
     {
       "id": "a0000000-0000-4000-8000-000000000003",
-      "protocol": "Alpha"
+      "protocol": "Alpha",
+      "visualSeed": 2087103404
     }
   ],
   "declaredProtocol": "Alpha",
-  "bluffDetected": true
+  "bluffDetected": true,
+  "sequenceNumber": 1
 }

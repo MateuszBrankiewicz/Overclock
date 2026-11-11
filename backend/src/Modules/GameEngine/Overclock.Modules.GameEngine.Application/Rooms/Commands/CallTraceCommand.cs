@@ -16,7 +16,7 @@ internal sealed class CallTraceCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
     ITurnTimerEngine turnTimer,
-    IGameStateProjector projector)
+    VoltageTestCoordinator voltageCoordinator)
     : IRequestHandler<CallTraceCommand, Result<TraceResolutionDto>>
 {
     public async ValueTask<Result<TraceResolutionDto>> Handle(CallTraceCommand request, CancellationToken ct)
@@ -36,19 +36,24 @@ internal sealed class CallTraceCommandHandler(
 
             var res = result.Value;
             turnTimer.Cancel(room.Id.Value);
+            var sequenceNumber = room.NextEventSequence();
             var dto = new TraceResolutionDto(
                 res.AccuserPlayerId.Value,
                 res.AccusedPlayerId.Value,
                 res.LoserPlayerId.Value,
-                res.RevealedCards.Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString())).ToList(),
+                res.RevealedCards.Select(c => new PlayerCardDto(c.Id.Value, c.Protocol.ToString(), VisualSeedGenerator.FromCardId(c.Id.Value))).ToList(),
                 res.DeclaredProtocol.ToString(),
-                res.BluffDetected);
+                res.BluffDetected,
+                sequenceNumber);
 
-            // In Phase 0 headless loop, complete bluff check to advance room state to RoundOver / GameOver
-            room.CompleteBluffCheck();
+            var completeResult = room.CompleteBluffCheck();
+            if (!completeResult.IsSuccess)
+            {
+                return completeResult.ToResult<CallTraceOutcome>();
+            }
 
-            var snapshots = projector.ProjectForActiveConnections(room);
-            return Result<CallTraceOutcome>.Success(new CallTraceOutcome(dto, snapshots));
+            var voltageResolution = voltageCoordinator.ProcessVoltageTestEntry(session, room, res.LoserPlayerId);
+            return Result<CallTraceOutcome>.Success(new CallTraceOutcome(dto, voltageResolution));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -57,13 +62,12 @@ internal sealed class CallTraceCommandHandler(
         }
 
         await notifier.NotifyTraceCalledAsync(request.RoomCode, outcome.Value.Resolution, CancellationToken.None);
-
-        await notifier.BroadcastSnapshotsAsync(
-            outcome.Value.Snapshots,
-            CancellationToken.None);
+        await voltageCoordinator.DispatchResolutionAsync(request.RoomCode, outcome.Value.VoltageResolution, CancellationToken.None);
 
         return Result<TraceResolutionDto>.Success(outcome.Value.Resolution);
     }
 
-    private sealed record CallTraceOutcome(TraceResolutionDto Resolution, IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> Snapshots);
+    private sealed record CallTraceOutcome(
+        TraceResolutionDto Resolution,
+        VoltageTestCoordinator.VoltageTestResolution VoltageResolution);
 }

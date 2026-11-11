@@ -11,6 +11,11 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   isInRoom: false,
   players: [],
   winnerId: null,
+  pendingDischargePlayerId: null,
+  dischargeDeadlineUtc: null,
+  canActivateExploit: false,
+  lastDischargeOutcome: null,
+  sniffedCard: null,
 
   setRoom: (roomCode, playerId) =>
     set({
@@ -20,26 +25,45 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
     }),
 
   applyRoomSnapshot: (snapshot) =>
-    set((state) => ({
-      roomCode: snapshot.roomCode,
-      roomState: snapshot.state,
-      hostId: snapshot.hostId,
-      playerId: snapshot.myPlayerId,
-      isInRoom: true,
-      players: snapshot.seats,
-      winnerId: snapshot.winnerId ?? null,
-      myCards: snapshot.myHand,
-      selectedCardIds: state.selectedCardIds.filter((id) =>
-        snapshot.myHand.some((card) => card.id === id)
-      ),
-      tablePileCount: snapshot.tablePileCount,
-      currentTargetProtocol: snapshot.currentTargetProtocol ?? null,
-      activePlayerId: snapshot.currentTurnPlayerId ?? null,
-      roundNumber: snapshot.roundNumber,
-      lastTraceResolution: snapshot.lastTraceResolution ?? null,
-      lastPlayedCards: null,
-      lastTrace: null,
-    })),
+    set((state) => {
+      const shouldClearSniffedCard =
+        snapshot.state !== 'TurnActive' ||
+        snapshot.currentTurnPlayerId !== state.activePlayerId ||
+        snapshot.roundNumber !== state.roundNumber;
+
+      const shouldClearLastDischarge =
+        snapshot.state === 'TurnActive' ||
+        snapshot.state === 'Lobby' ||
+        snapshot.state === 'VoltageTest';
+
+      return {
+        roomCode: snapshot.roomCode,
+        roomState: snapshot.state,
+        hostId: snapshot.hostId,
+        playerId: snapshot.myPlayerId,
+        isInRoom: true,
+        players: snapshot.seats,
+        winnerId: snapshot.winnerId ?? null,
+        pendingDischargePlayerId: snapshot.pendingDischargePlayerId ?? null,
+        dischargeDeadlineUtc:
+          snapshot.dischargeDeadlineUtc ??
+          (snapshot.state === 'VoltageTest' ? state.dischargeDeadlineUtc : null),
+        canActivateExploit: snapshot.canActivateExploit ?? false,
+        lastDischargeOutcome: shouldClearLastDischarge ? null : state.lastDischargeOutcome,
+        sniffedCard: shouldClearSniffedCard ? null : state.sniffedCard,
+        myCards: snapshot.myHand,
+        selectedCardIds: state.selectedCardIds.filter((id) =>
+          snapshot.myHand.some((card) => card.id === id)
+        ),
+        tablePileCount: snapshot.tablePileCount,
+        currentTargetProtocol: snapshot.currentTargetProtocol ?? null,
+        activePlayerId: snapshot.currentTurnPlayerId ?? null,
+        roundNumber: snapshot.roundNumber,
+        lastTraceResolution: snapshot.lastTraceResolution ?? null,
+        lastPlayedCards: null,
+        lastTrace: null,
+      };
+    }),
 
   applyPlayerJoined: (event) =>
     set((state) => {
@@ -64,15 +88,60 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       ),
     })),
 
-  applyVoltageOverloaded: (event) =>
+  applyCapacitorDischarged: (event) =>
     set((state) => ({
-      currentVoltage: event.finalVoltage,
+      lastDischargeOutcome: event,
+      pendingDischargePlayerId: null,
+      dischargeDeadlineUtc: null,
       players: state.players.map((seat) =>
-        seat.playerId === event.eliminatedPlayerId
+        seat.playerId === event.playerId
+          ? {
+              ...seat,
+              riskLevel: event.resultingRiskLevel,
+              status: event.overloaded ? 'Eliminated' : seat.status,
+            }
+          : seat
+      ),
+    })),
+
+  applyPlayerEliminated: (event) =>
+    set((state) => ({
+      players: state.players.map((seat) =>
+        seat.playerId === event.playerId
           ? { ...seat, status: 'Eliminated' }
           : seat
       ),
     })),
+
+  applyExploitTriggered: (event) =>
+    set((state) => ({
+      currentTargetProtocol: event.newTargetProtocol ?? state.currentTargetProtocol,
+      turnDeadlineUtc: event.turnDeadlineUtc ?? state.turnDeadlineUtc,
+      tablePileCount: event.exploit === 'EmpFlare' ? 0 : state.tablePileCount,
+      sniffedCard: event.exploit === 'EmpFlare' ? null : state.sniffedCard,
+      players: state.players.map((seat) =>
+        seat.playerId === event.playerId
+          ? {
+              ...seat,
+              riskLevel: event.newRiskLevel ?? seat.riskLevel,
+              exploit: seat.exploit ? { ...seat.exploit, isBurned: true } : seat.exploit,
+            }
+          : seat
+      ),
+    })),
+
+  applyPacketSniffed: (event) =>
+    set({
+      sniffedCard: event.card,
+    }),
+
+  applyVoltageTestStarted: (event) =>
+    set({
+      roomState: 'VoltageTest',
+      pendingDischargePlayerId: event.pendingPlayerId,
+      dischargeDeadlineUtc: event.decisionDeadlineUtc ?? null,
+      lastDischargeOutcome: null,
+    }),
 
   leaveRoom: () =>
     set({
@@ -83,6 +152,11 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       isInRoom: false,
       players: [],
       winnerId: null,
+      pendingDischargePlayerId: null,
+      dischargeDeadlineUtc: null,
+      canActivateExploit: false,
+      lastDischargeOutcome: null,
+      sniffedCard: null,
       myCards: [],
       selectedCardIds: [],
       hand: [],
@@ -92,7 +166,6 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       tablePileCount: 0,
       remainingTimeSeconds: 15,
       turnDeadlineUtc: null,
-      currentVoltage: 0,
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,

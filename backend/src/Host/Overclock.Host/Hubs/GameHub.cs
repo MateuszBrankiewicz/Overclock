@@ -120,6 +120,39 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
         return HubResponse<PlayerGameStateDto>.From(result);
     }
 
+    public async Task<HubResponse> ActivateExploit(ActivateExploitRequest request)
+    {
+        var caller = ValidateCaller(request.RoomCode);
+        if (!caller.IsSuccess)
+        {
+            return HubResponse.From(caller.ToResult());
+        }
+
+        var command = new ActivateExploitCommand(
+            request.RoomCode,
+            caller.Value.PlayerId,
+            request.Exploit,
+            request.NewTargetProtocol,
+            Context.ConnectionId);
+        var result = await sender.Send(command, Context.ConnectionAborted);
+
+        return HubResponse.From(result);
+    }
+
+    public async Task<HubResponse> TriggerDischarge(TriggerDischargeRequest request)
+    {
+        var caller = ValidateCaller(request.RoomCode);
+        if (!caller.IsSuccess)
+        {
+            return HubResponse.From(caller.ToResult());
+        }
+
+        var command = new TriggerDischargeCommand(request.RoomCode, caller.Value.PlayerId);
+        var result = await sender.Send(command, Context.ConnectionAborted);
+
+        return HubResponse.From(result);
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         if (connectionTracker.TryGet(Context.ConnectionId, out var info))

@@ -10,7 +10,8 @@
     "myHand": [
       {
         "id": "a0000000-0000-4000-8000-000000000003",
-        "protocol": "Alpha"
+        "protocol": "Alpha",
+        "visualSeed": 2087103404
       }
     ],
     "seats": [
@@ -19,14 +20,24 @@
         "nickname": "AliceHost",
         "status": "Active",
         "isReady": true,
-        "handCount": 5
+        "handCount": 5,
+        "riskLevel": 1,
+        "exploit": {
+          "type": "PacketSniffer",
+          "isBurned": false
+        }
       },
       {
         "playerId": "a0000000-0000-4000-8000-000000000002",
         "nickname": "BobGuest",
         "status": "Active",
         "isReady": true,
-        "handCount": 5
+        "handCount": 5,
+        "riskLevel": 2,
+        "exploit": {
+          "type": "GroundWire",
+          "isBurned": false
+        }
       }
     ],
     "tablePileCount": 2,
@@ -40,12 +51,18 @@
       "revealedCards": [
         {
           "id": "a0000000-0000-4000-8000-000000000003",
-          "protocol": "Alpha"
+          "protocol": "Alpha",
+          "visualSeed": 2087103404
         }
       ],
       "declaredProtocol": "Alpha",
-      "bluffDetected": true
+      "bluffDetected": true,
+      "sequenceNumber": 1
     },
-    "winnerId": null
+    "winnerId": null,
+    "pendingDischargePlayerId": null,
+    "dischargeDeadlineUtc": null,
+    "canActivateExploit": true,
+    "sequenceNumber": 1
   }
 }

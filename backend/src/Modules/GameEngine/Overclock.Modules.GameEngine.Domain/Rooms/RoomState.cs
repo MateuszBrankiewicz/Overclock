@@ -6,6 +6,7 @@ public enum RoomState
     Dealing,
     TurnActive,
     BluffCheck,
+    VoltageTest,
     RoundOver,
     GameOver
 }

@@ -18,3 +18,10 @@ public sealed record PlayCardsRequest(
 public sealed record CallTraceRequest(string RoomCode);
 
 public sealed record ReconnectRequest(string RoomCode, Guid SessionToken);
+
+public sealed record ActivateExploitRequest(
+    string RoomCode,
+    string Exploit,
+    CardProtocol? NewTargetProtocol = null);
+
+public sealed record TriggerDischargeRequest(string RoomCode);

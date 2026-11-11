@@ -1,0 +1,11 @@
+{
+  "type": "PacketSniffed",
+  "roomCode": "CYBER-7X9",
+  "playerId": "a0000000-0000-4000-8000-000000000001",
+  "card": {
+    "id": "a0000000-0000-4000-8000-000000000003",
+    "protocol": "Alpha",
+    "visualSeed": 2087103404
+  },
+  "sequenceNumber": 1
+}

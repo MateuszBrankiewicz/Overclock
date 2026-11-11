@@ -4,91 +4,127 @@ using Overclock.Modules.GameEngine.Application.Rooms;
 using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Cards;
+using Overclock.Modules.GameEngine.Domain.Exploits;
 using Overclock.Modules.GameEngine.Domain.Rooms;
 using Overclock.Modules.GameEngine.Infrastructure.Rooms;
+using Overclock.SharedKernel;
+using ExploitType = Overclock.Modules.GameEngine.Domain.Exploits.ExploitType;
 
 namespace Overclock.Modules.GameEngine.Infrastructure.Tests.Services;
 
 public sealed class TurnTimerEngineTests
 {
     [Fact]
-    public async Task Timer_EnqueuesExpirationAndAdvancesTurn()
+    public async Task Timer_LeadTimeout_EnqueuesLeadForfeitAndDischargesCapacitor()
     {
-        var (room, currentPlayerId, nextPlayerId) = CreateActiveRoom();
+        var (room, currentPlayerId, _) = CreateActiveRoom();
         await using var session = new GameRoomSession(room, new RoomActor(room));
         var delay = new ManualTurnDelay();
-        await using var timer = new TurnTimerEngine(delay, TimeSpan.FromSeconds(15));
+        var notifier = new FakeGameNotifier();
+        await using var timer = new TurnTimerEngine(delay, notifier, null, new SafeRollRandomSource(), TimeSpan.FromSeconds(15));
 
         timer.Start(session, currentPlayerId, room.TurnSequenceId);
-        delay.Release();
-        await delay.Returned;
-        for (var i = 0; i < 50 && room.TurnSequenceId == 1; i++)
-        {
-            await Task.Delay(10);
-        }
+        await delay.AdvanceAsync();
+        await notifier.DischargeReceived.WaitAsync(TimeSpan.FromSeconds(3));
         await session.EnqueueAsync(_ => Result.Success());
 
-        Assert.Equal(RoomState.TurnActive, room.State);
-        Assert.Equal(nextPlayerId, room.CurrentTurnPlayerId);
-        Assert.NotEqual(1, room.TurnSequenceId);
+        Assert.Equal(RoomState.RoundOver, room.State);
+        Assert.Null(room.CurrentTurnPlayerId);
+        Assert.NotNull(room.LastDischargeOutcome);
+        Assert.False(room.LastDischargeOutcome.Value.Overloaded);
     }
 
     [Fact]
-    public async Task Timer_SuccessiveTimeouts_AdvanceThroughAllPlayers()
+    public async Task Timer_TimeoutAfterPlay_PerformsAutoTraceAndDischargesLoser()
     {
         var (room, hostPlayerId, secondPlayerId) = CreateActiveRoom();
         await using var session = new GameRoomSession(room, new RoomActor(room));
+        var hostSeat = room.Seats.First(s => s.Id == hostPlayerId);
+        var playCard = hostSeat.Hand[0];
+        var playResult = room.PlayCards(hostPlayerId, [playCard.Id], room.CurrentTargetProtocol!.Value);
+        Assert.True(playResult.IsSuccess);
+
         var delay = new ManualTurnDelay();
-        await using var timer = new TurnTimerEngine(delay, TimeSpan.FromSeconds(15));
+        var notifier = new FakeGameNotifier();
+        await using var timer = new TurnTimerEngine(delay, notifier, null, new SafeRollRandomSource(), TimeSpan.FromSeconds(15));
 
-        timer.Start(session, hostPlayerId, room.TurnSequenceId);
-
-        // 1st timeout: Host -> Second player
-        await delay.AdvanceAsync();
-        for (var i = 0; i < 50 && room.TurnSequenceId < 2; i++)
-        {
-            await Task.Delay(10);
-        }
-        await session.EnqueueAsync(_ => Result.Success());
-
-        Assert.Equal(RoomState.TurnActive, room.State);
         Assert.Equal(secondPlayerId, room.CurrentTurnPlayerId);
-        Assert.Equal(2, room.TurnSequenceId);
+        timer.Start(session, secondPlayerId, room.TurnSequenceId);
 
-        // Wait for 2nd delay to begin
-        await delay.Started;
-
-        // 2nd timeout: Second player -> Host
         await delay.AdvanceAsync();
-        for (var i = 0; i < 50 && room.TurnSequenceId < 3; i++)
-        {
-            await Task.Delay(10);
-        }
+        await notifier.DischargeReceived.WaitAsync(TimeSpan.FromSeconds(3));
         await session.EnqueueAsync(_ => Result.Success());
 
-        Assert.Equal(RoomState.TurnActive, room.State);
-        Assert.Equal(hostPlayerId, room.CurrentTurnPlayerId);
-        Assert.Equal(3, room.TurnSequenceId);
+        Assert.Equal(RoomState.RoundOver, room.State);
+        Assert.NotNull(room.LastTraceResolution);
+        Assert.NotNull(room.LastDischargeOutcome);
+        Assert.False(room.LastDischargeOutcome.Value.Overloaded);
     }
 
     [Fact]
     public async Task Timer_Expiration_BroadcastsUpdatedGameState()
     {
-        var (room, currentPlayerId, nextPlayerId) = CreateActiveRoom();
+        var (room, currentPlayerId, _) = CreateActiveRoom();
         await using var session = new GameRoomSession(room, new RoomActor(room));
         var delay = new ManualTurnDelay();
         var notifier = new FakeGameNotifier();
-        await using var timer = new TurnTimerEngine(delay, notifier, TimeSpan.FromSeconds(15));
+        await using var timer = new TurnTimerEngine(delay, notifier, null, new SafeRollRandomSource(), TimeSpan.FromSeconds(15));
 
         timer.Start(session, currentPlayerId, room.TurnSequenceId);
         await delay.AdvanceAsync();
-        await notifier.BroadcastReceived.WaitAsync(TimeSpan.FromSeconds(2));
+        await notifier.BroadcastReceived.WaitAsync(TimeSpan.FromSeconds(3));
         await session.EnqueueAsync(_ => Result.Success());
 
         Assert.Equal(1, notifier.BroadcastCount);
         Assert.Equal(room.Id.Value, notifier.LastBroadcastRoomCode);
         Assert.NotNull(notifier.LastBroadcastSample);
-        Assert.Equal(nextPlayerId.Value, notifier.LastBroadcastSample.CurrentTurnPlayerId);
+        Assert.Null(notifier.LastBroadcastSample.CurrentTurnPlayerId);
+        Assert.Single(notifier.Discharges);
+        Assert.False(notifier.Discharges[0].Overloaded);
+    }
+
+    [Fact]
+    public async Task Timer_WatchdogExpiration_DischargesPendingPlayer()
+    {
+        var (room, hostPlayerId, _) = CreateActiveRoom(new GroundWireRandomSource());
+        await using var session = new GameRoomSession(room, new RoomActor(room));
+
+        var delay = new ManualTurnDelay();
+        var notifier = new FakeGameNotifier();
+        await using var timer = new TurnTimerEngine(delay, notifier, null, new SafeRollRandomSource());
+
+        timer.Start(session, hostPlayerId, room.TurnSequenceId);
+        await delay.AdvanceAsync();
+        await notifier.VoltageStartReceived.WaitAsync(TimeSpan.FromSeconds(3));
+        await session.EnqueueAsync(_ => Result.Success());
+
+        Assert.Equal(RoomState.VoltageTest, room.State);
+        Assert.Equal(hostPlayerId, room.PendingDischargePlayerId);
+        Assert.Single(notifier.VoltageStarts);
+
+        await delay.Started;
+        await delay.AdvanceAsync();
+        await notifier.DischargeReceived.WaitAsync(TimeSpan.FromSeconds(3));
+        await session.EnqueueAsync(_ => Result.Success());
+
+        Assert.Equal(RoomState.RoundOver, room.State);
+        Assert.Single(notifier.Discharges);
+        Assert.Equal(hostPlayerId.Value, notifier.Discharges[0].PlayerId);
+        Assert.False(notifier.Discharges[0].Overloaded);
+    }
+
+    [Fact]
+    public async Task Timer_RescheduleTurn_ReturnsTrueForMatchingSequence()
+    {
+        var (room, hostPlayerId, _) = CreateActiveRoom();
+        await using var session = new GameRoomSession(room, new RoomActor(room));
+        var delay = new ManualTurnDelay();
+        await using var timer = new TurnTimerEngine(delay);
+
+        timer.Start(session, hostPlayerId, room.TurnSequenceId);
+        var rescheduled = timer.RescheduleTurn(room.Id.Value, room.TurnSequenceId, TimeSpan.FromSeconds(5));
+
+        Assert.True(rescheduled);
     }
 
     [Fact]
@@ -126,7 +162,7 @@ public sealed class TurnTimerEngineTests
         Assert.Equal(1, room.TurnSequenceId);
     }
 
-    private static (GameRoom Room, PlayerId CurrentPlayerId, PlayerId NextPlayerId) CreateActiveRoom()
+    private static (GameRoom Room, PlayerId CurrentPlayerId, PlayerId NextPlayerId) CreateActiveRoom(SharedKernel.IRandomSource? randomSource = null)
     {
         var hostId = PlayerId.New();
         var secondPlayerId = PlayerId.New();
@@ -140,7 +176,7 @@ public sealed class TurnTimerEngineTests
         room.AddPlayer(secondPlayerId, "Player2", "connection-2", Guid.NewGuid());
         room.SetReady(hostId, true);
         room.SetReady(secondPlayerId, true);
-        room.StartRound(hostId, new ConstantRandomSource());
+        room.StartRound(hostId, randomSource ?? new ConstantRandomSource());
 
         return (room, hostId, secondPlayerId);
     }
@@ -148,6 +184,16 @@ public sealed class TurnTimerEngineTests
     private sealed class ConstantRandomSource : SharedKernel.IRandomSource
     {
         public int Next(int minValue, int maxValue) => 0;
+    }
+
+    private sealed class GroundWireRandomSource : SharedKernel.IRandomSource
+    {
+        public int Next(int minValue, int maxValue) => 1;
+    }
+
+    private sealed class SafeRollRandomSource : SharedKernel.IRandomSource
+    {
+        public int Next(int minValue, int maxValue) => 6;
     }
 
     private sealed class ManualTurnDelay : ITurnDelay
@@ -233,11 +279,21 @@ public sealed class TurnTimerEngineTests
     {
         private readonly TaskCompletionSource _broadcastReceived =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _dischargeReceived =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _voltageStartReceived =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Task BroadcastReceived => _broadcastReceived.Task;
+        public Task DischargeReceived => _dischargeReceived.Task;
+        public Task VoltageStartReceived => _voltageStartReceived.Task;
+
         public int BroadcastCount { get; private set; }
         public string? LastBroadcastRoomCode { get; private set; }
         public PlayerGameStateDto? LastBroadcastSample { get; private set; }
+        public List<CapacitorDischargedEvent> Discharges { get; } = new();
+        public List<TraceResolutionDto> Traces { get; } = new();
+        public List<VoltageTestStartedEvent> VoltageStarts { get; } = new();
 
         public Task BroadcastSnapshotsAsync(
             IReadOnlyList<(string ConnectionId, PlayerGameStateDto Snapshot)> snapshots,
@@ -256,17 +312,43 @@ public sealed class TurnTimerEngineTests
         public Task NotifyPlayerJoinedAsync(string roomCode, PlayerSeatDto player, CancellationToken ct = default) =>
             Task.CompletedTask;
 
-        public Task NotifyPlayerStatusChangedAsync(string roomCode, Guid playerId, PlayerStatus status, CancellationToken ct = default) =>
+        public Task NotifyPlayerStatusChangedAsync(string roomCode, Guid playerId, PlayerStatus status, long sequenceNumber = 1, CancellationToken ct = default) =>
             Task.CompletedTask;
 
-        public Task NotifyCardsPlayedAsync(string roomCode, Guid playerId, int cardCount, CardProtocol declaredProtocol, CancellationToken ct = default) =>
+        public Task NotifyCardsPlayedAsync(string roomCode, Guid playerId, int cardCount, CardProtocol declaredProtocol, long sequenceNumber = 1, CancellationToken ct = default) =>
             Task.CompletedTask;
 
-        public Task NotifyTraceCalledAsync(string roomCode, TraceResolutionDto resolution, CancellationToken ct = default) =>
-            Task.CompletedTask;
+        public Task NotifyTraceCalledAsync(string roomCode, TraceResolutionDto resolution, CancellationToken ct = default)
+        {
+            Traces.Add(resolution);
+            return Task.CompletedTask;
+        }
 
         public Task NotifyRoundStartedAsync(string roomCode, RoundStartedDto notification, CancellationToken ct = default) =>
             Task.CompletedTask;
+
+        public Task NotifyCapacitorDischargedAsync(string roomCode, CapacitorDischargedEvent notification, CancellationToken ct = default)
+        {
+            Discharges.Add(notification);
+            _dischargeReceived.TrySetResult();
+            return Task.CompletedTask;
+        }
+
+        public Task NotifyPlayerEliminatedAsync(string roomCode, PlayerEliminatedEvent notification, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyExploitTriggeredAsync(string roomCode, ExploitTriggeredEvent notification, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyPacketSniffedAsync(string connectionId, PacketSniffedEvent notification, CancellationToken ct = default) =>
+            Task.CompletedTask;
+
+        public Task NotifyVoltageTestStartedAsync(string roomCode, VoltageTestStartedEvent notification, CancellationToken ct = default)
+        {
+            VoltageStarts.Add(notification);
+            _voltageStartReceived.TrySetResult();
+            return Task.CompletedTask;
+        }
 
         public Task SendPlayerSnapshotAsync(string connectionId, PlayerGameStateDto snapshot, CancellationToken ct = default) =>
             Task.CompletedTask;

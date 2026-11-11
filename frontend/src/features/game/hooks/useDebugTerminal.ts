@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   createGameConnection,
   GameConnectionManager,
 } from '../../../shared/realtime/gameConnection';
 import {
+  CapacitorDischargedEventSchema,
   type CardProtocol,
   CardsPlayedEventSchema,
+  ExploitTriggeredEventSchema,
+  PacketSniffedEventSchema,
+  PlayerEliminatedEventSchema,
   PlayerGameStateSchema,
   PlayerJoinedEventSchema,
   PlayerStatusChangedEventSchema,
@@ -14,17 +18,21 @@ import {
   RoomStateSnapshotSchema,
   RoundStartedEventSchema,
   TraceResolutionSchema,
+  VoltageTestStartedEventSchema,
 } from '../schemas/gameEvents';
+import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 
-export function useDebugTerminal() {
-  const connectionRef = useRef<GameConnectionManager | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<string>('Disconnected');
+let sharedConnection: GameConnectionManager | null = null;
+
+export function useGameSession() {
+  const [connectionStatus, setConnectionStatus] = useState<string>(() =>
+    sharedConnection?.isConnected ? 'Connected' : 'Disconnected'
+  );
   const [lastLog, setLastLog] = useState<string>('Terminal initialized');
 
   const roomCode = useGameStore((state) => state.roomCode);
   const isInRoom = useGameStore((state) => state.isInRoom);
-  const selectedCardIds = useGameStore((state) => state.selectedCardIds);
   const currentTargetProtocol = useGameStore((state) => state.currentTargetProtocol);
   const applyRoomSnapshot = useGameStore((state) => state.applyRoomSnapshot);
   const applyPlayerJoined = useGameStore((state) => state.applyPlayerJoined);
@@ -32,6 +40,11 @@ export function useDebugTerminal() {
   const applyCardsPlayed = useGameStore((state) => state.applyCardsPlayed);
   const applyTraceResolution = useGameStore((state) => state.applyTraceResolution);
   const applyRoundStarted = useGameStore((state) => state.applyRoundStarted);
+  const applyCapacitorDischarged = useGameStore((state) => state.applyCapacitorDischarged);
+  const applyPlayerEliminated = useGameStore((state) => state.applyPlayerEliminated);
+  const applyExploitTriggered = useGameStore((state) => state.applyExploitTriggered);
+  const applyPacketSniffed = useGameStore((state) => state.applyPacketSniffed);
+  const applyVoltageTestStarted = useGameStore((state) => state.applyVoltageTestStarted);
   const leaveRoom = useGameStore((state) => state.leaveRoom);
 
   const [customProtocol, setCustomProtocol] = useState<CardProtocol | null>(null);
@@ -47,74 +60,157 @@ export function useDebugTerminal() {
   }, []);
 
   useEffect(() => {
-    const conn = createGameConnection({
-      onReconnecting: () => setConnectionStatus('Reconnecting'),
-      onReconnected: () => setConnectionStatus('Connected'),
-      onClosed: () => setConnectionStatus('Disconnected'),
-      onContractViolation: (eventName, error) => {
-        logMessage(`Contract Violation in ${eventName}: ${error.message}`);
-      },
-    });
+    if (!sharedConnection) {
+      sharedConnection = createGameConnection({
+        onReconnecting: () => setConnectionStatus('Reconnecting'),
+        onReconnected: () => setConnectionStatus('Connected'),
+        onClosed: () => setConnectionStatus('Disconnected'),
+        onContractViolation: (eventName, error) => {
+          logMessage(`Contract Violation in ${eventName}: ${error.message}`);
+        },
+      });
+    }
 
-    connectionRef.current = conn;
+    const conn = sharedConnection;
 
     const unsubs = [
       conn.on('ReceiveGameState', RoomStateSnapshotSchema, (snapshot) => {
+        useActionQueue.getState().enqueueAction(
+          'ReceiveGameState',
+          snapshot,
+          { sequenceNumber: snapshot.sequenceNumber, minDurationMs: 100 }
+        );
         applyRoomSnapshot(snapshot);
         logMessage(`ReceiveGameState received: State=${snapshot.state}`);
       }),
       conn.on('PlayerJoined', PlayerJoinedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'PlayerJoined',
+          event,
+          { minDurationMs: 100 }
+        );
         applyPlayerJoined(event);
         logMessage('PlayerJoined event received');
       }),
       conn.on('PlayerStatusChanged', PlayerStatusChangedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'PlayerStatusChanged',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 150 }
+        );
         applyPlayerStatusChanged(event);
         logMessage(`PlayerStatusChanged: ${event.playerId} -> ${event.status}`);
       }),
       conn.on('CardsPlayed', CardsPlayedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'CardsPlayed',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 350 }
+        );
         applyCardsPlayed(event);
         logMessage(`CardsPlayed: count=${event.cardCount}, protocol=${event.declaredProtocol}`);
       }),
       conn.on('TraceCalled', TraceResolutionSchema, (resolution) => {
+        useActionQueue.getState().enqueueAction(
+          'TraceCalled',
+          resolution,
+          { sequenceNumber: resolution.sequenceNumber, minDurationMs: 600 }
+        );
         applyTraceResolution(resolution);
         logMessage(`TraceCalled: bluffDetected=${resolution.bluffDetected ? 'true' : 'false'}`);
       }),
       conn.on('RoundStarted', RoundStartedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'RoundStarted',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 250 }
+        );
         applyRoundStarted(event);
         logMessage(`RoundStarted: round ${event.roundNumber}, lead=${event.leadProtocol ?? 'none'}`);
       }),
+      conn.on('CapacitorDischarged', CapacitorDischargedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'CapacitorDischarged',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 400 }
+        );
+        applyCapacitorDischarged(event);
+        logMessage(`CapacitorDischarged: player=${event.playerId}, roll=${event.roll}, risk=${event.riskLevel}->${event.resultingRiskLevel}, overloaded=${event.overloaded}`);
+      }),
+      conn.on('PlayerEliminated', PlayerEliminatedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'PlayerEliminated',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 500 }
+        );
+        applyPlayerEliminated(event);
+        logMessage(`PlayerEliminated: player=${event.playerId}, placement=#${event.placement}`);
+      }),
+      conn.on('ExploitTriggered', ExploitTriggeredEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'ExploitTriggered',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 350 }
+        );
+        applyExploitTriggered(event);
+        logMessage(`ExploitTriggered: player=${event.playerId}, exploit=${event.exploit}`);
+      }),
+      conn.on('PacketSniffed', PacketSniffedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'PacketSniffed',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 300 }
+        );
+        applyPacketSniffed(event);
+        logMessage(`PacketSniffed: peeked card protocol=${event.card.protocol}`);
+      }),
+      conn.on('VoltageTestStarted', VoltageTestStartedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'VoltageTestStarted',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 300 }
+        );
+        applyVoltageTestStarted(event);
+        logMessage(`VoltageTestStarted: pending=${event.pendingPlayerId}`);
+      }),
     ];
 
-    void conn
-      .start()
-      .then(() => {
-        setConnectionStatus('Connected');
-        logMessage('Connected to SignalR GameHub');
-      })
-      .catch((err: unknown) => {
-        setConnectionStatus('Error');
-        logMessage(`Failed to connect: ${err instanceof Error ? err.message : String(err)}`);
-      });
+    if (!conn.isConnected) {
+      void conn
+        .start()
+        .then(() => {
+          setConnectionStatus('Connected');
+          logMessage('Connected to SignalR GameHub');
+        })
+        .catch((err: unknown) => {
+          setConnectionStatus('Error');
+          logMessage(`Failed to connect: ${err instanceof Error ? err.message : String(err)}`);
+        });
+    }
 
     return () => {
       unsubs.forEach((u) => u());
-      void conn.stop();
     };
   }, [
+    applyCapacitorDischarged,
     applyCardsPlayed,
+    applyExploitTriggered,
+    applyPacketSniffed,
+    applyPlayerEliminated,
     applyPlayerJoined,
     applyPlayerStatusChanged,
     applyRoomSnapshot,
     applyRoundStarted,
     applyTraceResolution,
+    applyVoltageTestStarted,
     logMessage,
   ]);
 
   const ensureConnected = async (): Promise<GameConnectionManager> => {
-    const conn = connectionRef.current;
-    if (!conn) {
-      throw new Error('Connection manager not initialized');
+    if (!sharedConnection) {
+      sharedConnection = createGameConnection();
     }
+    const conn = sharedConnection;
     if (!conn.isConnected) {
       await conn.start();
       setConnectionStatus('Connected');
@@ -193,18 +289,22 @@ export function useDebugTerminal() {
   };
 
   const playCards = async () => {
-    if (!roomCode || selectedCardIds.length === 0) return;
+    const state = useGameStore.getState();
+    const activeRoomCode = state.roomCode;
+    const cards = state.selectedCardIds;
+    const targetProtocol = state.currentTargetProtocol ?? 'Alpha';
+
+    if (!activeRoomCode || cards.length === 0) return;
     try {
       const conn = await ensureConnected();
-      const declared = selectedProtocol || currentTargetProtocol || 'Alpha';
       const res = await conn.invokeHubCommand('PlayCards', {
-        roomCode,
-        cardIds: selectedCardIds,
-        declaredProtocol: declared,
+        roomCode: activeRoomCode,
+        cardIds: cards,
+        declaredProtocol: targetProtocol,
       });
       if (res.isSuccess) {
         useGameStore.getState().clearSelection();
-        logMessage(`PlayCards success: played ${selectedCardIds.length} card(s) face-down as '${declared}'`);
+        logMessage(`PlayCards success: played ${cards.length} card(s) face-down as '${targetProtocol}'`);
       } else {
         logMessage(`PlayCards failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
       }
@@ -214,10 +314,11 @@ export function useDebugTerminal() {
   };
 
   const callTrace = async () => {
-    if (!roomCode) return;
+    const activeRoomCode = useGameStore.getState().roomCode;
+    if (!activeRoomCode) return;
     try {
       const conn = await ensureConnected();
-      const res = await conn.invokeHubMethod('CallTrace', TraceResolutionSchema, { roomCode });
+      const res = await conn.invokeHubMethod('CallTrace', TraceResolutionSchema, { roomCode: activeRoomCode });
       if (res.isSuccess && res.data) {
         applyTraceResolution(res.data);
         logMessage(`CallTrace sent: BluffDetected=${res.data.bluffDetected ? 'true' : 'false'}`);
@@ -230,24 +331,23 @@ export function useDebugTerminal() {
   };
 
   const simulateDisconnect = async () => {
-    if (!connectionRef.current) return;
-    await connectionRef.current.stop();
+    if (!sharedConnection) return;
+    await sharedConnection.stop();
     setConnectionStatus('Disconnected');
     logMessage('Simulated socket disconnection');
   };
 
   const reconnect = async () => {
-    const conn = connectionRef.current;
-    if (!conn) return;
-    const session = conn.getSession();
+    if (!sharedConnection) return;
+    const session = sharedConnection.getSession();
     if (!session) {
       logMessage('No active session saved in sessionStorage to reconnect');
       return;
     }
     try {
-      await conn.start();
+      await sharedConnection.start();
       setConnectionStatus('Connected');
-      const res = await conn.invokeHubMethod('Reconnect', PlayerGameStateSchema, {
+      const res = await sharedConnection.invokeHubMethod('Reconnect', PlayerGameStateSchema, {
         roomCode: session.roomId,
         sessionToken: session.sessionToken,
       });
@@ -262,6 +362,44 @@ export function useDebugTerminal() {
     }
   };
 
+  const activateExploit = async (exploit: string, newTargetProtocol?: string) => {
+    const activeRoomCode = useGameStore.getState().roomCode;
+    if (!activeRoomCode) return;
+    try {
+      const conn = await ensureConnected();
+      const res = await conn.invokeHubCommand('ActivateExploit', {
+        roomCode: activeRoomCode,
+        exploit,
+        newTargetProtocol: newTargetProtocol ?? null,
+      });
+      if (res.isSuccess) {
+        logMessage(`ActivateExploit success: ${exploit}`);
+      } else {
+        logMessage(`ActivateExploit failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+      }
+    } catch (err) {
+      logMessage(`ActivateExploit error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const triggerDischarge = async () => {
+    const activeRoomCode = useGameStore.getState().roomCode;
+    if (!activeRoomCode) return;
+    try {
+      const conn = await ensureConnected();
+      const res = await conn.invokeHubCommand('TriggerDischarge', {
+        roomCode: activeRoomCode,
+      });
+      if (res.isSuccess) {
+        logMessage('TriggerDischarge success: capacitor discharged');
+      } else {
+        logMessage(`TriggerDischarge failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+      }
+    } catch (err) {
+      logMessage(`TriggerDischarge error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   return {
     connectionStatus,
     lastLog,
@@ -273,9 +411,13 @@ export function useDebugTerminal() {
     startRound,
     playCards,
     callTrace,
+    activateExploit,
+    triggerDischarge,
     simulateDisconnect,
     reconnect,
     leaveRoom,
     isInRoom,
   };
 }
+
+export const useDebugTerminal = useGameSession;

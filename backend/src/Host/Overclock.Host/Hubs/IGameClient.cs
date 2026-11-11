@@ -15,4 +15,14 @@ public interface IGameClient
     Task TraceCalled(TraceResolutionDto resolution);
 
     Task RoundStarted(RoundStartedDto notification);
+
+    Task CapacitorDischarged(CapacitorDischargedEvent notification);
+
+    Task PlayerEliminated(PlayerEliminatedEvent notification);
+
+    Task ExploitTriggered(ExploitTriggeredEvent notification);
+
+    Task PacketSniffed(PacketSniffedEvent notification);
+
+    Task VoltageTestStarted(VoltageTestStartedEvent notification);
 }

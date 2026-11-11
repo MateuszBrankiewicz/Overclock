@@ -1,5 +1,7 @@
 using Ardalis.Result;
 using Overclock.Modules.GameEngine.Domain.Cards;
+using Overclock.Modules.GameEngine.Domain.Exploits;
+using Overclock.Modules.GameEngine.Domain.Voltage;
 
 namespace Overclock.Modules.GameEngine.Domain.Rooms;
 
@@ -15,6 +17,8 @@ public sealed class PlayerSeat
     public PlayerStatus Status { get; private set; }
     public bool IsReady { get; private set; }
     public DateTimeOffset? DisconnectedAtUtc { get; private set; }
+    public CapacitorRisk Risk { get; private set; } = CapacitorRisk.Initial;
+    public ExploitModule? Exploit { get; private set; }
 
     public PlayerSeat(
         PlayerId id,
@@ -22,7 +26,9 @@ public sealed class PlayerSeat
         string? connectionId,
         Guid sessionToken,
         PlayerStatus status = PlayerStatus.Active,
-        bool isReady = false)
+        bool isReady = false,
+        CapacitorRisk? risk = null,
+        ExploitModule? exploit = null)
     {
         Id = id;
         Nickname = nickname;
@@ -30,6 +36,52 @@ public sealed class PlayerSeat
         SessionToken = sessionToken;
         Status = status;
         IsReady = isReady;
+        Risk = risk ?? CapacitorRisk.Initial;
+        Exploit = exploit;
+    }
+
+    internal void AssignExploit(ExploitModule exploit)
+    {
+        Exploit = exploit;
+    }
+
+    internal void BurnExploit()
+    {
+        if (Exploit is not null)
+        {
+            Exploit = Exploit.Burn();
+        }
+    }
+
+    internal void HalveRisk()
+    {
+        Risk = Risk.Halve();
+    }
+
+    internal void ApplyDischarge(DischargeOutcome outcome)
+    {
+        Risk = outcome.ResultingRisk;
+        if (outcome.Overloaded)
+        {
+            Eliminate();
+        }
+    }
+
+    internal void ResetForMatch(ExploitModule initialExploit)
+    {
+        if (Status == PlayerStatus.Eliminated)
+        {
+            Status = PlayerStatus.Active;
+        }
+
+        Risk = CapacitorRisk.Initial;
+        Exploit = initialExploit;
+        _hand.Clear();
+    }
+
+    internal void ResetForNewRound()
+    {
+        _hand.Clear();
     }
 
     internal void SetReady(bool ready)

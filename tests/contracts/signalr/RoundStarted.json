@@ -2,5 +2,6 @@
   "roomCode": "CYBER-7X9",
   "roundNumber": 1,
   "leadProtocol": "Alpha",
-  "activePlayerId": "a0000000-0000-4000-8000-000000000001"
+  "activePlayerId": "a0000000-0000-4000-8000-000000000001",
+  "sequenceNumber": 1
 }

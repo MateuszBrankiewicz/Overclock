@@ -142,26 +142,87 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(useGameStore.getState().players[0].status).toBe('Disconnected');
     });
 
-    it('applies voltage overload and marks eliminated player', () => {
+    it('applies capacitor discharge updating resulting risk and overload status', () => {
       const seat: PlayerSeat = {
         playerId: '11111111-1111-4111-8111-111111111111',
         nickname: 'Alice',
         status: 'Active',
         isReady: true,
         handCount: 4,
+        riskLevel: 1,
       };
 
       useGameStore.getState().applyPlayerJoined(seat);
-      useGameStore.getState().applyVoltageOverloaded({
-        type: 'VoltageOverloaded',
+      useGameStore.getState().applyCapacitorDischarged({
+        type: 'CapacitorDischarged',
         roomCode: 'CYBER-7X9',
-        eliminatedPlayerId: '11111111-1111-4111-8111-111111111111',
-        finalVoltage: 240,
+        playerId: '11111111-1111-4111-8111-111111111111',
+        roll: 4,
+        riskLevel: 2,
+        resultingRiskLevel: 3,
+        overloaded: false,
       });
 
       const state = useGameStore.getState();
-      expect(state.currentVoltage).toBe(240);
-      expect(state.players[0].status).toBe('Eliminated');
+      expect(state.players[0].riskLevel).toBe(3);
+      expect(state.players[0].status).toBe('Active');
+      expect(state.lastDischargeOutcome?.overloaded).toBe(false);
+    });
+
+    it('marks player as eliminated on overload or elimination event', () => {
+      const seat: PlayerSeat = {
+        playerId: '11111111-1111-4111-8111-111111111111',
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: true,
+        handCount: 4,
+        riskLevel: 5,
+      };
+
+      useGameStore.getState().applyPlayerJoined(seat);
+      useGameStore.getState().applyCapacitorDischarged({
+        type: 'CapacitorDischarged',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        roll: 3,
+        riskLevel: 5,
+        resultingRiskLevel: 5,
+        overloaded: true,
+      });
+
+      expect(useGameStore.getState().players[0].status).toBe('Eliminated');
+
+      useGameStore.getState().applyPlayerEliminated({
+        type: 'PlayerEliminated',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        placement: 2,
+      });
+
+      expect(useGameStore.getState().players[0].status).toBe('Eliminated');
+    });
+
+    it('applies exploit triggered and burns exploit on seat', () => {
+      const seat: PlayerSeat = {
+        playerId: '11111111-1111-4111-8111-111111111111',
+        nickname: 'Alice',
+        status: 'Active',
+        isReady: true,
+        handCount: 4,
+        riskLevel: 2,
+        exploit: { type: 'PacketSniffer', isBurned: false },
+      };
+
+      useGameStore.getState().applyPlayerJoined(seat);
+      useGameStore.getState().applyExploitTriggered({
+        type: 'ExploitTriggered',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        exploit: 'PacketSniffer',
+      });
+
+      const state = useGameStore.getState();
+      expect(state.players[0].exploit?.isBurned).toBe(true);
     });
   });
 
@@ -385,7 +446,6 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
         roomCode: 'CYBER-7X9',
         activePlayerId: '11111111-1111-4111-8111-111111111111',
         turnDeadlineUtc: pastDeadline,
-        currentVoltage: 20,
       });
 
       const state = useGameStore.getState();
@@ -428,6 +488,74 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(state.winnerId).toBeNull();
       expect(state.myCards).toEqual([]);
       expect(state.tablePileCount).toBe(0);
+    });
+
+    it('preserves dischargeDeadlineUtc in applyRoomSnapshot when room is in VoltageTest', () => {
+      const deadline = new Date(Date.now() + 5000).toISOString();
+      useGameStore.getState().applyVoltageTestStarted({
+        type: 'VoltageTestStarted',
+        roomCode: 'CYBER-7X9',
+        pendingPlayerId: '11111111-1111-4111-8111-111111111111',
+        decisionDeadlineUtc: deadline,
+      });
+
+      expect(useGameStore.getState().dischargeDeadlineUtc).toBe(deadline);
+
+      // Snapshot with null dischargeDeadlineUtc must preserve active deadline during VoltageTest
+      useGameStore.getState().applyRoomSnapshot({
+        roomCode: 'CYBER-7X9',
+        state: 'VoltageTest',
+        hostId: '11111111-1111-4111-8111-111111111111',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        myHand: [],
+        seats: [],
+        tablePileCount: 0,
+        roundNumber: 1,
+        dischargeDeadlineUtc: null,
+      });
+
+      expect(useGameStore.getState().dischargeDeadlineUtc).toBe(deadline);
+    });
+
+    it('clears sniffedCard and lastDischargeOutcome appropriately across turns and events', () => {
+      useGameStore.getState().applyPacketSniffed({
+        type: 'PacketSniffed',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        card: { id: 'c1', protocol: 'Alpha' },
+      });
+      useGameStore.getState().applyCapacitorDischarged({
+        type: 'CapacitorDischarged',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        roll: 6,
+        riskLevel: 1,
+        resultingRiskLevel: 2,
+        overloaded: false,
+      });
+
+      expect(useGameStore.getState().sniffedCard?.protocol).toBe('Alpha');
+      expect(useGameStore.getState().lastDischargeOutcome?.roll).toBe(6);
+
+      // EmpFlare clears sniffedCard and sets tablePileCount to 0
+      useGameStore.getState().applyExploitTriggered({
+        type: 'ExploitTriggered',
+        roomCode: 'CYBER-7X9',
+        playerId: '11111111-1111-4111-8111-111111111111',
+        exploit: 'EmpFlare',
+        newTargetProtocol: 'Beta',
+      });
+      expect(useGameStore.getState().sniffedCard).toBeNull();
+      expect(useGameStore.getState().tablePileCount).toBe(0);
+
+      // Starting next VoltageTest clears previous discharge outcome
+      useGameStore.getState().applyVoltageTestStarted({
+        type: 'VoltageTestStarted',
+        roomCode: 'CYBER-7X9',
+        pendingPlayerId: '22222222-2222-4222-8222-222222222222',
+        decisionDeadlineUtc: null,
+      });
+      expect(useGameStore.getState().lastDischargeOutcome).toBeNull();
     });
   });
 });

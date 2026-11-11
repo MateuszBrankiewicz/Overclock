@@ -16,17 +16,53 @@ public sealed record TraceCalledEvent(
     Guid CallerId,
     Guid AccusedPlayerId,
     IReadOnlyList<CardDto> RevealedCards,
-    bool BluffDetected);
+    bool BluffDetected,
+    long SequenceNumber = 1);
 
 public sealed record TurnStartedEvent(
     string Type,
     string RoomCode,
     Guid ActivePlayerId,
     DateTime TurnDeadlineUtc,
-    int CurrentVoltage);
+    long SequenceNumber = 1);
 
-public sealed record VoltageOverloadedEvent(
+public sealed record CapacitorDischargedEvent(
     string Type,
     string RoomCode,
-    Guid EliminatedPlayerId,
-    int FinalVoltage);
+    Guid PlayerId,
+    int Roll,
+    int RiskLevel,
+    int ResultingRiskLevel,
+    bool Overloaded,
+    long SequenceNumber = 1);
+
+public sealed record PlayerEliminatedEvent(
+    string Type,
+    string RoomCode,
+    Guid PlayerId,
+    int Placement,
+    long SequenceNumber = 1);
+
+public sealed record ExploitTriggeredEvent(
+    string Type,
+    string RoomCode,
+    Guid PlayerId,
+    string Exploit,
+    string? NewTargetProtocol = null,
+    int? NewRiskLevel = null,
+    DateTime? TurnDeadlineUtc = null,
+    long SequenceNumber = 1);
+
+public sealed record PacketSniffedEvent(
+    string Type,
+    string RoomCode,
+    Guid PlayerId,
+    PlayerCardDto Card,
+    long SequenceNumber = 1);
+
+public sealed record VoltageTestStartedEvent(
+    string Type,
+    string RoomCode,
+    Guid PendingPlayerId,
+    DateTime? DecisionDeadlineUtc = null,
+    long SequenceNumber = 1);

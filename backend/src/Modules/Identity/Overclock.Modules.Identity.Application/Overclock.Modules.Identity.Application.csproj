@@ -7,8 +7,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="*" />
-    <PackageReference Include="Mediator.Abstractions" Version="*" />
+    <PackageReference Include="FluentValidation" Version="12.2.0" />
+    <PackageReference Include="Mediator.Abstractions" Version="2.1.7" />
   </ItemGroup>
 
   <PropertyGroup>

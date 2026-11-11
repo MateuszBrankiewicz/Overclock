@@ -10,5 +10,6 @@
       "value": 8
     }
   ],
-  "bluffDetected": true
+  "bluffDetected": true,
+  "sequenceNumber": 1
 }
