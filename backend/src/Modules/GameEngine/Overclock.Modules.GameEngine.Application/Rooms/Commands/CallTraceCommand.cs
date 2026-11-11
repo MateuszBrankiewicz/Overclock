@@ -16,9 +16,12 @@ internal sealed class CallTraceCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
     ITurnTimerEngine turnTimer,
-    IGameStateProjector projector)
+    IGameStateProjector projector,
+    IRandomSource? randomSource = null)
     : IRequestHandler<CallTraceCommand, Result<TraceResolutionDto>>
 {
+    private readonly IRandomSource _randomSource = randomSource ?? CryptoRandomSource.Instance;
+
     public async ValueTask<Result<TraceResolutionDto>> Handle(CallTraceCommand request, CancellationToken ct)
     {
         if (!registry.TryGet(request.RoomCode, out var session))
@@ -47,10 +50,19 @@ internal sealed class CallTraceCommandHandler(
                 sequenceNumber);
 
             // Complete bluff check to enter VoltageTest and auto-discharge for baseline loop
-            room.CompleteBluffCheck();
+            var completeResult = room.CompleteBluffCheck();
+            if (!completeResult.IsSuccess)
+            {
+                return completeResult.ToResult<CallTraceOutcome>();
+            }
+
             if (room.PendingDischargePlayerId is not null)
             {
-                room.DischargeCapacitor(room.PendingDischargePlayerId.Value);
+                var dischargeResult = room.DischargeCapacitor(room.PendingDischargePlayerId.Value, _randomSource);
+                if (!dischargeResult.IsSuccess)
+                {
+                    return dischargeResult.ToResult<CallTraceOutcome>();
+                }
             }
 
             var snapshots = projector.ProjectForActiveConnections(room);

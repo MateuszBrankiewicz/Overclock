@@ -227,4 +227,62 @@ public sealed class GameRoomVoltageTests
             Assert.Equal(ExploitType.OverclockInjector, seat.Exploit.Type);
         }
     }
+
+    [Fact]
+    public void StartRound_WhenPlayersNotAllReady_FailsWithoutMutatingSeatStates()
+    {
+        var hostId = PlayerId.New();
+        var p2Id = PlayerId.New();
+
+        var roomResult = GameRoom.Create(
+            RoomId.New("UNREADY-2P"),
+            hostId,
+            "HostUser",
+            "conn-host",
+            Guid.NewGuid());
+
+        var room = roomResult.Value;
+        room.AddPlayer(p2Id, "Player2", "conn-p2", Guid.NewGuid());
+
+        room.SetReady(hostId, true);
+        // Player 2 is NOT ready!
+
+        var startResult = room.StartRound(hostId);
+
+        Assert.False(startResult.IsSuccess);
+        Assert.Equal(RoomState.Lobby, room.State);
+        Assert.Null(room.Seats[0].Exploit);
+        Assert.Null(room.Seats[1].Exploit);
+        Assert.Equal(1, room.Seats[0].Risk.Level);
+        Assert.Equal(1, room.Seats[1].Risk.Level);
+    }
+
+    [Fact]
+    public void Rematch_FromGameOver_PreservesDisconnectedStatusAndGracePeriod()
+    {
+        var (room, hostId, p2Id, p3Id, p4Id) = SetupFourPlayerGame();
+        room.StartRound(hostId, new ScriptedRandomSource(1));
+
+        // Player 2 disconnects during match
+        var disconnectTime = DateTimeOffset.UtcNow.AddSeconds(-10);
+        room.Seats[1].Disconnect(disconnectTime);
+        Assert.Equal(PlayerStatus.Disconnected, room.Seats[1].Status);
+        Assert.Equal(disconnectTime, room.Seats[1].DisconnectedAtUtc);
+
+        // Eliminate Host, P3, P4 -> GameOver (P2 was disconnected)
+        room.EliminatePlayer(hostId);
+        room.EliminatePlayer(p3Id);
+        room.EliminatePlayer(p4Id);
+        Assert.Equal(RoomState.GameOver, room.State);
+
+        var survivorHost = room.HostId;
+
+        // Rematch starts
+        var rematchResult = room.StartRound(survivorHost, new ScriptedRandomSource(0));
+        Assert.True(rematchResult.IsSuccess);
+
+        // P2 must remain Disconnected with unchanged DisconnectedAtUtc
+        Assert.Equal(PlayerStatus.Disconnected, room.Seats[1].Status);
+        Assert.Equal(disconnectTime, room.Seats[1].DisconnectedAtUtc);
+    }
 }

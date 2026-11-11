@@ -69,10 +69,13 @@ public sealed class PlayerSeat
 
     internal void ResetForMatch(ExploitModule initialExploit)
     {
-        Status = PlayerStatus.Active;
+        if (Status == PlayerStatus.Eliminated)
+        {
+            Status = PlayerStatus.Active;
+        }
+
         Risk = CapacitorRisk.Initial;
         Exploit = initialExploit;
-        DisconnectedAtUtc = null;
         _hand.Clear();
     }
 
