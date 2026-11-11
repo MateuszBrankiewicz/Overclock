@@ -6,7 +6,12 @@ export type QueuedActionType =
   | 'TraceCalled'
   | 'RoundStarted'
   | 'PlayerStatusChanged'
-  | 'PlayerJoined';
+  | 'PlayerJoined'
+  | 'CapacitorDischarged'
+  | 'PlayerEliminated'
+  | 'ExploitTriggered'
+  | 'PacketSniffed'
+  | 'VoltageTestStarted';
 
 export interface QueuedGameAction {
   id: string;

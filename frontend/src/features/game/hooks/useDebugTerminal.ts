@@ -5,8 +5,12 @@ import {
   GameConnectionManager,
 } from '../../../shared/realtime/gameConnection';
 import {
+  CapacitorDischargedEventSchema,
   type CardProtocol,
   CardsPlayedEventSchema,
+  ExploitTriggeredEventSchema,
+  PacketSniffedEventSchema,
+  PlayerEliminatedEventSchema,
   PlayerGameStateSchema,
   PlayerJoinedEventSchema,
   PlayerStatusChangedEventSchema,
@@ -14,6 +18,7 @@ import {
   RoomStateSnapshotSchema,
   RoundStartedEventSchema,
   TraceResolutionSchema,
+  VoltageTestStartedEventSchema,
 } from '../schemas/gameEvents';
 import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
@@ -35,6 +40,11 @@ export function useGameSession() {
   const applyCardsPlayed = useGameStore((state) => state.applyCardsPlayed);
   const applyTraceResolution = useGameStore((state) => state.applyTraceResolution);
   const applyRoundStarted = useGameStore((state) => state.applyRoundStarted);
+  const applyCapacitorDischarged = useGameStore((state) => state.applyCapacitorDischarged);
+  const applyPlayerEliminated = useGameStore((state) => state.applyPlayerEliminated);
+  const applyExploitTriggered = useGameStore((state) => state.applyExploitTriggered);
+  const applyPacketSniffed = useGameStore((state) => state.applyPacketSniffed);
+  const applyVoltageTestStarted = useGameStore((state) => state.applyVoltageTestStarted);
   const leaveRoom = useGameStore((state) => state.leaveRoom);
 
   const [customProtocol, setCustomProtocol] = useState<CardProtocol | null>(null);
@@ -118,6 +128,51 @@ export function useGameSession() {
         applyRoundStarted(event);
         logMessage(`RoundStarted: round ${event.roundNumber}, lead=${event.leadProtocol ?? 'none'}`);
       }),
+      conn.on('CapacitorDischarged', CapacitorDischargedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'CapacitorDischarged',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 400 }
+        );
+        applyCapacitorDischarged(event);
+        logMessage(`CapacitorDischarged: player=${event.playerId}, roll=${event.roll}, risk=${event.riskLevel}->${event.resultingRiskLevel}, overloaded=${event.overloaded}`);
+      }),
+      conn.on('PlayerEliminated', PlayerEliminatedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'PlayerEliminated',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 500 }
+        );
+        applyPlayerEliminated(event);
+        logMessage(`PlayerEliminated: player=${event.playerId}, placement=#${event.placement}`);
+      }),
+      conn.on('ExploitTriggered', ExploitTriggeredEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'ExploitTriggered',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 350 }
+        );
+        applyExploitTriggered(event);
+        logMessage(`ExploitTriggered: player=${event.playerId}, exploit=${event.exploit}`);
+      }),
+      conn.on('PacketSniffed', PacketSniffedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'PacketSniffed',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 300 }
+        );
+        applyPacketSniffed(event);
+        logMessage(`PacketSniffed: peeked card protocol=${event.card.protocol}`);
+      }),
+      conn.on('VoltageTestStarted', VoltageTestStartedEventSchema, (event) => {
+        useActionQueue.getState().enqueueAction(
+          'VoltageTestStarted',
+          event,
+          { sequenceNumber: event.sequenceNumber, minDurationMs: 300 }
+        );
+        applyVoltageTestStarted(event);
+        logMessage(`VoltageTestStarted: pending=${event.pendingPlayerId}`);
+      }),
     ];
 
     if (!conn.isConnected) {
@@ -137,12 +192,17 @@ export function useGameSession() {
       unsubs.forEach((u) => u());
     };
   }, [
+    applyCapacitorDischarged,
     applyCardsPlayed,
+    applyExploitTriggered,
+    applyPacketSniffed,
+    applyPlayerEliminated,
     applyPlayerJoined,
     applyPlayerStatusChanged,
     applyRoomSnapshot,
     applyRoundStarted,
     applyTraceResolution,
+    applyVoltageTestStarted,
     logMessage,
   ]);
 
@@ -302,6 +362,44 @@ export function useGameSession() {
     }
   };
 
+  const activateExploit = async (exploit: string, newTargetProtocol?: string) => {
+    const activeRoomCode = useGameStore.getState().roomCode;
+    if (!activeRoomCode) return;
+    try {
+      const conn = await ensureConnected();
+      const res = await conn.invokeHubCommand('ActivateExploit', {
+        roomCode: activeRoomCode,
+        exploit,
+        newTargetProtocol: newTargetProtocol ?? null,
+      });
+      if (res.isSuccess) {
+        logMessage(`ActivateExploit success: ${exploit}`);
+      } else {
+        logMessage(`ActivateExploit failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+      }
+    } catch (err) {
+      logMessage(`ActivateExploit error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const triggerDischarge = async () => {
+    const activeRoomCode = useGameStore.getState().roomCode;
+    if (!activeRoomCode) return;
+    try {
+      const conn = await ensureConnected();
+      const res = await conn.invokeHubCommand('TriggerDischarge', {
+        roomCode: activeRoomCode,
+      });
+      if (res.isSuccess) {
+        logMessage('TriggerDischarge success: capacitor discharged');
+      } else {
+        logMessage(`TriggerDischarge failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+      }
+    } catch (err) {
+      logMessage(`TriggerDischarge error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
   return {
     connectionStatus,
     lastLog,
@@ -313,6 +411,8 @@ export function useGameSession() {
     startRound,
     playCards,
     callTrace,
+    activateExploit,
+    triggerDischarge,
     simulateDisconnect,
     reconnect,
     leaveRoom,

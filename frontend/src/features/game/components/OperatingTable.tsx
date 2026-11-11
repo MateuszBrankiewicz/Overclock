@@ -3,10 +3,13 @@ import React, { useState } from 'react';
 
 import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
+import { CapacitorMeter } from './CapacitorMeter';
 import { CardRevealSequence } from './CardRevealSequence';
+import { ExploitChipSlot } from './ExploitChipSlot';
 import { OpponentSeats } from './OpponentSeats';
 import { PcbCard } from './PcbCard';
 import { TablePile } from './TablePile';
+import { VoltageTestSequence } from './VoltageTestSequence';
 
 export const OperatingTable: React.FC = () => {
   const session = useGameSession();
@@ -27,8 +30,29 @@ export const OperatingTable: React.FC = () => {
   const selectedCardIds = useGameStore((s) => s.selectedCardIds);
   const toggleCardSelection = useGameStore((s) => s.toggleCardSelection);
   const lastTraceResolution = useGameStore((s) => s.lastTraceResolution);
+  const pendingDischargePlayerId = useGameStore((s) => s.pendingDischargePlayerId);
+  const dischargeDeadlineUtc = useGameStore((s) => s.dischargeDeadlineUtc);
+  const canActivateExploit = useGameStore((s) => s.canActivateExploit);
+  const lastDischargeOutcome = useGameStore((s) => s.lastDischargeOutcome);
+  const sniffedCard = useGameStore((s) => s.sniffedCard);
 
-  const isMyTurn = Boolean(activePlayerId && playerId && activePlayerId === playerId);
+  const [dismissedDischarge, setDismissedDischarge] = useState<unknown>(null);
+  const activeDischargeOutcome =
+    lastDischargeOutcome && lastDischargeOutcome !== dismissedDischarge
+      ? lastDischargeOutcome
+      : null;
+
+  const me = players.find((p) => p.playerId === playerId);
+  const pendingPlayer = players.find((p) => p.playerId === pendingDischargePlayerId);
+  const isLocalPlayerPending = Boolean(playerId && pendingDischargePlayerId === playerId);
+  const canUseGroundWire = Boolean(
+    isLocalPlayerPending &&
+    me?.exploit?.type === 'GroundWire' &&
+    !me.exploit.isBurned
+  );
+  const isEliminated = me?.status === 'Eliminated';
+
+  const isMyTurn = Boolean(activePlayerId && playerId && activePlayerId === playerId && !isEliminated);
   const isHost = Boolean(hostId && playerId && hostId === playerId);
 
   const accuserNickname = players.find((p) => p.playerId === lastTraceResolution?.accuserPlayerId)?.nickname ?? 'Player';
@@ -141,6 +165,24 @@ export const OperatingTable: React.FC = () => {
         </div>
       </div>
 
+      {/* High-Voltage Test & Dielectric Discharge Modal */}
+      {(roomState === 'VoltageTest' || activeDischargeOutcome) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <VoltageTestSequence
+            isVoltageTestActive={roomState === 'VoltageTest'}
+            pendingPlayerId={pendingDischargePlayerId}
+            pendingPlayerNickname={pendingPlayer?.nickname ?? 'Operator'}
+            isLocalPlayerPending={isLocalPlayerPending}
+            deadlineUtc={dischargeDeadlineUtc}
+            lastDischargeOutcome={activeDischargeOutcome}
+            canUseGroundWire={canUseGroundWire}
+            onDeployGroundWire={() => void session.activateExploit('GroundWire')}
+            onTriggerDischarge={() => void session.triggerDischarge()}
+            onDismiss={() => setDismissedDischarge(lastDischargeOutcome)}
+          />
+        </div>
+      )}
+
       {/* Opponents Isometric Stage */}
       <OpponentSeats seats={players} myPlayerId={playerId} activePlayerId={activePlayerId} />
 
@@ -181,6 +223,47 @@ export const OperatingTable: React.FC = () => {
 
       {/* Player Hand & Transmission Dock */}
       <div className="bg-gradient-to-b from-zinc-950 via-zinc-900 to-black border-2 border-zinc-800 rounded-xl p-5 space-y-4 shadow-2xl">
+        {/* Elimination Alert if Player Short-Circuited */}
+        {isEliminated && (
+          <div className="p-3 bg-red-950/80 border-2 border-red-500 rounded-lg text-center font-bold text-xs text-red-300 animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+            ⚡ DIELECTRIC BREAKDOWN: OPERATOR SHORT-CIRCUITED &amp; ELIMINATED (SPECTATOR MODE)
+          </div>
+        )}
+
+        {/* Packet Sniffer Confidential Intelligence */}
+        {sniffedCard && (
+          <div className="flex items-center justify-between p-3 rounded-lg bg-cyan-950/60 border border-cyan-400/80 shadow-[0_0_15px_rgba(0,229,255,0.3)] text-xs text-cyan-200">
+            <div className="flex items-center gap-2">
+              <span className="text-base">⚡</span>
+              <span className="font-extrabold text-cyan-300">INTERCEPTED PACKET:</span>
+              <span className="font-mono text-zinc-300">PROTOCOL:</span>
+              <span className="px-2 py-0.5 rounded font-black text-black bg-cyan-400">
+                {sniffedCard.protocol}
+              </span>
+            </div>
+            <span className="text-[10px] text-zinc-400 uppercase tracking-widest hidden sm:inline">
+              [CONFIDENTIAL // LOCAL OPERATOR ONLY]
+            </span>
+          </div>
+        )}
+
+        {/* Local Hardware Telemetry: Capacitor Meter & Exploit Chip Socket */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-zinc-950/90 rounded-lg border border-zinc-800 items-center">
+          <CapacitorMeter
+            riskLevel={me?.riskLevel ?? 1}
+            isPendingDischarge={isLocalPlayerPending}
+            size="md"
+          />
+          <div className="flex items-center justify-end">
+            <ExploitChipSlot
+              exploit={me?.exploit}
+              canActivate={canActivateExploit && Boolean(me?.exploit && !me.exploit.isBurned)}
+              onActivate={(exploit) => void session.activateExploit(exploit)}
+              size="sm"
+            />
+          </div>
+        </div>
+
         <div className="flex justify-between items-center text-xs pb-2 border-b border-zinc-800">
           <span className="font-extrabold text-zinc-200 tracking-wider">
             OPERATOR HAND // {myCards.length} PACKETS AVAILABLE
@@ -238,7 +321,7 @@ export const OperatingTable: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              disabled={selectedCardIds.length === 0 || !isMyTurn}
+              disabled={selectedCardIds.length === 0 || !isMyTurn || isEliminated}
               onClick={() => void session.playCards()}
               className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:pointer-events-none text-black font-extrabold rounded text-xs transition-all shadow-lg shadow-emerald-500/30 cursor-pointer"
             >
@@ -246,7 +329,7 @@ export const OperatingTable: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={!isMyTurn || tablePileCount === 0}
+              disabled={!isMyTurn || tablePileCount === 0 || isEliminated}
               onClick={() => void session.callTrace()}
               className="px-6 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-30 disabled:pointer-events-none text-black font-extrabold rounded text-xs transition-all shadow-lg shadow-red-600/30 cursor-pointer"
             >

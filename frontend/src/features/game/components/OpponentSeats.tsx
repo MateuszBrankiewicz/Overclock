@@ -2,6 +2,8 @@ import clsx from 'clsx';
 import React from 'react';
 
 import type { PlayerSeat } from '../schemas/gameEvents';
+import { CapacitorMeter } from './CapacitorMeter';
+import { ExploitChipSlot } from './ExploitChipSlot';
 import { PcbCard } from './PcbCard';
 
 export interface OpponentSeatsProps {
@@ -66,6 +68,23 @@ export const OpponentSeats: React.FC<OpponentSeatsProps> = ({
             <div className="flex justify-between items-center text-[10px] text-zinc-500 pt-1 border-t border-zinc-900 mt-1">
               <span>PACKETS: {opp.handCount}</span>
               {isTurn && <span className="text-emerald-400 font-bold animate-pulse">● ACTIVE TURN</span>}
+            </div>
+
+            {/* Capacitor Voltage & Exploit Chip */}
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-900 mt-1">
+              <CapacitorMeter
+                riskLevel={opp.riskLevel ?? 1}
+                label={`${opp.nickname} BUS`}
+                size="sm"
+                showBreakdownRisk={false}
+              />
+              {opp.exploit && (
+                <ExploitChipSlot
+                  exploit={opp.exploit}
+                  canActivate={false}
+                  size="sm"
+                />
+              )}
             </div>
           </div>
         );
