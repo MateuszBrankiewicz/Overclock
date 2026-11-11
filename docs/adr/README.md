@@ -25,4 +25,4 @@ We follow the [Michael Nygard / MADR](https://adr.github.io/madr/) format to cap
 | [0006](0006-functional-error-handling-with-ardalis-result.md) | [Functional Error Handling with Ardalis.Result](0006-functional-error-handling-with-ardalis-result.md) | **Accepted** | 2026-10-16 |
 | [0007](0007-api-contract-pipeline-orval-and-zod.md) | [API Contract Pipeline: OpenAPI → Orval and SignalR Contract Schemas](0007-api-contract-pipeline-orval-and-zod.md) | **Accepted** | 2026-10-16 |
 | [0008](0008-replace-mediatr-with-compile-time-source-generated-mediator.md) | [Replace MediatR with Compile-Time Source-Generated Mediator](0008-replace-mediatr-with-compile-time-source-generated-mediator.md) | **Accepted** | 2026-10-16 |
-| [0009](0009-voltage-test-hardware-exploits-and-timing-windows.md) | [Voltage Test, Hardware Exploits and Timing Windows](0009-voltage-test-hardware-exploits-and-timing-windows.md) | **Proposed** | 2026-11-11 |
+| [0009](0009-voltage-test-hardware-exploits-and-timing-windows.md) | [Voltage Test, Hardware Exploits and Timing Windows](0009-voltage-test-hardware-exploits-and-timing-windows.md) | **Accepted** | 2026-11-11 |
