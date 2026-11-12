@@ -112,6 +112,21 @@ export interface Translations {
     spectatorModeNotice: string;
     fallbackStart: string;
   };
+  hud: {
+    turnTimer: string;
+    dischargeTimer: string;
+    yourTurnBanner: string;
+    opponentTurnBanner: string;
+    empPickerTitle: string;
+    empPickerHint: string;
+    empPickerCurrent: string;
+    empPickerCancel: string;
+    chipLabel: string;
+    cameraPov: string;
+    cameraTable: string;
+    cameraRivals: string;
+    secondsShort: string;
+  };
   rules: {
     modalTitle: string;
     shortSummary: string;
@@ -265,6 +280,21 @@ export const translations: Record<Language, Translations> = {
       spectatorModeNotice: 'ZOSTAŁEŚ WYELIMINOWANY // TRYB OBSERWATORA',
       fallbackStart: 'WYMUŚ START RUNDY',
     },
+    hud: {
+      turnTimer: 'CZAS TURY',
+      dischargeTimer: 'CZAS NA ROZŁADOWANIE',
+      yourTurnBanner: 'TWÓJ RUCH',
+      opponentTurnBanner: 'Ruch gracza',
+      empPickerTitle: 'EMP FLARE // NOWY PROTOKÓŁ',
+      empPickerHint: 'Wyczyść stos i wybierz nowy protokół docelowy:',
+      empPickerCurrent: 'obecny',
+      empPickerCancel: 'Anuluj',
+      chipLabel: 'CHIP',
+      cameraPov: 'POV',
+      cameraTable: 'STÓŁ',
+      cameraRivals: 'RYWALE',
+      secondsShort: 's',
+    },
     rules: {
       modalTitle: 'ZASADY GRY // DEAD CIRCUIT',
       shortSummary: 'Cyberpunkowa gra blefu i zarządzania ryzykiem oparta o mechanikę Oszusta (Liar\'s Dice / Cheat).',
@@ -415,6 +445,21 @@ export const translations: Record<Language, Translations> = {
       nextCycleAuto: 'NEXT CYCLE STARTING IN',
       spectatorModeNotice: 'YOU WERE ELIMINATED // SPECTATOR MODE',
       fallbackStart: 'FORCE START ROUND',
+    },
+    hud: {
+      turnTimer: 'TURN TIMER',
+      dischargeTimer: 'DISCHARGE TIMER',
+      yourTurnBanner: 'YOUR TURN',
+      opponentTurnBanner: 'Operator turn',
+      empPickerTitle: 'EMP FLARE // NEW PROTOCOL',
+      empPickerHint: 'Purge the pile and pick the new target protocol:',
+      empPickerCurrent: 'current',
+      empPickerCancel: 'Cancel',
+      chipLabel: 'CHIP',
+      cameraPov: 'POV',
+      cameraTable: 'TABLE',
+      cameraRivals: 'RIVALS',
+      secondsShort: 's',
     },
     rules: {
       modalTitle: 'OPERATIONAL MANUAL // DEAD CIRCUIT',

@@ -25,7 +25,7 @@ export interface PovHandAndControls3DProps {
   onToggleCard: (cardId: string) => void;
   onPlayCards: () => void;
   onCallTrace: () => void;
-  onActivateExploit: (exploit: ExploitType, newTargetProtocol?: CardProtocol) => void;
+  onUseChip: (exploit: ExploitType) => void;
 }
 
 interface Card3DItemProps {
@@ -157,7 +157,7 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
   onToggleCard,
   onPlayCards,
   onCallTrace,
-  onActivateExploit,
+  onUseChip,
 }) => {
   const size = useThree((s) => s.size);
   const aspect = size.width / Math.max(1, size.height);
@@ -262,7 +262,7 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
           onClick={(e) => {
             e.stopPropagation();
             if (canUseChip) {
-              onActivateExploit(exploit.type, currentTargetProtocol ?? 'Alpha');
+              onUseChip(exploit.type);
             }
           }}
         >
