@@ -43,6 +43,40 @@ export interface Translations {
     readyYes: string;
     markReady: string;
   };
+  home: {
+    heroTagline: string;
+    nicknameLabel: string;
+    nicknamePlaceholder: string;
+    createCta: string;
+    joinHeading: string;
+    joinCta: string;
+    characterHeading: string;
+    invite: string;
+    inviteShareTitle: string;
+    inviteShareText: string;
+    inviteCopied: string;
+    inviteFailed: string;
+    leaveTable: string;
+    leaveConfirm: string;
+    leaveYes: string;
+    leaveNo: string;
+    waitingForHost: string;
+    hostGone: string;
+    footer: string;
+    debugToggle: string;
+    backToGame: string;
+  };
+  summary: {
+    title: string;
+    winnerLabel: string;
+    podiumTitle: string;
+    youTag: string;
+    roundsPlayed: string;
+    playersCount: string;
+    playAgain: string;
+    waitingForHost: string;
+    leave: string;
+  };
   table: {
     targetProtocol: string;
     declaredAs: string;
@@ -201,10 +235,10 @@ export const translations: Record<Language, Translations> = {
       status: 'STATUS',
     },
     lobby: {
-      title: 'STANOWISKO OPERATORA // KONFIGURACJA GRY',
+      title: 'DEAD CIRCUIT',
       subtitle: 'Dead Circuit — cyberpunkowa gra blefu, zarządzania ryzykiem i przeciążeń obwodów.',
       operatorNick: 'TWÓJ IDENTYFIKATOR (NICK):',
-      roomCode: 'KOD POKOJU (POZOSTAW PUSTE DLA NOWEGO STOŁU):',
+      roomCode: 'KOD POKOJU:',
       roomCodePlaceholder: 'NP. CYBER-7X9',
       createTable: 'STWÓRZ NOWY STÓŁ',
       createTableSub: '[INITIALIZE TABLE]',
@@ -226,6 +260,40 @@ export const translations: Record<Language, Translations> = {
       youTag: '(TY)',
       readyYes: 'TAK (ZMIEŃ)',
       markReady: 'OZNACZ: GOTOWY',
+    },
+    home: {
+      heroTagline: 'Blefuj, ryzykuj i przetrwaj przeciążenie obwodów.',
+      nicknameLabel: 'Twój nick',
+      nicknamePlaceholder: 'Wpisz nick',
+      createCta: 'Stwórz stół',
+      joinHeading: 'Masz kod od znajomego?',
+      joinCta: 'Dołącz',
+      characterHeading: 'Wybierz postać',
+      invite: 'Zaproś',
+      inviteShareTitle: 'Dead Circuit',
+      inviteShareText: 'Dołącz do mojego stołu w Dead Circuit!',
+      inviteCopied: 'Link do stołu skopiowany.',
+      inviteFailed: 'Nie udało się skopiować linku.',
+      leaveTable: 'Opuść stół',
+      leaveConfirm: 'Opuścić stół?',
+      leaveYes: 'Tak',
+      leaveNo: 'Nie',
+      waitingForHost: 'Czekam na hosta...',
+      hostGone: 'Host opuścił stół.',
+      footer: 'DEAD CIRCUIT',
+      debugToggle: 'Konsola dev',
+      backToGame: 'Wróć do gry',
+    },
+    summary: {
+      title: 'KONIEC ROZGRYWKI',
+      winnerLabel: 'Zwycięzca',
+      podiumTitle: 'Klasyfikacja',
+      youTag: '(TY)',
+      roundsPlayed: 'Rozegrane rundy',
+      playersCount: 'Liczba graczy',
+      playAgain: 'Zagraj ponownie',
+      waitingForHost: 'Czekamy, aż host rozpocznie rewanż...',
+      leave: 'Opuść stół',
     },
     table: {
       targetProtocol: 'WYMAGANY PROTOKÓŁ:',
@@ -383,14 +451,14 @@ export const translations: Record<Language, Translations> = {
       status: 'STATUS',
     },
     lobby: {
-      title: 'HARDWARE TERMINAL // DECK SETUP',
+      title: 'DEAD CIRCUIT',
       subtitle: 'Dead Circuit — a cyberpunk game of bluffing, hardware risks, and capacitor overloads.',
       operatorNick: 'OPERATOR IDENTIFIER (NICKNAME):',
-      roomCode: 'ROOM CODE (EMPTY TO CREATE NEW LOBBY):',
+      roomCode: 'ROOM CODE:',
       roomCodePlaceholder: 'E.G. CYBER-7X9',
-      createTable: 'INITIALIZE TABLE',
+      createTable: 'CREATE TABLE',
       createTableSub: '[INITIALIZE TABLE]',
-      connectTable: 'CONNECT TO TABLE',
+      connectTable: 'JOIN TABLE',
       connectTableSub: '[CONNECT TO TABLE]',
       waitingForPlayers: 'Awaiting operators to join...',
       playersInLobby: 'OPERATORS AT TABLE:',
@@ -408,6 +476,40 @@ export const translations: Record<Language, Translations> = {
       youTag: '(YOU)',
       readyYes: 'YES (TOGGLE)',
       markReady: 'MARK: READY',
+    },
+    home: {
+      heroTagline: 'Bluff, take risks and survive the circuit overload.',
+      nicknameLabel: 'Your nickname',
+      nicknamePlaceholder: 'Enter a nickname',
+      createCta: 'Create table',
+      joinHeading: 'Got a code from a friend?',
+      joinCta: 'Join',
+      characterHeading: 'Pick your character',
+      invite: 'Invite',
+      inviteShareTitle: 'Dead Circuit',
+      inviteShareText: 'Join my table in Dead Circuit!',
+      inviteCopied: 'Table link copied.',
+      inviteFailed: 'Could not copy the link.',
+      leaveTable: 'Leave table',
+      leaveConfirm: 'Leave table?',
+      leaveYes: 'Yes',
+      leaveNo: 'No',
+      waitingForHost: 'Waiting for the host...',
+      hostGone: 'The host has left the table.',
+      footer: 'DEAD CIRCUIT',
+      debugToggle: 'Dev console',
+      backToGame: 'Back to game',
+    },
+    summary: {
+      title: 'MATCH OVER',
+      winnerLabel: 'Winner',
+      podiumTitle: 'Standings',
+      youTag: '(YOU)',
+      roundsPlayed: 'Rounds played',
+      playersCount: 'Players',
+      playAgain: 'Play again',
+      waitingForHost: 'Waiting for the host to start a rematch...',
+      leave: 'Leave table',
     },
     table: {
       targetProtocol: 'TARGET PROTOCOL:',

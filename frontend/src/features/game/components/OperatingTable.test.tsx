@@ -19,9 +19,10 @@ describe('OperatingTable Component (TASK-2.6 & ADR 0010 3D POV Bunker Arena)', (
 
   it('renders hardware terminal deck setup with 3D character selector when not connected to a room', () => {
     const html = renderToString(React.createElement(OperatingTable));
-    expect(html).toContain('HARDWARE TERMINAL // DECK SETUP');
-    expect(html).toContain('INITIALIZE TABLE');
-    expect(html).toContain('CONNECT TO TABLE');
+    expect(html).not.toContain('HARDWARE TERMINAL');
+    expect(html).not.toContain('// INITIALIZE');
+    expect(html).toContain('Stwórz stół');
+    expect(html).toContain('Dołącz');
     expect(html).toContain('GHOST-01');
     expect(html).toContain('VOLT-9');
     expect(html).toContain('PROXY-X');

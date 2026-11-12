@@ -6,9 +6,13 @@ import type { GameState, RoomSlice } from '../types';
 
 const getInitialCharacterId = (): CharacterId => {
   if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-    const saved = localStorage.getItem('overclock_character');
-    if (saved === 'ghost' || saved === 'volt' || saved === 'proxy' || saved === 'null') {
-      return saved;
+    try {
+      const saved = localStorage.getItem('overclock_character');
+      if (saved === 'ghost' || saved === 'volt' || saved === 'proxy' || saved === 'null') {
+        return saved;
+      }
+    } catch {
+      // storage blocked: use default character
     }
   }
   return 'ghost';
@@ -22,6 +26,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   isInRoom: false,
   players: [],
   winnerId: null,
+  placementByPlayerId: {},
   pendingDischargePlayerId: null,
   dischargeDeadlineUtc: null,
   canActivateExploit: false,
@@ -96,6 +101,10 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         isInRoom: true,
         players: snapshot.seats,
         winnerId: snapshot.winnerId ?? null,
+        placementByPlayerId:
+          snapshot.state === 'Lobby' || (state.roomState === 'GameOver' && snapshot.state !== 'GameOver')
+            ? {}
+            : state.placementByPlayerId,
         pendingDischargePlayerId: snapshot.pendingDischargePlayerId ?? null,
         dischargeDeadlineUtc:
           snapshot.dischargeDeadlineUtc ??
@@ -173,6 +182,10 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
 
   applyPlayerEliminated: (event) =>
     set((state) => ({
+      placementByPlayerId: {
+        ...state.placementByPlayerId,
+        [event.playerId]: event.placement,
+      },
       players: state.players.map((seat) =>
         seat.playerId === event.playerId
           ? { ...seat, status: 'Eliminated' }
@@ -219,6 +232,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       isInRoom: false,
       players: [],
       winnerId: null,
+      placementByPlayerId: {},
       pendingDischargePlayerId: null,
       dischargeDeadlineUtc: null,
       canActivateExploit: false,

@@ -3,12 +3,17 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
 import type { CapacitorDischargedEvent, PlayerSeat } from '../schemas/gameEvents';
+import { getIntermissionFallback, HOST_GRACE_SECONDS } from '../utils/intermissionFallback';
+import { IntermissionFallbackNotice } from './IntermissionFallbackNotice';
 
 export interface RoundIntermissionBannerProps {
   roundNumber: number;
   players: PlayerSeat[];
   lastDischargeOutcome: CapacitorDischargedEvent | null;
   isHost: boolean;
+  hostId?: string | null;
+  myPlayerId?: string | null;
+  onLeave?: () => void;
   isDischargeCinematicActive: boolean;
   onStartNextRound: () => void;
   className?: string;
@@ -19,12 +24,16 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
   players,
   lastDischargeOutcome,
   isHost,
+  hostId = null,
+  myPlayerId = null,
+  onLeave,
   isDischargeCinematicActive,
   onStartNextRound,
   className,
 }) => {
   const { t } = useI18n();
   const [countdown, setCountdown] = useState<number>(3);
+  const [graceElapsed, setGraceElapsed] = useState(false);
   const autoStartedRoundRef = useRef<number>(-1);
 
   const activeCount = players.filter((p) => p.status === 'Active').length;
@@ -63,6 +72,22 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
       }
     }
   }, [countdown, isDischargeCinematicActive, isHost, roundNumber, onStartNextRound]);
+
+  useEffect(() => {
+    // Non-hosts: after the countdown ends, give the host a grace period before declaring them gone
+    if (countdown !== 0 || isDischargeCinematicActive || isHost) return;
+    const timer = setTimeout(() => setGraceElapsed(true), HOST_GRACE_SECONDS * 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, isDischargeCinematicActive, isHost, roundNumber]);
+
+  const fallback = getIntermissionFallback({
+    countdown: isDischargeCinematicActive ? 1 : countdown,
+    graceElapsed,
+    isHost,
+    hostId,
+    myPlayerId,
+    players,
+  });
 
   const isOverloaded = Boolean(lastDischargeOutcome?.overloaded);
   const resultingRisk = lastDischargeOutcome?.resultingRiskLevel ?? 1;
@@ -127,6 +152,12 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
         ) : (
           <span className="text-xs text-zinc-500 italic">Discharge sequence resolving...</span>
         )}
+
+        <IntermissionFallbackNotice
+          fallback={fallback}
+          onStartNextRound={onStartNextRound}
+          onLeave={onLeave}
+        />
 
         {isHost && countdown === 0 && (
           <button

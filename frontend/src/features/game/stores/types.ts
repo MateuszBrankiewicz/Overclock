@@ -35,6 +35,8 @@ export interface RoomSlice {
   isInRoom: boolean;
   players: PlayerSeat[];
   winnerId: string | null;
+  /** Final placement (1 = best) per eliminated player, reset when a new match starts. */
+  placementByPlayerId: Record<string, number>;
   pendingDischargePlayerId: string | null;
   dischargeDeadlineUtc: string | null;
   canActivateExploit: boolean;

@@ -15,7 +15,7 @@ describe('RoomCodeBadge Component', () => {
     expect(html).toContain('CYBER-7X9');
     expect(html).toContain('select-text');
     expect(html).toContain('Kopiuj kod');
-    expect(html).toContain('Kopiuj link do pokoju');
+    expect(html).toContain('Zaproś');
   });
 
   it('can hide invite link button when configured', () => {
@@ -28,6 +28,6 @@ describe('RoomCodeBadge Component', () => {
 
     expect(html).toContain('ROOM-123');
     expect(html).toContain('Kopiuj kod');
-    expect(html).not.toContain('Kopiuj link do pokoju');
+    expect(html).not.toContain('Zaproś');
   });
 });

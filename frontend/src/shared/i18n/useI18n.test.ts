@@ -15,7 +15,7 @@ describe('useI18n Hook & Store', () => {
     const { language, t } = useI18n.getState();
     expect(language).toBe('en');
     expect(t.common.gameRules).toBe('Game Rules');
-    expect(t.lobby.createTable).toBe('INITIALIZE TABLE');
+    expect(t.lobby.createTable).toBe('CREATE TABLE');
   });
 
   it('can switch back to Polish (pl)', () => {
