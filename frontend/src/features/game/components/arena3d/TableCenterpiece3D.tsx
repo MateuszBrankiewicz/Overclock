@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 
 import type { CardProtocol, RoomState } from '../../schemas/gameEvents';
+import { prefersReducedMotion } from './hud/motion';
 import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
 
@@ -14,6 +15,8 @@ export interface TableCenterpiece3DProps {
   roomState: RoomState | null;
   lastPlaySeatPosition?: [number, number, number] | null;
   lastPlayCardCount?: number;
+  /** Changes identity on every CardsPlayed event; triggers the seat -> pile flight. */
+  flightToken?: object | null;
   isMyTurn?: boolean;
   activePlayerNickname?: string;
   shockTargetPos?: [number, number, number] | null;
@@ -35,6 +38,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   roomState,
   lastPlaySeatPosition,
   lastPlayCardCount = 1,
+  flightToken = null,
   isMyTurn = false,
   activePlayerNickname,
   shockTargetPos,
@@ -46,16 +50,18 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   const laserScannerRef = useRef<Mesh>(null);
   const flyingGroupRef = useRef<Group>(null);
 
-  const [flightProgress, setFlightProgress] = useState<number>(1);
-  const prevPileCountRef = useRef<number>(tablePileCount);
+  const [isFlying, setIsFlying] = useState(false);
+  const flightProgressRef = useRef(1);
+  const prevFlightTokenRef = useRef<object | null>(flightToken);
   const backTexture = useMemo(() => createPcbCardBackTexture(), []);
 
   useEffect(() => {
-    if (tablePileCount > prevPileCountRef.current) {
-      setFlightProgress(0);
+    if (flightToken && flightToken !== prevFlightTokenRef.current && !prefersReducedMotion()) {
+      flightProgressRef.current = 0;
+      setIsFlying(true);
     }
-    prevPileCountRef.current = tablePileCount;
-  }, [tablePileCount]);
+    prevFlightTokenRef.current = flightToken;
+  }, [flightToken]);
 
   const protocolColor = PROTOCOL_HEX[currentTargetProtocol ?? 'Alpha'] ?? '#10b981';
   const isBluffCheck = roomState === 'BluffCheck';
@@ -101,9 +107,11 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
       laserScannerRef.current.position.z = Math.sin(t * 5) * 0.65;
     }
 
-    if (flightProgress < 1) {
-      const next = Math.min(1, flightProgress + delta * 2.4);
-      setFlightProgress(next);
+    if (flightProgressRef.current < 1) {
+      // ~400 ms seat -> pile tween
+      const next = Math.min(1, flightProgressRef.current + delta * 2.5);
+      flightProgressRef.current = next;
+      if (next >= 1) setIsFlying(false);
 
       if (flyingGroupRef.current) {
         const origin = lastPlaySeatPosition ?? [0, 1.1, 2.2];
@@ -250,7 +258,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
       ))}
 
       {/* Parabolic 3D Card Flight from Active Player Seat */}
-      {flightProgress < 1 && (
+      {isFlying && (
         <group ref={flyingGroupRef}>
           {Array.from({ length: Math.max(1, Math.min(3, lastPlayCardCount)) }).map((_, i) => (
             <mesh key={i} position={[(i - 1) * 0.22, i * 0.03, 0]} castShadow>

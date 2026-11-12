@@ -127,6 +127,22 @@ export interface Translations {
     cameraRivals: string;
     secondsShort: string;
   };
+  controls: {
+    hotkeysTitle: string;
+    hotkeysCards: string;
+    hotkeysTransmit: string;
+    hotkeysTrace: string;
+    hotkeysChip: string;
+    hotkeysClear: string;
+    hotkeysHelp: string;
+    hotkeysClose: string;
+    firstTurnHint: string;
+    firstTurnDismiss: string;
+    legendMatch: string;
+    legendWild: string;
+    legendBluff: string;
+    diceRolling: string;
+  };
   rules: {
     modalTitle: string;
     shortSummary: string;
@@ -295,6 +311,22 @@ export const translations: Record<Language, Translations> = {
       cameraRivals: 'RYWALE',
       secondsShort: 's',
     },
+    controls: {
+      hotkeysTitle: 'SKRÓTY KLAWISZOWE',
+      hotkeysCards: 'Zaznacz / odznacz kartę z ręki',
+      hotkeysTransmit: 'Wyślij zaznaczone karty',
+      hotkeysTrace: 'Sprawdź blef',
+      hotkeysChip: 'Użyj chipa',
+      hotkeysClear: 'Odznacz karty / zamknij okno',
+      hotkeysHelp: 'Pokaż / ukryj tę ściągawkę',
+      hotkeysClose: 'Zamknij',
+      firstTurnHint: 'Zaznacz 1–3 karty, a następnie wyślij je.',
+      firstTurnDismiss: 'Rozumiem',
+      legendMatch: 'zgodna',
+      legendWild: 'dzika',
+      legendBluff: 'blef',
+      diceRolling: 'Rzut kością D6',
+    },
     rules: {
       modalTitle: 'ZASADY GRY // DEAD CIRCUIT',
       shortSummary: 'Cyberpunkowa gra blefu i zarządzania ryzykiem oparta o mechanikę Oszusta (Liar\'s Dice / Cheat).',
@@ -460,6 +492,22 @@ export const translations: Record<Language, Translations> = {
       cameraTable: 'TABLE',
       cameraRivals: 'RIVALS',
       secondsShort: 's',
+    },
+    controls: {
+      hotkeysTitle: 'KEYBOARD SHORTCUTS',
+      hotkeysCards: 'Select / deselect a card in hand',
+      hotkeysTransmit: 'Transmit selected cards',
+      hotkeysTrace: 'Call trace',
+      hotkeysChip: 'Use chip',
+      hotkeysClear: 'Clear selection / close popup',
+      hotkeysHelp: 'Toggle this cheat-sheet',
+      hotkeysClose: 'Close',
+      firstTurnHint: 'Select 1–3 cards, then transmit them.',
+      firstTurnDismiss: 'Got it',
+      legendMatch: 'match',
+      legendWild: 'wild',
+      legendBluff: 'bluff',
+      diceRolling: 'Rolling the D6',
     },
     rules: {
       modalTitle: 'OPERATIONAL MANUAL // DEAD CIRCUIT',

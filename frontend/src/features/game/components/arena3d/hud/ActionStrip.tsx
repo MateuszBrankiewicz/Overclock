@@ -19,7 +19,13 @@ export interface ActionStripProps {
   picker: ExploitPicker;
   onCallTrace: () => void;
   onPlayCards: () => void;
+  /** Show `[T]` / `[E]` / `[↵]` key hints (fine-pointer devices only). */
+  showKeyHints?: boolean;
 }
+
+const KeyHint: React.FC<{ k: string }> = ({ k }) => (
+  <span data-testid="key-hint" className="ml-1.5 opacity-70 font-mono text-[10px]">{`[${k}]`}</span>
+);
 
 /** Locked bottom-edge tactical visor action strip. */
 export const ActionStrip: React.FC<ActionStripProps> = ({
@@ -34,6 +40,7 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
   picker,
   onCallTrace,
   onPlayCards,
+  showKeyHints = false,
 }) => {
   const { t } = useI18n();
   return (
@@ -50,6 +57,7 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
         )}
       >
         🚨 {t.table.callTrace}
+        {showKeyHints && <KeyHint k="T" />}
       </button>
 
       <div className="relative pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-zinc-800 text-[10px] sm:text-xs">
@@ -72,6 +80,7 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
             )}
           >
             {t.hud.chipLabel}: {exploit.type}
+            {showKeyHints && <KeyHint k="E" />}
           </button>
         )}
         {picker.isOpen && canUseChip && (
@@ -96,6 +105,7 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
       >
         ▶ {t.table.transmitCards}
         {selectedCount > 0 ? ` (${selectedCount})` : ''}
+        {showKeyHints && <KeyHint k="↵" />}
       </button>
     </div>
   );

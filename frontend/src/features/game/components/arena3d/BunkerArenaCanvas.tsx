@@ -19,9 +19,17 @@ import { CameraController } from './CameraController';
 import { createDischargeBadgeTexture } from './dischargeBadgeTexture';
 import { ActionStrip } from './hud/ActionStrip';
 import { CameraPresetBar } from './hud/CameraPresetBar';
+import { CardMarkLegend } from './hud/CardMarkLegend';
+import { classifyCard } from './hud/cardMarks';
+import { DiceRoll } from './hud/DiceRoll';
+import { FirstTurnHint } from './hud/FirstTurnHint';
+import { useFirstTurnHint } from './hud/firstTurnHint';
+import { HotkeyCheatSheet } from './hud/HotkeyCheatSheet';
+import { prefersReducedMotion, useFinePointer } from './hud/motion';
 import { OverloadVignette } from './hud/OverloadVignette';
 import { PhaseTimers } from './hud/PhaseTimers';
 import { ActiveTurnLabel, YourTurnBanner } from './hud/TurnStatusHud';
+import { useArenaHotkeys } from './hud/useArenaHotkeys';
 import { useExploitPicker } from './hud/useExploitPicker';
 import { VoltageControls } from './hud/VoltageControls';
 import { OperatorRig3D } from './OperatorRig3D';
@@ -224,6 +232,22 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   const canTrace = isMyTurn && !isEliminated && tablePileCount > 0;
   const canUseChip = Boolean(canActivateExploit && exploit && !exploit.isBurned);
 
+  const showKeyHints = useFinePointer();
+  const firstTurnHint = useFirstTurnHint(isMyTurn && !isEliminated, roomState);
+  const hotkeys = useArenaHotkeys({
+    enabled: roomState !== 'Lobby' && roomState !== 'GameOver' && !isEliminated,
+    canTransmit,
+    canTrace,
+    canUseChip,
+    cardIds: myCards.map((c) => c.id),
+    selectedCardIds,
+    exploit,
+    picker: exploitPicker,
+    onToggleCard,
+    onPlayCards,
+    onCallTrace,
+  });
+
   return (
     <div
       data-testid="bunker-arena-stage"
@@ -294,6 +318,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               roomState={roomState}
               lastPlaySeatPosition={lastPlaySeatPosition}
               lastPlayCardCount={lastPlayedCards?.cardCount ?? 1}
+              flightToken={lastPlayedCards}
               isMyTurn={isMyTurn}
               activePlayerNickname={activePlayerNickname}
               shockTargetPos={shockTargetInfo.pos}
@@ -397,6 +422,24 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
 
           <div data-testid="pov-hand-fallback" className="flex flex-col items-center gap-3">
             <span className="text-xs font-bold">{`[${myCharacter.codename}]`}</span>
+            {lastPlayedCards && (
+              <div
+                key={`${lastPlayedCards.playerId}-${lastPlayedCards.sequenceNumber ?? tablePileCount}`}
+                data-testid="fallback-card-flight"
+                className="flex gap-1"
+                style={
+                  prefersReducedMotion()
+                    ? undefined
+                    : { animation: 'cardFlight 400ms ease-out both' }
+                }
+              >
+                {Array.from({ length: Math.max(1, Math.min(3, lastPlayedCards.cardCount)) }).map(
+                  (_, i) => (
+                    <div key={i} className="w-6 h-9 rounded border border-emerald-500 bg-emerald-950" />
+                  )
+                )}
+              </div>
+            )}
             <div className="flex gap-2">
               {myCards.map((c) => (
                 <PcbCard
@@ -405,6 +448,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
                   protocol={c.protocol}
                   visualSeed={c.visualSeed}
                   selected={selectedCardIds.includes(c.id)}
+                  badge={classifyCard(c.protocol, currentTargetProtocol)}
                   onClick={() => onToggleCard(c.id)}
                 />
               ))}
@@ -426,6 +470,22 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
           picker={exploitPicker}
           onCallTrace={onCallTrace}
           onPlayCards={onPlayCards}
+          showKeyHints={showKeyHints}
+        />
+      )}
+
+      {roomState !== 'Lobby' && myCards.length > 0 && !isEliminated && <CardMarkLegend />}
+      <FirstTurnHint
+        visible={firstTurnHint.visible && selectedCardIds.length === 0}
+        onDismiss={firstTurnHint.dismiss}
+      />
+      <HotkeyCheatSheet open={hotkeys.helpOpen} onClose={hotkeys.closeHelp} />
+
+      {dischargeCinematic && (
+        <DiceRoll
+          key={dischargeCinematic.startedAtMs}
+          roll={dischargeCinematic.event.roll}
+          overloaded={dischargeCinematic.event.overloaded}
         />
       )}
 

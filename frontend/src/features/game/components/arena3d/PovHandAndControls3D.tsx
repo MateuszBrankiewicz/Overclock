@@ -9,6 +9,7 @@ import type {
   PlayerCard,
 } from '../../schemas/gameEvents';
 import type { CharacterProfile } from '../../utils/characterCatalog';
+import { classifyCard, MARK_COLOR } from './hud/cardMarks';
 import { createPcbCardBackTexture, createPcbCardTexture } from './pcbCardTexture';
 
 export interface PovHandAndControls3DProps {
@@ -50,15 +51,11 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
   const groupRef = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
 
-  const badge = useMemo<'match' | 'wild' | 'bluff'>(() => {
-    if (currentTargetProtocol && card.protocol === currentTargetProtocol) {
-      return 'match';
-    }
-    if (card.protocol === 'Glitch') {
-      return 'wild';
-    }
-    return 'bluff';
-  }, [card.protocol, currentTargetProtocol]);
+  const badge = useMemo(
+    () => classifyCard(card.protocol, currentTargetProtocol),
+    [card.protocol, currentTargetProtocol]
+  );
+  const markColor = MARK_COLOR[badge];
 
   const frontTexture = useMemo(
     () => createPcbCardTexture(card.protocol, card.visualSeed ?? index, badge, isSelected),
@@ -122,6 +119,12 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
           metalness={0.8}
           roughness={0.2}
         />
+      </mesh>
+
+      {/* Edge glow frame: match / wild / bluff mark */}
+      <mesh position={[0, 0, -0.002]}>
+        <planeGeometry args={[0.335, 0.465]} />
+        <meshBasicMaterial color={markColor} transparent opacity={isSelected ? 0.85 : 0.5} />
       </mesh>
 
       <mesh position={[0, 0, 0.007]}>
