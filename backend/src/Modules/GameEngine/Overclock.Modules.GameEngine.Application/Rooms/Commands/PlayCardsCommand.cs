@@ -55,6 +55,12 @@ internal sealed class PlayCardsCommandHandler(
             else
             {
                 turnTimer.Cancel(room.Id.Value);
+                if (room.State == RoomState.RoundOver)
+                {
+                    var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(turnTimer.IntermissionDuration);
+                    room.MarkIntermissionDeadline(deadlineUtc);
+                    turnTimer.StartIntermission(session, room.RoundNumber, turnTimer.IntermissionDuration);
+                }
             }
 
             var snapshots = projector.ProjectForActiveConnections(room);

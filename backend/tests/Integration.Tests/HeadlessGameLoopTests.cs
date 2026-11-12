@@ -1,9 +1,14 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
 using Overclock.Host.Hubs;
+using Overclock.Modules.GameEngine.Application.Ports;
+using Overclock.Modules.GameEngine.Application.Projections;
+using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Cards;
+using Overclock.SharedKernel;
 using Xunit;
 
 namespace Integration.Tests;
@@ -11,14 +16,15 @@ namespace Integration.Tests;
 public class HeadlessGameLoopTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
 {
-    private HubConnection CreateHubConnection()
+    private HubConnection CreateHubConnection(WebApplicationFactory<Program>? customFactory = null)
     {
+        var targetFactory = customFactory ?? factory;
         return new HubConnectionBuilder()
             .WithUrl(
                 "http://localhost/hubs/game",
                 options =>
                 {
-                    options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+                    options.HttpMessageHandlerFactory = _ => targetFactory.Server.CreateHandler();
                 })
             .Build();
     }
@@ -205,6 +211,134 @@ public class HeadlessGameLoopTests(WebApplicationFactory<Program> factory)
         Assert.True(traceResolution.IsSuccess, traceResolution.Error);
         Assert.NotNull(traceResolution.Data);
         Assert.NotEmpty(traceResolution.Data.RevealedCards);
+    }
+
+    [Fact]
+    public async Task Intermission_AdvancesRoundAutomatically_EvenWhenHostDisconnectsDuringIntermission()
+    {
+        var testFactory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.AddSingleton<ITurnTimerEngine>(sp =>
+                    new TurnTimerEngine(
+                        sp.GetRequiredService<ITurnDelay>(),
+                        sp.GetService<IGameNotifier>(),
+                        sp.GetService<IGameStateProjector>(),
+                        sp.GetService<IRandomSource>(),
+                        turnDuration: TimeSpan.FromSeconds(15),
+                        intermissionDuration: TimeSpan.FromMilliseconds(400)));
+            });
+        });
+
+        var roomCode = $"CYBER-I{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var connHost = CreateHubConnection(testFactory);
+        await connHost.StartAsync();
+        var respHost = await connHost.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(respHost.IsSuccess, respHost.Error);
+
+        await using var connGuest1 = CreateHubConnection(testFactory);
+        await connGuest1.StartAsync();
+        var respGuest1 = await connGuest1.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "Guest1"));
+        Assert.True(respGuest1.IsSuccess, respGuest1.Error);
+
+        await using var connGuest2 = CreateHubConnection(testFactory);
+        await connGuest2.StartAsync();
+        var respGuest2 = await connGuest2.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "Guest2"));
+        Assert.True(respGuest2.IsSuccess, respGuest2.Error);
+
+        var roundStartedTcs = new TaskCompletionSource<RoundStartedDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        connGuest1.On<RoundStartedDto>("RoundStarted", r =>
+        {
+            if (r.RoundNumber == 2)
+            {
+                roundStartedTcs.TrySetResult(r);
+            }
+        });
+
+        var roundOverTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        connGuest1.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "RoundOver")
+            {
+                roundOverTcs.TrySetResult(s);
+            }
+        });
+
+        var voltageStartedTcs = new TaskCompletionSource<VoltageTestStartedEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        connGuest1.On<VoltageTestStartedEvent>("VoltageTestStarted", v => voltageStartedTcs.TrySetResult(v));
+
+        var round2ActiveTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        connGuest1.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive" && s.RoundNumber == 2)
+            {
+                round2ActiveTcs.TrySetResult(s);
+            }
+        });
+
+        var hostRound1Tcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        connHost.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive" && s.RoundNumber == 1)
+            {
+                hostRound1Tcs.TrySetResult(s);
+            }
+        });
+
+        await connHost.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await connGuest1.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await connGuest2.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+
+        var startResp = await connHost.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResp.IsSuccess, startResp.Error);
+
+        var hostRound1State = await hostRound1Tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotEmpty(hostRound1State.MyHand);
+        var targetProtocol = Enum.Parse<CardProtocol>(hostRound1State.CurrentTargetProtocol!);
+
+        var playResp = await connHost.InvokeAsync<HubResponse>(
+            "PlayCards",
+            new PlayCardsRequest(roomCode, [hostRound1State.MyHand[0].Id], targetProtocol));
+        Assert.True(playResp.IsSuccess, playResp.Error);
+
+        var traceResp = await connGuest1.InvokeAsync<HubResponse<TraceResolutionDto>>(
+            "CallTrace",
+            new CallTraceRequest(roomCode));
+        Assert.True(traceResp.IsSuccess, traceResp.Error);
+
+        var completedTask = await Task.WhenAny(roundOverTcs.Task, voltageStartedTcs.Task);
+        if (completedTask == voltageStartedTcs.Task)
+        {
+            var voltageEvent = await voltageStartedTcs.Task;
+            var loserConn = voltageEvent.PendingPlayerId == respHost.Data!.PlayerId
+                ? connHost
+                : (voltageEvent.PendingPlayerId == respGuest1.Data!.PlayerId ? connGuest1 : connGuest2);
+            await loserConn.InvokeAsync<HubResponse>("TriggerDischarge", new TriggerDischargeRequest(roomCode));
+        }
+
+        var roundOverState = await roundOverTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(roundOverState.IntermissionDeadlineUtc);
+        Assert.True(roundOverState.IntermissionDeadlineUtc > DateTime.UtcNow);
+
+        // Host drops during intermission
+        await connHost.StopAsync();
+        await connHost.DisposeAsync();
+
+        // Server advances automatically without any client calling StartRound
+        var round2Started = await roundStartedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(2, round2Started.RoundNumber);
+
+        var round2State = await round2ActiveTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("TurnActive", round2State.State);
+        Assert.Equal(2, round2State.RoundNumber);
     }
 }
 

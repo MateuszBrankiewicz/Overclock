@@ -40,6 +40,7 @@ internal sealed class LeaveRoomCommandHandler(
 
             var sessionToken = seat.SessionToken;
             var wasCurrentTurnPlayer = room.CurrentTurnPlayerId?.Value == request.PlayerId;
+            var wasRoundOver = room.State == RoomState.RoundOver;
 
             var leaveResult = room.Leave(new PlayerId(request.PlayerId));
             if (!leaveResult.IsSuccess)
@@ -49,9 +50,16 @@ internal sealed class LeaveRoomCommandHandler(
 
             var leaveOutcome = leaveResult.Value;
 
-            if (room.State is RoomState.GameOver or RoomState.RoundOver)
+            if (room.State == RoomState.GameOver)
             {
                 turnTimer.Cancel(room.Id.Value);
+            }
+            else if (!wasRoundOver && room.State == RoomState.RoundOver)
+            {
+                turnTimer.Cancel(room.Id.Value);
+                var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(turnTimer.IntermissionDuration);
+                room.MarkIntermissionDeadline(deadlineUtc);
+                turnTimer.StartIntermission(session, room.RoundNumber, turnTimer.IntermissionDuration);
             }
             else if (wasCurrentTurnPlayer && room.State == RoomState.TurnActive && room.CurrentTurnPlayerId is { } nextPlayerId)
             {

@@ -150,6 +150,7 @@ public sealed class VoltageTestCoordinatorTests
 
     private sealed class RecordingTimerEngine : ITurnTimerEngine
     {
+        public TimeSpan IntermissionDuration => TimeSpan.FromSeconds(10);
         public TimerKind? LastStartedKind { get; private set; }
         public TimerKind? LastCanceledKind { get; private set; }
 
@@ -161,6 +162,11 @@ public sealed class VoltageTestCoordinatorTests
         public void StartDischargeWatchdog(GameRoomSession session, PlayerId playerId, long dischargeSequenceId, TimeSpan? duration = null)
         {
             LastStartedKind = TimerKind.DischargeDecision;
+        }
+
+        public void StartIntermission(GameRoomSession session, int roundNumber, TimeSpan? duration = null)
+        {
+            LastStartedKind = TimerKind.Intermission;
         }
 
         public bool RescheduleTurn(string roomCode, long turnSequenceId, TimeSpan newRemainingDuration) => true;

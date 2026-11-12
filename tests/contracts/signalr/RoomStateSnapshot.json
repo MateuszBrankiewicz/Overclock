@@ -59,6 +59,7 @@
   "pendingDischargePlayerId": null,
   "dischargeDeadlineUtc": null,
   "turnDeadlineUtc": "2026-10-16T12:00:15Z",
+  "intermissionDeadlineUtc": null,
   "canActivateExploit": true,
   "sequenceNumber": 1
 }

@@ -48,6 +48,7 @@ export const OperatingTable: React.FC = () => {
   const roundIntro = useGameStore((s) => s.roundIntro);
   const clearRoundIntro = useGameStore((s) => s.clearRoundIntro);
   const pendingDischargePlayerId = useGameStore((s) => s.pendingDischargePlayerId);
+  const intermissionDeadlineUtc = useGameStore((s) => s.intermissionDeadlineUtc);
   const canActivateExploit = useGameStore((s) => s.canActivateExploit);
   const roundNumber = useGameStore((s) => s.roundNumber);
   const lastDischargeOutcome = useGameStore((s) => s.lastDischargeOutcome);
@@ -239,6 +240,7 @@ export const OperatingTable: React.FC = () => {
             onLeave={() => void session.leaveRoom()}
             isDischargeCinematicActive={false}
             onStartNextRound={() => void session.startRound()}
+            intermissionDeadlineUtc={intermissionDeadlineUtc}
           />
         ) : null}
       </BunkerArenaCanvas>

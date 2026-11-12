@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PlayerSeat } from '../schemas/gameEvents';
-import { getIntermissionFallback, HOST_GRACE_SECONDS } from './intermissionFallback';
 import { buildInviteUrl, readRoomParam, stripRoomParam } from './invite';
 import { reduceLeaveConfirm } from './leaveConfirm';
 import { loadNickname, NICKNAME_STORAGE_KEY, saveNickname } from './nickname';
@@ -105,33 +104,6 @@ describe('buildPodium', () => {
   it('ranks players without a recorded placement last, in seat order', () => {
     const podium = buildPodium([seat('a'), seat('b'), seat('c')], { c: 2 }, 'a');
     expect(podium.map((e) => e.playerId)).toEqual(['a', 'c', 'b']);
-  });
-});
-
-describe('getIntermissionFallback', () => {
-  const players = [seat('host'), seat('p2'), seat('p3')];
-  const base = { countdown: 0, graceElapsed: false, isHost: false, hostId: 'host', myPlayerId: 'p3', players };
-
-  it('shows nothing while counting down or for the host', () => {
-    expect(getIntermissionFallback({ ...base, countdown: 2 })).toBe('none');
-    expect(getIntermissionFallback({ ...base, isHost: true })).toBe('none');
-  });
-
-  it('asks non-hosts to wait, and keeps waiting while the host is still seated', () => {
-    expect(getIntermissionFallback(base)).toBe('waitingForHost');
-    expect(getIntermissionFallback({ ...base, graceElapsed: true })).toBe('waitingForHost');
-    expect(HOST_GRACE_SECONDS).toBeGreaterThan(0);
-  });
-
-  it('declares the host gone after the grace period (no client-side promotion)', () => {
-    const gone = players.filter((p) => p.playerId !== 'host');
-    const input = { ...base, graceElapsed: true, players: gone };
-    expect(getIntermissionFallback(input)).toBe('hostGone');
-    expect(getIntermissionFallback({ ...input, myPlayerId: 'p2' })).toBe('hostGone');
-    const disconnected = [seat('host', 'Disconnected'), seat('p2'), seat('p3')];
-    expect(getIntermissionFallback({ ...base, graceElapsed: true, players: disconnected })).toBe(
-      'hostGone'
-    );
   });
 });
 

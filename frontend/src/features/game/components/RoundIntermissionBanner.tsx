@@ -1,21 +1,21 @@
 import clsx from 'clsx';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { useCountdown } from '../hooks/useCountdown';
 import type { CapacitorDischargedEvent, PlayerSeat } from '../schemas/gameEvents';
-import { getIntermissionFallback, HOST_GRACE_SECONDS } from '../utils/intermissionFallback';
-import { IntermissionFallbackNotice } from './IntermissionFallbackNotice';
 
 export interface RoundIntermissionBannerProps {
   roundNumber: number;
   players: PlayerSeat[];
   lastDischargeOutcome: CapacitorDischargedEvent | null;
-  isHost: boolean;
+  isHost?: boolean;
   hostId?: string | null;
   myPlayerId?: string | null;
   onLeave?: () => void;
-  isDischargeCinematicActive: boolean;
-  onStartNextRound: () => void;
+  isDischargeCinematicActive?: boolean;
+  onStartNextRound?: () => void;
+  intermissionDeadlineUtc?: string | null;
   className?: string;
 }
 
@@ -23,18 +23,27 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
   roundNumber,
   players,
   lastDischargeOutcome,
-  isHost,
-  hostId = null,
-  myPlayerId = null,
-  onLeave,
-  isDischargeCinematicActive,
-  onStartNextRound,
+  isDischargeCinematicActive = false,
+  intermissionDeadlineUtc = null,
   className,
 }) => {
   const { t } = useI18n();
-  const [countdown, setCountdown] = useState<number>(3);
-  const [graceElapsed, setGraceElapsed] = useState(false);
-  const autoStartedRoundRef = useRef<number>(-1);
+  const serverCountdown = useCountdown(intermissionDeadlineUtc, 10);
+  const [localCountdown, setLocalCountdown] = useState<number>(3);
+
+  useEffect(() => {
+    if (intermissionDeadlineUtc || isDischargeCinematicActive) {
+      return;
+    }
+    const interval = setInterval(() => {
+      setLocalCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [intermissionDeadlineUtc, isDischargeCinematicActive, roundNumber]);
+
+  const countdown = intermissionDeadlineUtc
+    ? serverCountdown.secondsLeft
+    : localCountdown;
 
   const activeCount = players.filter((p) => p.status === 'Active').length;
   const totalCount = players.length;
@@ -43,52 +52,6 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
     ? players.find((p) => p.playerId === lastDischargeOutcome.playerId)
     : null;
   const testedNick = testedSeat?.nickname ?? t.common.operator;
-
-  useEffect(() => {
-    // Only begin the countdown when the 3D discharge/death animation has completed.
-    // Note: After T-0013 (ADR 0013), this countdown will be driven by server-sent intermissionDeadlineUtc.
-    if (isDischargeCinematicActive) {
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isDischargeCinematicActive, roundNumber]);
-
-  useEffect(() => {
-    // Trigger automatic next round start exactly once when countdown hits 0
-    if (countdown === 0 && !isDischargeCinematicActive && isHost) {
-      if (autoStartedRoundRef.current !== roundNumber) {
-        autoStartedRoundRef.current = roundNumber;
-        onStartNextRound();
-      }
-    }
-  }, [countdown, isDischargeCinematicActive, isHost, roundNumber, onStartNextRound]);
-
-  useEffect(() => {
-    // Non-hosts: after the countdown ends, give the host a grace period before declaring them gone
-    if (countdown !== 0 || isDischargeCinematicActive || isHost) return;
-    const timer = setTimeout(() => setGraceElapsed(true), HOST_GRACE_SECONDS * 1000);
-    return () => clearTimeout(timer);
-  }, [countdown, isDischargeCinematicActive, isHost, roundNumber]);
-
-  const fallback = getIntermissionFallback({
-    countdown: isDischargeCinematicActive ? 1 : countdown,
-    graceElapsed,
-    isHost,
-    hostId,
-    myPlayerId,
-    players,
-  });
 
   const isOverloaded = Boolean(lastDischargeOutcome?.overloaded);
   const resultingRisk = lastDischargeOutcome?.resultingRiskLevel ?? 1;
@@ -158,21 +121,6 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
           </div>
         ) : (
           <span className="text-xs text-zinc-500 italic">{t.intermission.dischargeResolving}</span>
-        )}
-
-        <IntermissionFallbackNotice
-          fallback={fallback}
-          onLeave={onLeave}
-        />
-
-        {isHost && countdown === 0 && (
-          <button
-            type="button"
-            onClick={onStartNextRound}
-            className="mt-1 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black cursor-pointer shadow-md transition-all active:scale-95"
-          >
-            [{t.intermission.fallbackStart}]
-          </button>
         )}
       </div>
     </div>

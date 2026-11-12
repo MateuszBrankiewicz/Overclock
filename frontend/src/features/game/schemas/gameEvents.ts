@@ -96,6 +96,7 @@ export const RoomStateSnapshotSchema = z.object({
   pendingDischargePlayerId: z.string().uuid().nullable().optional(),
   dischargeDeadlineUtc: z.string().datetime().nullable().optional(),
   turnDeadlineUtc: z.string().datetime({ offset: true }).nullable().optional(),
+  intermissionDeadlineUtc: z.string().datetime({ offset: true }).nullable().optional(),
   canActivateExploit: z.boolean().default(false),
   sequenceNumber: z.number().int().nonnegative().optional(),
 });
@@ -115,6 +116,7 @@ export type RoomStateSnapshot = {
   pendingDischargePlayerId?: string | null;
   dischargeDeadlineUtc?: string | null;
   turnDeadlineUtc?: string | null;
+  intermissionDeadlineUtc?: string | null;
   canActivateExploit?: boolean;
   sequenceNumber?: number;
 };
