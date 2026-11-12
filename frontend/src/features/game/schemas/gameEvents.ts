@@ -351,3 +351,10 @@ export const TriggerDischargeContractSchema = z.object({
   playerId: z.string().uuid(),
 });
 export type TriggerDischargeContract = z.infer<typeof TriggerDischargeContractSchema>;
+
+export const LeaveRoomContractSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+});
+export type LeaveRoomContract = z.infer<typeof LeaveRoomContractSchema>;
+

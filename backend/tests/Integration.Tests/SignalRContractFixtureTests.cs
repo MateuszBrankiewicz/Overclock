@@ -146,6 +146,7 @@ public class SignalRContractFixtureTests
         var reconnectContract = new ReconnectContractDto("CYBER-7X9", sessionToken, "conn-xyz-123");
         var activateExploitContract = new ActivateExploitContractDto("CYBER-7X9", player1Id, "PacketSniffer", null);
         var triggerDischargeContract = new TriggerDischargeContractDto("CYBER-7X9", player2Id);
+        var leaveRoomContract = new LeaveRoomContractDto("CYBER-7X9", player1Id);
 
         await AssertFixtureAsync(fixtureDir, "TraceCalled.json", traceCalled);
         await AssertFixtureAsync(fixtureDir, "CapacitorDischarged.json", capacitorDischarged);
@@ -165,6 +166,7 @@ public class SignalRContractFixtureTests
         await AssertFixtureAsync(fixtureDir, "ReconnectContract.json", reconnectContract);
         await AssertFixtureAsync(fixtureDir, "ActivateExploitContract.json", activateExploitContract);
         await AssertFixtureAsync(fixtureDir, "TriggerDischargeContract.json", triggerDischargeContract);
+        await AssertFixtureAsync(fixtureDir, "LeaveRoomContract.json", leaveRoomContract);
     }
 
     private static async Task AssertFixtureAsync(string fixtureDir, string filename, object dto)

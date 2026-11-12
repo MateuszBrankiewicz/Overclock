@@ -199,7 +199,7 @@ export const OperatingTable: React.FC = () => {
             >
               <HelpCircle className="w-4 h-4" />
             </button>
-            <LeaveTableButton onLeave={() => session.leaveRoom()} />
+            <LeaveTableButton onLeave={() => void session.leaveRoom()} />
           </div>
         }
       >
@@ -225,7 +225,7 @@ export const OperatingTable: React.FC = () => {
             roundNumber={roundNumber}
             isHost={isHost}
             onPlayAgain={() => void session.startRound()}
-            onLeave={() => session.leaveRoom()}
+            onLeave={() => void session.leaveRoom()}
           />
         ) : centerOverlay === 'intermission' ? (
           <RoundIntermissionBanner
@@ -236,7 +236,7 @@ export const OperatingTable: React.FC = () => {
             isHost={isHost}
             hostId={hostId}
             myPlayerId={playerId}
-            onLeave={() => session.leaveRoom()}
+            onLeave={() => void session.leaveRoom()}
             isDischargeCinematicActive={false}
             onStartNextRound={() => void session.startRound()}
           />

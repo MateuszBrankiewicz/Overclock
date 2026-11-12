@@ -116,3 +116,8 @@ public sealed record ActivateExploitContractDto(
 public sealed record TriggerDischargeContractDto(
     string RoomCode,
     Guid PlayerId);
+
+public sealed record LeaveRoomContractDto(
+    string RoomCode,
+    Guid PlayerId);
+
