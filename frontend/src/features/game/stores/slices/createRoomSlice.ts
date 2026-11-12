@@ -3,6 +3,7 @@ import type { StateCreator } from 'zustand';
 import type { CapacitorDischargedEvent, PlayerSeat } from '../../schemas/gameEvents';
 import type { CharacterId } from '../../utils/characterCatalog';
 import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
+import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState, RoomSlice } from '../types';
 
 const getInitialCharacterId = (): CharacterId => {
@@ -27,6 +28,7 @@ function dischargeUpdate(state: GameState, event: CapacitorDischargedEvent): Par
       startedAtMs: Date.now(),
     },
     queuedDischarge: null,
+    awaitingDischargeForSequence: null,
     pendingDischargePlayerId: null,
     dischargeDeadlineUtc: null,
     players: state.players.map((seat) =>
@@ -56,12 +58,14 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   lastDischargeOutcome: null,
   dischargeCinematic: null,
   queuedDischarge: null,
+  awaitingDischargeForSequence: null,
   sniffedCard: null,
   selectedCharacterId: getInitialCharacterId(),
   characterByPlayerId: {},
   cameraFocus: 'overview',
 
   clearDischargeCinematic: () => set({ dischargeCinematic: null }),
+  clearAwaitingDischarge: () => set({ awaitingDischargeForSequence: null }),
 
   finishTraceReveal: () =>
     set((state) => {
@@ -141,6 +145,23 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
             ? state.turnDeadlineUtc
             : estimateTurnDeadlineUtc();
 
+      const snapshotTrace = snapshot.lastTraceResolution;
+      const snapshotSeq = snapshotTrace?.sequenceNumber ?? null;
+      const shouldTriggerRevealFromSnapshot = Boolean(
+        snapshotTrace &&
+          !state.traceReveal &&
+          (snapshotSeq === null ||
+            state.lastRevealedTraceSequence === null ||
+            snapshotSeq > state.lastRevealedTraceSequence)
+      );
+
+      const revealPatch = shouldTriggerRevealFromSnapshot
+        ? startTraceReveal(state, snapshotTrace!)
+        : {};
+
+      const shouldClearAwaitingDischarge =
+        snapshot.state === 'TurnActive' || snapshot.state === 'Lobby';
+
       return {
         roomCode: snapshot.roomCode,
         roomState: snapshot.state,
@@ -177,6 +198,8 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         lastPlayedCards:
           snapshot.state === 'TurnActive' && isSameRound ? state.lastPlayedCards : null,
         lastTrace: null,
+        ...(shouldClearAwaitingDischarge ? { awaitingDischargeForSequence: null } : {}),
+        ...revealPatch,
       };
     }),
 
@@ -278,6 +301,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       lastDischargeOutcome: null,
       dischargeCinematic: null,
       queuedDischarge: null,
+      awaitingDischargeForSequence: null,
       traceReveal: null,
       lastRevealedTraceSequence: null,
       roundIntro: null,

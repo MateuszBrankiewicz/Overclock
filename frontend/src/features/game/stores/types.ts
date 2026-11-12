@@ -59,6 +59,8 @@ export interface RoomSlice {
   dischargeCinematic: DischargeCinematic | null;
   /** Discharge received while the trace reveal is still playing; applied when it finishes. */
   queuedDischarge: CapacitorDischargedEvent | null;
+  /** Sequence number of resolved trace awaiting capacitor discharge event. */
+  awaitingDischargeForSequence: number | null;
   sniffedCard: PlayerCard | null;
   selectedCharacterId: CharacterId;
   characterByPlayerId: Record<string, CharacterId>;
@@ -68,6 +70,7 @@ export interface RoomSlice {
   setCameraFocus: (focus: ArenaCameraFocus) => void;
   setRoom: (roomCode: string, playerId: string) => void;
   clearDischargeCinematic: () => void;
+  clearAwaitingDischarge: () => void;
   /** Ends the trace reveal and starts any discharge queued behind it. */
   finishTraceReveal: () => void;
   applyRoomSnapshot: (snapshot: RoomStateSnapshot) => void;
