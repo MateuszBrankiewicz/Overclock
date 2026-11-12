@@ -17,9 +17,11 @@ internal sealed class DisconnectPlayerCommandHandler(
     IGameNotifier notifier,
     IDisconnectGraceManager graceManager,
     ITurnTimerEngine turnTimer,
-    IGameStateProjector projector)
+    IGameStateProjector projector,
+    TimeProvider? timeProvider = null)
     : IRequestHandler<DisconnectPlayerCommand, Result>
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private static readonly TimeSpan DefaultGracePeriod = TimeSpan.FromSeconds(30);
 
     public async ValueTask<Result> Handle(DisconnectPlayerCommand request, CancellationToken ct)
@@ -99,6 +101,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                         else
                         {
                             var wasCurrentTurnPlayer = activeRoom.CurrentTurnPlayerId == info.PlayerId;
+                            var wasRoundOver = activeRoom.State == RoomState.RoundOver;
                             var eliminateResult = activeRoom.EliminatePlayer(info.PlayerId);
                             if (!eliminateResult.IsSuccess)
                             {
@@ -109,8 +112,17 @@ internal sealed class DisconnectPlayerCommandHandler(
                             {
                                 turnTimer.Cancel(activeRoom.Id.Value);
                             }
+                            else if (!wasRoundOver && activeRoom.State == RoomState.RoundOver)
+                            {
+                                turnTimer.Cancel(activeRoom.Id.Value);
+                                var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(turnTimer.IntermissionDuration);
+                                activeRoom.MarkIntermissionDeadline(deadlineUtc);
+                                turnTimer.StartIntermission(activeSession, activeRoom.RoundNumber, turnTimer.IntermissionDuration);
+                            }
                             else if (wasCurrentTurnPlayer && activeRoom.State == RoomState.TurnActive && activeRoom.CurrentTurnPlayerId is { } nextPlayerId)
                             {
+                                var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(TurnTimerEngine.DefaultTurnDuration);
+                                activeRoom.MarkTurnDeadline(deadlineUtc);
                                 turnTimer.Start(activeSession, nextPlayerId, activeRoom.TurnSequenceId);
                             }
 

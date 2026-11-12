@@ -32,7 +32,6 @@ describe('RoundIntermissionBanner Component', () => {
         },
         isHost: true,
         isDischargeCinematicActive: false,
-        onStartNextRound: () => {},
       })
     );
 
@@ -60,11 +59,51 @@ describe('RoundIntermissionBanner Component', () => {
         },
         isHost: true,
         isDischargeCinematicActive: false,
-        onStartNextRound: () => {},
       })
     );
 
     expect(html).toContain('GhostOperator');
     expect(html).toContain('round-intermission-banner');
+    expect(html).toContain('intermission-countdown');
+  });
+
+  it('renders countdown anchored to authoritative intermissionDeadlineUtc', () => {
+    const futureDeadline = new Date(Date.now() + 7000).toISOString();
+    const html = renderToString(
+      React.createElement(RoundIntermissionBanner, {
+        roundNumber: 3,
+        players: [
+          { playerId: 'p1', nickname: 'GhostOperator', status: 'Active', isReady: true, handCount: 2, riskLevel: 1 },
+        ],
+        lastDischargeOutcome: null,
+        isHost: true,
+        isDischargeCinematicActive: false,
+        intermissionDeadlineUtc: futureDeadline,
+      })
+    );
+    expect(html).toContain('intermission-countdown');
+    expect(html).toContain('7');
+  });
+
+  it('never invokes onStartNextRound automatically when countdown expires', () => {
+    const onStartNextRound = vi.fn();
+    const pastDeadline = new Date(Date.now() - 1000).toISOString();
+
+    renderToString(
+      React.createElement(RoundIntermissionBanner, {
+        roundNumber: 3,
+        players: [
+          { playerId: 'p1', nickname: 'GhostOperator', status: 'Active', isReady: true, handCount: 2, riskLevel: 1 },
+        ],
+        lastDischargeOutcome: null,
+        isHost: true,
+        isDischargeCinematicActive: false,
+        intermissionDeadlineUtc: pastDeadline,
+        onStartNextRound,
+      })
+    );
+
+    vi.advanceTimersByTime(5000);
+    expect(onStartNextRound).not.toHaveBeenCalled();
   });
 });

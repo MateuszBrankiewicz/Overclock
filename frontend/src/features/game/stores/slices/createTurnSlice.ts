@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 
-import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
+import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState, TurnSlice } from '../types';
 
 export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set) => ({
@@ -26,7 +26,8 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
         protocol: event.leadProtocol ?? null,
         startedAtMs: Date.now(),
       },
-      turnDeadlineUtc: estimateTurnDeadlineUtc(),
+      turnDeadlineUtc: null,
+      intermissionDeadlineUtc: null,
       roundNumber: event.roundNumber,
       roomState: 'TurnActive',
       currentTargetProtocol: event.leadProtocol ?? null,
@@ -36,6 +37,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,
+      awaitingDischargeForSequence: null,
       remainingTimeSeconds: 15,
     }),
 
@@ -70,42 +72,23 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       const seq = resolution.sequenceNumber ?? null;
       // The accuser gets the same resolution twice (broadcast + invoke response): reveal once.
       const alreadyRevealed =
-        (seq !== null && seq === state.lastRevealedTraceSequence) ||
+        (seq !== null && state.lastRevealedTraceSequence !== null && seq <= state.lastRevealedTraceSequence) ||
         (seq === null && state.traceReveal !== null);
+
+      if (alreadyRevealed) {
+        return {
+          lastTraceResolution: resolution,
+          tablePileCount: 0,
+          turnDeadlineUtc: null,
+          roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
+        };
+      }
+
       return {
-        lastTraceResolution: resolution,
-        tablePileCount: 0,
-        turnDeadlineUtc: null,
+        ...startTraceReveal(state, resolution),
         roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
-        ...(alreadyRevealed
-          ? {}
-          : {
-              traceReveal: {
-                resolution,
-                startedAtMs: Date.now(),
-                seatsAtReveal: state.players,
-              },
-              lastRevealedTraceSequence: seq,
-            }),
       };
     }),
-
-  setTurnStarted: (event) => {
-    let diffSeconds = 15;
-    if (event.turnDeadlineUtc) {
-      const deadline = new Date(event.turnDeadlineUtc).getTime();
-      if (Number.isFinite(deadline)) {
-        diffSeconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      }
-    }
-
-    set({
-      activePlayerId: event.activePlayerId,
-      turnDeadlineUtc: event.turnDeadlineUtc,
-      remainingTimeSeconds: diffSeconds,
-      roomState: 'TurnActive',
-    });
-  },
 
   applyTraceCalled: (event) =>
     set({
@@ -136,10 +119,12 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       tablePileCount: 0,
       remainingTimeSeconds: 15,
       turnDeadlineUtc: null,
+      intermissionDeadlineUtc: null,
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,
       traceReveal: null,
+      awaitingDischargeForSequence: null,
       roundIntro: null,
     })),
 });

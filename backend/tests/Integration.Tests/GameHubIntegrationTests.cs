@@ -1,7 +1,11 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
 using Overclock.Host.Hubs;
+using Overclock.Modules.GameEngine.Application.Ports;
+using Overclock.Modules.GameEngine.Application.Rooms;
+using Overclock.Modules.GameEngine.Application.Services;
 using Overclock.Modules.GameEngine.Contracts;
 using Overclock.Modules.GameEngine.Domain.Cards;
 using Overclock.Modules.GameEngine.Domain.Rooms;
@@ -499,6 +503,327 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
         var pushedSnapshot = await snapshotTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.NotNull(pushedSnapshot);
         Assert.Equal(roomCode, pushedSnapshot.RoomCode);
+    }
+
+    [Fact]
+    public async Task Snapshot_carries_turn_deadline_while_turn_active()
+    {
+        var roomCode = $"CYBER-T{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+        Assert.Null(hostResponse.Data!.GameState.TurnDeadlineUtc);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+        Assert.Null(guestResponse.Data!.GameState.TurnDeadlineUtc);
+
+        var hostTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var guestTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        hostConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                hostTcs.TrySetResult(s);
+            }
+        });
+
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                guestTcs.TrySetResult(s);
+            }
+        });
+
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+
+        var beforeStart = DateTime.UtcNow;
+        var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResponse.IsSuccess);
+
+        var hostState1 = await hostTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var guestState1 = await guestTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("TurnActive", hostState1.State);
+        Assert.NotNull(hostState1.TurnDeadlineUtc);
+        Assert.InRange(hostState1.TurnDeadlineUtc.Value, beforeStart.AddSeconds(13), beforeStart.AddSeconds(16));
+
+        Assert.Equal("TurnActive", guestState1.State);
+        Assert.NotNull(guestState1.TurnDeadlineUtc);
+        Assert.InRange(guestState1.TurnDeadlineUtc.Value, beforeStart.AddSeconds(13), beforeStart.AddSeconds(16));
+
+        // Now have the current turn player play cards
+        var activePlayerId = hostState1.CurrentTurnPlayerId;
+        var activeConnection = activePlayerId == hostResponse.Data.PlayerId ? hostConnection : guestConnection;
+        var activeState = activePlayerId == hostResponse.Data.PlayerId ? hostState1 : guestState1;
+        var cardToPlay = activeState.MyHand[0].Id;
+        var activeTargetProtocol = Enum.Parse<CardProtocol>(hostState1.CurrentTargetProtocol!);
+
+        var hostTurn2Tcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var guestTurn2Tcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        hostConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.SequenceNumber > hostState1.SequenceNumber)
+            {
+                hostTurn2Tcs.TrySetResult(s);
+            }
+        });
+
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.SequenceNumber > guestState1.SequenceNumber)
+            {
+                guestTurn2Tcs.TrySetResult(s);
+            }
+        });
+
+        var beforePlay = DateTime.UtcNow;
+        var playResponse = await activeConnection.InvokeAsync<HubResponse>(
+            "PlayCards",
+            new PlayCardsRequest(roomCode, [cardToPlay], activeTargetProtocol));
+        Assert.True(playResponse.IsSuccess, playResponse.Error);
+
+        var hostState2 = await hostTurn2Tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var guestState2 = await guestTurn2Tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("TurnActive", hostState2.State);
+        Assert.NotNull(hostState2.TurnDeadlineUtc);
+        Assert.InRange(hostState2.TurnDeadlineUtc.Value, beforePlay.AddSeconds(13), beforePlay.AddSeconds(16));
+
+        Assert.Equal("TurnActive", guestState2.State);
+        Assert.NotNull(guestState2.TurnDeadlineUtc);
+        Assert.InRange(guestState2.TurnDeadlineUtc.Value, beforePlay.AddSeconds(13), beforePlay.AddSeconds(16));
+    }
+
+    [Fact]
+    public async Task LeaveRoom_InLobby_RemovesPlayerAndUpdatesHost()
+    {
+        var roomCode = $"CYBER-L{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+
+        var guestUpdatedStateTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s => guestUpdatedStateTcs.TrySetResult(s));
+
+        var leaveResponse = await hostConnection.InvokeAsync<HubResponse>("LeaveRoom", new LeaveRoomRequest(roomCode));
+        Assert.True(leaveResponse.IsSuccess, leaveResponse.Error);
+
+        var guestState = await guestUpdatedStateTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(guestResponse.Data!.PlayerId, guestState.HostId);
+        Assert.Single(guestState.Seats);
+        Assert.Equal(guestResponse.Data!.PlayerId, guestState.Seats[0].PlayerId);
+    }
+
+    [Fact]
+    public async Task LeaveRoom_InGame_EliminatesPlayerAndEndsGame()
+    {
+        var roomCode = $"CYBER-G{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+
+        var hostGameOverTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        hostConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "GameOver")
+            {
+                hostGameOverTcs.TrySetResult(s);
+            }
+        });
+
+        var statusChangedTcs = new TaskCompletionSource<PlayerStatusChangedDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        hostConnection.On<PlayerStatusChangedDto>("PlayerStatusChanged", s => statusChangedTcs.TrySetResult(s));
+
+        await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+
+        var leaveResponse = await guestConnection.InvokeAsync<HubResponse>("LeaveRoom", new LeaveRoomRequest(roomCode));
+        Assert.True(leaveResponse.IsSuccess, leaveResponse.Error);
+
+        var hostState = await hostGameOverTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("GameOver", hostState.State);
+        Assert.Equal(hostResponse.Data!.PlayerId, hostState.WinnerId);
+
+        var statusChanged = await statusChangedTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(guestResponse.Data!.PlayerId, statusChanged.PlayerId);
+        Assert.Equal("Eliminated", statusChanged.Status);
+    }
+
+    [Fact]
+    public async Task LeaveRoom_LastPlayerInLobby_RemovesRoomFromRegistry()
+    {
+        var roomCode = $"CYBER-E{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        var leaveResponse = await hostConnection.InvokeAsync<HubResponse>("LeaveRoom", new LeaveRoomRequest(roomCode));
+        Assert.True(leaveResponse.IsSuccess, leaveResponse.Error);
+
+        var registry = factory.Services.GetRequiredService<IGameRoomRegistry>();
+        Assert.False(registry.TryGet(roomCode, out _));
+    }
+
+    [Fact]
+    public async Task LeaveRoom_CancelsGracePeriod()
+    {
+        var roomCode = $"CYBER-P{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+
+        var graceManager = factory.Services.GetRequiredService<IDisconnectGraceManager>();
+        graceManager.StartGracePeriod(
+            roomCode,
+            new PlayerId(guestResponse.Data!.PlayerId),
+            guestResponse.Data!.SessionToken,
+            TimeSpan.FromMinutes(1),
+            () => ValueTask.CompletedTask);
+
+        Assert.True(graceManager.HasActiveGracePeriod(guestResponse.Data!.SessionToken));
+
+        var leaveResponse = await guestConnection.InvokeAsync<HubResponse>("LeaveRoom", new LeaveRoomRequest(roomCode));
+        Assert.True(leaveResponse.IsSuccess, leaveResponse.Error);
+
+        Assert.False(graceManager.HasActiveGracePeriod(guestResponse.Data!.SessionToken));
+    }
+
+    [Fact]
+    public async Task LeaveRoom_WhenNotJoined_ReturnsSuccess()
+    {
+        await using var connection = CreateHubConnection();
+        await connection.StartAsync();
+
+        var response = await connection.InvokeAsync<HubResponse>("LeaveRoom", new LeaveRoomRequest("CYBER-NONE"));
+        Assert.True(response.IsSuccess);
+    }
+
+    [Fact]
+    public async Task LeaveRoom_WhenRoomMismatch_ReturnsForbidden()
+    {
+        var roomCode = $"CYBER-M{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var connection = CreateHubConnection();
+        await connection.StartAsync();
+        var hostResponse = await connection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+
+        var response = await connection.InvokeAsync<HubResponse>("LeaveRoom", new LeaveRoomRequest("CYBER-OTHER"));
+        Assert.False(response.IsSuccess);
+        Assert.Equal("Connection.RoomMismatch", response.ErrorCode);
+    }
+
+    [Fact]
+    public async Task SelectCharacter_SynchronizesSelection_AndRejectsDuplicatesOrNonLobby()
+    {
+        var roomCode = $"CYBER-C{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode, "ghost"));
+        Assert.True(hostResponse.IsSuccess, hostResponse.Error);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer", "volt"));
+        Assert.True(guestResponse.IsSuccess, guestResponse.Error);
+
+        var guestSnapshotTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            var hostSeat = s.Seats.FirstOrDefault(seat => seat.PlayerId == hostResponse.Data!.PlayerId);
+            if (hostSeat?.CharacterId == "proxy")
+            {
+                guestSnapshotTcs.TrySetResult(s);
+            }
+        });
+
+        // 1. Host selects 'proxy' -> Guest receives snapshot where Host is 'proxy'
+        var selectProxyResponse = await hostConnection.InvokeAsync<HubResponse>(
+            "SelectCharacter",
+            new SelectCharacterRequest(roomCode, "proxy"));
+        Assert.True(selectProxyResponse.IsSuccess, selectProxyResponse.Error);
+
+        var guestSnapshot = await guestSnapshotTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var hostSeatInGuestSnapshot = guestSnapshot.Seats.First(s => s.PlayerId == hostResponse.Data!.PlayerId);
+        Assert.Equal("proxy", hostSeatInGuestSnapshot.CharacterId);
+
+        // 2. Guest tries to select 'proxy' (already taken by Host) -> Conflict
+        var conflictResponse = await guestConnection.InvokeAsync<HubResponse>(
+            "SelectCharacter",
+            new SelectCharacterRequest(roomCode, "proxy"));
+        Assert.False(conflictResponse.IsSuccess);
+        Assert.Equal("Room.CharacterTaken", conflictResponse.ErrorCode);
+
+        // 3. Start game -> SelectCharacter outside Lobby returns NotInLobby
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResponse.IsSuccess, startResponse.Error);
+
+        var notInLobbyResponse = await hostConnection.InvokeAsync<HubResponse>(
+            "SelectCharacter",
+            new SelectCharacterRequest(roomCode, "null"));
+        Assert.False(notInLobbyResponse.IsSuccess);
+        Assert.Equal("Room.NotInLobby", notInLobbyResponse.ErrorCode);
     }
 }
 

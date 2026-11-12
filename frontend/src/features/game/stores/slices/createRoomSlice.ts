@@ -1,8 +1,8 @@
 import type { StateCreator } from 'zustand';
 
 import type { CapacitorDischargedEvent, PlayerSeat } from '../../schemas/gameEvents';
-import type { CharacterId } from '../../utils/characterCatalog';
-import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
+import { type CharacterId, isCharacterId } from '../../utils/characterCatalog';
+import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState, RoomSlice } from '../types';
 
 const getInitialCharacterId = (): CharacterId => {
@@ -27,6 +27,7 @@ function dischargeUpdate(state: GameState, event: CapacitorDischargedEvent): Par
       startedAtMs: Date.now(),
     },
     queuedDischarge: null,
+    awaitingDischargeForSequence: null,
     pendingDischargePlayerId: null,
     dischargeDeadlineUtc: null,
     players: state.players.map((seat) =>
@@ -52,16 +53,18 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   placementByPlayerId: {},
   pendingDischargePlayerId: null,
   dischargeDeadlineUtc: null,
+  intermissionDeadlineUtc: null,
   canActivateExploit: false,
   lastDischargeOutcome: null,
   dischargeCinematic: null,
   queuedDischarge: null,
+  awaitingDischargeForSequence: null,
   sniffedCard: null,
   selectedCharacterId: getInitialCharacterId(),
-  characterByPlayerId: {},
   cameraFocus: 'overview',
 
   clearDischargeCinematic: () => set({ dischargeCinematic: null }),
+  clearAwaitingDischarge: () => set({ awaitingDischargeForSequence: null }),
 
   finishTraceReveal: () =>
     set((state) => {
@@ -77,21 +80,8 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       localStorage.setItem('overclock_character', characterId);
     }
-    set((state) => ({
-      selectedCharacterId: characterId,
-      characterByPlayerId: state.playerId
-        ? { ...state.characterByPlayerId, [state.playerId]: characterId }
-        : state.characterByPlayerId,
-    }));
+    set({ selectedCharacterId: characterId });
   },
-
-  setPlayerCharacter: (playerId, characterId) =>
-    set((state) => ({
-      characterByPlayerId: {
-        ...state.characterByPlayerId,
-        [playerId]: characterId,
-      },
-    })),
 
   setCameraFocus: (focus) =>
     set({
@@ -99,15 +89,11 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
     }),
 
   setRoom: (roomCode, playerId) =>
-    set((state) => ({
+    set({
       roomCode,
       playerId,
       isInRoom: true,
-      characterByPlayerId: {
-        ...state.characterByPlayerId,
-        [playerId]: state.selectedCharacterId,
-      },
-    })),
+    }),
 
   applyRoomSnapshot: (snapshot) =>
     set((state) => {
@@ -128,18 +114,30 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         snapshot.state === 'VoltageTest';
 
       const isSameRound = snapshot.roundNumber === state.roundNumber;
-      const isSameTurn =
-        state.roomState === 'TurnActive' &&
-        snapshot.state === 'TurnActive' &&
-        isSameRound &&
-        snapshot.currentTurnPlayerId === state.activePlayerId;
-      // The server does not send the turn deadline yet (ADR 0015): estimate it when a turn starts.
-      const turnDeadlineUtc =
-        snapshot.state !== 'TurnActive'
-          ? null
-          : isSameTurn && state.turnDeadlineUtc
-            ? state.turnDeadlineUtc
-            : estimateTurnDeadlineUtc();
+      const turnDeadlineUtc = snapshot.turnDeadlineUtc ?? null;
+
+      const snapshotTrace = snapshot.lastTraceResolution;
+      const snapshotSeq = snapshotTrace?.sequenceNumber ?? null;
+      const shouldTriggerRevealFromSnapshot = Boolean(
+        snapshotTrace &&
+          !state.traceReveal &&
+          (snapshotSeq === null ||
+            state.lastRevealedTraceSequence === null ||
+            snapshotSeq > state.lastRevealedTraceSequence)
+      );
+
+      const revealPatch = shouldTriggerRevealFromSnapshot
+        ? startTraceReveal(state, snapshotTrace!)
+        : {};
+
+      const shouldClearAwaitingDischarge =
+        snapshot.state === 'TurnActive' || snapshot.state === 'Lobby';
+
+      const mySeat = snapshot.seats.find((s) => s.playerId === snapshot.myPlayerId);
+      const updatedCharacterId =
+        mySeat?.characterId && isCharacterId(mySeat.characterId)
+          ? mySeat.characterId
+          : state.selectedCharacterId;
 
       return {
         roomCode: snapshot.roomCode,
@@ -147,6 +145,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         hostId: snapshot.hostId,
         playerId: snapshot.myPlayerId,
         isInRoom: true,
+        selectedCharacterId: updatedCharacterId,
         players: snapshot.seats,
         winnerId: snapshot.winnerId ?? null,
         placementByPlayerId:
@@ -157,6 +156,9 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         dischargeDeadlineUtc:
           snapshot.dischargeDeadlineUtc ??
           (snapshot.state === 'VoltageTest' ? state.dischargeDeadlineUtc : null),
+        intermissionDeadlineUtc:
+          snapshot.intermissionDeadlineUtc ??
+          (snapshot.state === 'RoundOver' ? state.intermissionDeadlineUtc : null),
         canActivateExploit: snapshot.canActivateExploit ?? false,
         lastDischargeOutcome: shouldClearLastDischarge ? null : state.lastDischargeOutcome,
         sniffedCard: shouldClearSniffedCard ? null : state.sniffedCard,
@@ -177,6 +179,8 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         lastPlayedCards:
           snapshot.state === 'TurnActive' && isSameRound ? state.lastPlayedCards : null,
         lastTrace: null,
+        ...(shouldClearAwaitingDischarge ? { awaitingDischargeForSequence: null } : {}),
+        ...revealPatch,
       };
     }),
 
@@ -274,10 +278,12 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       placementByPlayerId: {},
       pendingDischargePlayerId: null,
       dischargeDeadlineUtc: null,
+      intermissionDeadlineUtc: null,
       canActivateExploit: false,
       lastDischargeOutcome: null,
       dischargeCinematic: null,
       queuedDischarge: null,
+      awaitingDischargeForSequence: null,
       traceReveal: null,
       lastRevealedTraceSequence: null,
       roundIntro: null,

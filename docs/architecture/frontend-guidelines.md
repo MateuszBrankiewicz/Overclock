@@ -30,7 +30,7 @@ frontend/
 │       │   └── http-client.ts      # Orval mutator (base URL, auth header) — the only place allowed to use fetch/axios
 │       ├── realtime/               # SignalR connection manager (reconnect, token from validated sessionStorage)
 │       ├── components/             # Design system primitives (Button, Dialog, ScanlineOverlay)
-│       └── lib/                    # Utilities, Howler audio engine
+│       └── lib/                    # Utilities, Web Audio API engine (ADR 0014)
 ```
 
 Features never import from other features; shared code goes to `shared/`.

@@ -18,6 +18,7 @@ public sealed record PlayerSeatDto(
     string Status,
     bool IsReady,
     int HandCount,
+    string CharacterId = "ghost",
     int RiskLevel = 1,
     ExploitDto? Exploit = null);
 
@@ -45,6 +46,8 @@ public sealed record PlayerGameStateDto(
     Guid? WinnerId,
     Guid? PendingDischargePlayerId = null,
     DateTime? DischargeDeadlineUtc = null,
+    DateTime? TurnDeadlineUtc = null,
+    DateTime? IntermissionDeadlineUtc = null,
     bool CanActivateExploit = false,
     long SequenceNumber = 1);
 
@@ -87,6 +90,8 @@ public sealed record GameStateSnapshotDto(
     Guid? WinnerId,
     Guid? PendingDischargePlayerId = null,
     DateTime? DischargeDeadlineUtc = null,
+    DateTime? TurnDeadlineUtc = null,
+    DateTime? IntermissionDeadlineUtc = null,
     bool CanActivateExploit = false,
     long SequenceNumber = 1);
 
@@ -114,3 +119,13 @@ public sealed record ActivateExploitContractDto(
 public sealed record TriggerDischargeContractDto(
     string RoomCode,
     Guid PlayerId);
+
+public sealed record LeaveRoomContractDto(
+    string RoomCode,
+    Guid PlayerId);
+
+public sealed record SelectCharacterContractDto(
+    string RoomCode,
+    Guid PlayerId,
+    string CharacterId);
+

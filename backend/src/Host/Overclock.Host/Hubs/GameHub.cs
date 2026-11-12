@@ -12,7 +12,7 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 {
     public async Task<HubResponse<RoomJoinResultDto>> CreateRoom(CreateRoomRequest request)
     {
-        var command = new CreateRoomCommand(request.RoomCode, request.HostNickname, Context.ConnectionId);
+        var command = new CreateRoomCommand(request.RoomCode, request.HostNickname, Context.ConnectionId, request.PreferredCharacterId);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
         if (result.IsSuccess)
@@ -30,7 +30,7 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
     public async Task<HubResponse<RoomJoinResultDto>> JoinRoom(JoinRoomRequest request)
     {
-        var command = new JoinRoomCommand(request.RoomCode, request.Nickname, Context.ConnectionId);
+        var command = new JoinRoomCommand(request.RoomCode, request.Nickname, Context.ConnectionId, request.PreferredCharacterId);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
         if (result.IsSuccess)
@@ -44,6 +44,20 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
         }
 
         return HubResponse<RoomJoinResultDto>.From(result);
+    }
+
+    public async Task<HubResponse> SelectCharacter(SelectCharacterRequest request)
+    {
+        var caller = ValidateCaller(request.RoomCode);
+        if (!caller.IsSuccess)
+        {
+            return HubResponse.From(caller.ToResult());
+        }
+
+        var command = new SelectCharacterCommand(request.RoomCode, caller.Value.PlayerId, request.CharacterId);
+        var result = await sender.Send(command, Context.ConnectionAborted);
+
+        return HubResponse.From(result);
     }
 
     public async Task<HubResponse> SetReady(SetReadyRequest request)
@@ -152,6 +166,31 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
         return HubResponse.From(result);
     }
+
+    public async Task<HubResponse> LeaveRoom(LeaveRoomRequest request)
+    {
+        if (!connectionTracker.TryGet(Context.ConnectionId, out var info))
+        {
+            return HubResponse.From(Result.Success());
+        }
+
+        if (!string.Equals(info.RoomCode, request.RoomCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return HubResponse.From(Result.Forbidden("Connection.RoomMismatch"));
+        }
+
+        var command = new LeaveRoomCommand(request.RoomCode, info.PlayerId);
+        var result = await sender.Send(command, Context.ConnectionAborted);
+
+        if (result.IsSuccess)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, info.RoomCode);
+            connectionTracker.Remove(Context.ConnectionId);
+        }
+
+        return HubResponse.From(result);
+    }
+
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {

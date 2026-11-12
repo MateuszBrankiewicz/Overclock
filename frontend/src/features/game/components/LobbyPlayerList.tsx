@@ -16,7 +16,6 @@ export interface LobbyPlayerListProps {
   roomCode: string;
   isHost: boolean;
   selectedCharacterId?: CharacterId;
-  characterByPlayerId?: Record<string, CharacterId>;
   onSelectCharacter?: (id: CharacterId) => void;
   onSetReady: (ready: boolean) => void;
   onStartRound: () => void;
@@ -29,7 +28,6 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
   roomCode,
   isHost,
   selectedCharacterId = 'ghost',
-  characterByPlayerId,
   onSelectCharacter,
   onSetReady,
   onStartRound,
@@ -39,6 +37,13 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
   const me = players.find((p) => p.playerId === myPlayerId);
   const isMeReady = Boolean(me?.isReady);
   const allReady = players.length > 0 && players.every((p) => p.isReady);
+
+  const takenByCharacterId: Record<string, string> = {};
+  for (const p of players) {
+    if (p.playerId !== myPlayerId && p.characterId) {
+      takenByCharacterId[p.characterId] = p.nickname;
+    }
+  }
 
   return (
     <div className="w-full bg-zinc-950/90 border border-zinc-800 rounded-xl p-4 sm:p-5 space-y-4 font-mono select-none shadow-xl">
@@ -66,6 +71,7 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
           <CharacterSelector
             selectedId={selectedCharacterId}
             onSelect={onSelectCharacter}
+            takenByCharacterId={takenByCharacterId}
             compact
           />
         </div>
@@ -73,17 +79,11 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
 
       {/* Players list grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-        {players.map((p, idx) => {
+        {players.map((p) => {
           const isThisPlayerHost = p.playerId === hostId;
           const isThisMe = p.playerId === myPlayerId;
           const isReady = p.isReady;
-          const character = resolveSeatCharacter(
-            p.playerId,
-            myPlayerId,
-            selectedCharacterId,
-            idx,
-            characterByPlayerId
-          );
+          const character = resolveSeatCharacter(p.characterId);
 
           return (
             <div

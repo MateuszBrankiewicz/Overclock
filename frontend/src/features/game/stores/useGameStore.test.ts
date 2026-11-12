@@ -439,18 +439,86 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(state.roomState).toBe('GameOver');
     });
 
-    it('calculates remaining seconds accurately without resetting to 15s when deadline is in the past', () => {
-      const pastDeadline = new Date(Date.now() - 5000).toISOString();
-      useGameStore.getState().setTurnStarted({
-        type: 'TurnStarted',
+    it('applies authoritative turnDeadlineUtc from snapshot, null when absent', () => {
+      const futureDeadline = new Date(Date.now() + 8000).toISOString();
+      useGameStore.getState().applyRoomSnapshot({
         roomCode: 'CYBER-7X9',
-        activePlayerId: '11111111-1111-4111-8111-111111111111',
-        turnDeadlineUtc: pastDeadline,
+        state: 'TurnActive',
+        hostId: '11111111-1111-4111-8111-111111111111',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        myHand: [],
+        seats: [],
+        tablePileCount: 0,
+        roundNumber: 1,
+        turnDeadlineUtc: futureDeadline,
       });
 
-      const state = useGameStore.getState();
-      expect(state.remainingTimeSeconds).toBe(0);
-      expect(state.roomState).toBe('TurnActive');
+      expect(useGameStore.getState().turnDeadlineUtc).toBe(futureDeadline);
+
+      // Snapshot without turnDeadlineUtc -> sets null
+      useGameStore.getState().applyRoomSnapshot({
+        roomCode: 'CYBER-7X9',
+        state: 'Lobby',
+        hostId: '11111111-1111-4111-8111-111111111111',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        myHand: [],
+        seats: [],
+        tablePileCount: 0,
+        roundNumber: 1,
+      });
+
+      expect(useGameStore.getState().turnDeadlineUtc).toBeNull();
+    });
+
+    it('applies authoritative intermissionDeadlineUtc from snapshot and clears it on RoundStarted', () => {
+      const intermissionDeadline = new Date(Date.now() + 10000).toISOString();
+      useGameStore.getState().applyRoomSnapshot({
+        roomCode: 'CYBER-7X9',
+        state: 'RoundOver',
+        hostId: '11111111-1111-4111-8111-111111111111',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        myHand: [],
+        seats: [],
+        tablePileCount: 0,
+        roundNumber: 1,
+        intermissionDeadlineUtc: intermissionDeadline,
+      });
+
+      expect(useGameStore.getState().intermissionDeadlineUtc).toBe(intermissionDeadline);
+
+      useGameStore.getState().applyRoundStarted({
+        type: 'RoundStarted',
+        roomCode: 'CYBER-7X9',
+        roundNumber: 2,
+        leadProtocol: 'Alpha',
+        activePlayerId: '11111111-1111-4111-8111-111111111111',
+      });
+
+      expect(useGameStore.getState().intermissionDeadlineUtc).toBeNull();
+    });
+
+    it('reconnect mid-turn preserves server deadline reflecting remaining time rather than 15s', () => {
+      const remainingMs = 6000;
+      const midTurnDeadline = new Date(Date.now() + remainingMs).toISOString();
+
+      useGameStore.getState().applyRoomSnapshot({
+        roomCode: 'CYBER-7X9',
+        state: 'TurnActive',
+        hostId: '11111111-1111-4111-8111-111111111111',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        myHand: [],
+        seats: [],
+        tablePileCount: 2,
+        roundNumber: 1,
+        currentTurnPlayerId: '11111111-1111-4111-8111-111111111111',
+        turnDeadlineUtc: midTurnDeadline,
+      });
+
+      const deadline = useGameStore.getState().turnDeadlineUtc;
+      expect(deadline).toBe(midTurnDeadline);
+      const remainingSeconds = Math.ceil((new Date(deadline!).getTime() - Date.now()) / 1000);
+      expect(remainingSeconds).toBeLessThanOrEqual(6);
+      expect(remainingSeconds).toBeGreaterThanOrEqual(5);
     });
 
     it('manages timer ticks without going negative', () => {

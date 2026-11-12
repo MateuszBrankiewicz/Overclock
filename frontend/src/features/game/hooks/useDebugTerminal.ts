@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { playSfx, setGameAudioHum, speakRobotVoice } from '../../../shared/lib/audio';
 import { vibrate } from '../../../shared/lib/haptics';
 import {
   clearGameSession,
@@ -26,6 +27,7 @@ import {
 import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
+import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
 
 let sharedConnection: GameConnectionManager | null = null;
@@ -62,6 +64,51 @@ export function recordGameEvent(source: FeedSource): void {
     vibrate(source.event.overloaded ? 'overload' : 'shock');
   } else if (source.kind === 'PlayerEliminated' && source.event.playerId === playerId) {
     vibrate('overload');
+  }
+
+  switch (source.kind) {
+    case 'CardsPlayed': {
+      const count = Math.max(1, source.event.cardCount);
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => playSfx('cardClick'), i * 60);
+      }
+      const player = players.find((p) => p.playerId === source.event.playerId);
+      const character = resolveSeatCharacter(player?.characterId).id;
+      const t = useI18n.getState().t;
+      speakRobotVoice(
+        character,
+        t.voice.playCards(source.event.cardCount, source.event.declaredProtocol),
+        { sequenceNumber: source.event.sequenceNumber }
+      );
+      break;
+    }
+    case 'TraceCalled': {
+      playSfx('traceSiren');
+      const accuser = players.find((p) => p.playerId === source.event.accuserPlayerId);
+      const character = resolveSeatCharacter(accuser?.characterId).id;
+      const t = useI18n.getState().t;
+      speakRobotVoice(character, t.voice.liar, {
+        priority: 'high',
+        sequenceNumber: source.event.sequenceNumber,
+      });
+      break;
+    }
+    case 'CapacitorDischarged':
+      playSfx('discharge');
+      break;
+    case 'RoundStarted':
+      playSfx('roundStart');
+      break;
+    case 'PlayerEliminated': {
+      playSfx('eliminated');
+      const eliminatedPlayer = players.find((p) => p.playerId === source.event.playerId);
+      const character = resolveSeatCharacter(eliminatedPlayer?.characterId).id;
+      const t = useI18n.getState().t;
+      speakRobotVoice(character, t.voice.eliminated, {
+        sequenceNumber: source.event.sequenceNumber,
+      });
+      break;
+    }
   }
 }
 
@@ -133,6 +180,7 @@ export function useGameSession() {
   const [lastLog, setLastLog] = useState<string>('Terminal initialized');
 
   const roomCode = useGameStore((state) => state.roomCode);
+  const roomState = useGameStore((state) => state.roomState);
   const isInRoom = useGameStore((state) => state.isInRoom);
   const currentTargetProtocol = useGameStore((state) => state.currentTargetProtocol);
   const applyRoomSnapshot = useGameStore((state) => state.applyRoomSnapshot);
@@ -155,6 +203,14 @@ export function useGameSession() {
     setCustomProtocol(protocol);
   }, []);
 
+  useEffect(() => {
+    const isGameActive = roomState !== null && roomState !== 'Lobby' && roomState !== 'GameOver';
+    setGameAudioHum(isGameActive);
+    return () => {
+      setGameAudioHum(false);
+    };
+  }, [roomState]);
+
   const logMessage = useCallback((msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setLastLog(`[${timestamp}] ${msg}`);
@@ -168,7 +224,25 @@ export function useGameSession() {
     [logMessage]
   );
 
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback(async () => {
+    const activeRoomCode = useGameStore.getState().roomCode;
+    if (activeRoomCode && sharedConnection?.isConnected) {
+      try {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const invokePromise = sharedConnection.invokeHubCommand('LeaveRoom', { roomCode: activeRoomCode });
+        const timeoutPromise = new Promise<{ isSuccess: boolean }>((resolve) => {
+          timer = setTimeout(() => resolve({ isSuccess: false }), 2000);
+        });
+        try {
+          await Promise.race([invokePromise, timeoutPromise]);
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      } catch (err) {
+        logMessage(`LeaveRoom invoke warning: ${errText(err)}`);
+      }
+    }
+
     if (sharedConnection) {
       sharedConnection.clearSession();
     } else {
@@ -176,7 +250,7 @@ export function useGameSession() {
     }
     leaveRoomLocal();
     useUiStore.getState().clearFeed();
-  }, [leaveRoomLocal]);
+  }, [leaveRoomLocal, logMessage]);
 
   useEffect(() => {
     const conn = getSharedConnection(logMessage);
@@ -291,6 +365,10 @@ export function useGameSession() {
           { sequenceNumber: event.sequenceNumber, minDurationMs: 300 }
         );
         applyVoltageTestStarted(event);
+        const riskLevel =
+          useGameStore.getState().players.find((p) => p.playerId === event.pendingPlayerId)
+            ?.riskLevel ?? 1;
+        playSfx('voltageBuzz', { riskLevel });
         logMessage(`VoltageTestStarted: pending=${event.pendingPlayerId}`);
       }),
     ];
@@ -353,10 +431,11 @@ export function useGameSession() {
   const createRoom = async (nickname: string, code?: string) => {
     try {
       const conn = await ensureConnected();
+      const preferredCharacterId = useGameStore.getState().selectedCharacterId;
       const res = await conn.invokeHubMethod(
         'CreateRoom',
         RoomJoinResultSchema,
-        { hostNickname: nickname, roomCode: code || null }
+        { hostNickname: nickname, roomCode: code || null, preferredCharacterId }
       );
       if (res.isSuccess && res.data) {
         conn.saveSession({ roomId: res.data.roomCode, sessionToken: res.data.sessionToken });
@@ -373,10 +452,11 @@ export function useGameSession() {
   const joinRoom = async (targetRoomCode: string, nickname: string) => {
     try {
       const conn = await ensureConnected();
+      const preferredCharacterId = useGameStore.getState().selectedCharacterId;
       const res = await conn.invokeHubMethod(
         'JoinRoom',
         RoomJoinResultSchema,
-        { roomCode: targetRoomCode, nickname }
+        { roomCode: targetRoomCode, nickname, preferredCharacterId }
       );
       if (res.isSuccess && res.data) {
         conn.saveSession({ roomId: res.data.roomCode, sessionToken: res.data.sessionToken });
@@ -387,6 +467,25 @@ export function useGameSession() {
       }
     } catch (err) {
       fail('JoinRoom', errText(err));
+    }
+  };
+
+  const selectCharacter = async (characterId: CharacterId) => {
+    const previous = useGameStore.getState().selectedCharacterId;
+    useGameStore.getState().setSelectedCharacter(characterId);
+    if (!roomCode) return;
+    try {
+      const conn = await ensureConnected();
+      const res = await conn.invokeHubCommand('SelectCharacter', { roomCode, characterId });
+      if (res.isSuccess) {
+        logMessage(`SelectCharacter sent: characterId=${characterId}`);
+      } else {
+        useGameStore.getState().setSelectedCharacter(previous);
+        fail('SelectCharacter', res.error ?? res.errorCode ?? 'Unknown error');
+      }
+    } catch (err) {
+      useGameStore.getState().setSelectedCharacter(previous);
+      fail('SelectCharacter', errText(err));
     }
   };
 
@@ -532,6 +631,7 @@ export function useGameSession() {
     createRoom,
     joinRoom,
     setReady,
+    selectCharacter,
     startRound,
     playCards,
     callTrace,

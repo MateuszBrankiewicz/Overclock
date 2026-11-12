@@ -7,7 +7,6 @@ import type {
   RoomStateSnapshot,
   TraceResolution,
 } from '../schemas/gameEvents';
-import { traceRevealDurationMs,TURN_DURATION_SECONDS } from '../utils/cinematicTiming';
 import { useGameStore } from './useGameStore';
 
 const ME = '11111111-1111-4111-8111-111111111111';
@@ -102,8 +101,43 @@ describe('trace -> reveal -> discharge sequencing', () => {
     expect(useGameStore.getState().dischargeCinematic?.event).toEqual(discharge);
   });
 
-  it('reveal duration grows with the number of revealed cards', () => {
-    expect(traceRevealDurationMs(3)).toBeGreaterThan(traceRevealDurationMs(1));
+  it('manages awaitingDischargeForSequence flag through resolution and discharge', () => {
+    useGameStore.getState().applyTraceResolution(resolution);
+    expect(useGameStore.getState().awaitingDischargeForSequence).toBe(resolution.sequenceNumber);
+
+    useGameStore.getState().applyCapacitorDischarged(discharge);
+    // Queued discharge leaves awaiting flag until discharge is processed
+    useGameStore.getState().finishTraceReveal();
+    expect(useGameStore.getState().awaitingDischargeForSequence).toBeNull();
+  });
+
+  it('starts reveal from snapshot when snapshot has newer lastTraceResolution', () => {
+    useGameStore.getState().applyRoomSnapshot(
+      snapshot({
+        state: 'RoundOver',
+        lastTraceResolution: {
+          ...resolution,
+          sequenceNumber: 15,
+        },
+      })
+    );
+
+    const state = useGameStore.getState();
+    expect(state.traceReveal?.resolution.sequenceNumber).toBe(15);
+    expect(state.lastRevealedTraceSequence).toBe(15);
+    expect(state.awaitingDischargeForSequence).toBe(15);
+  });
+
+  it('clears awaitingDischargeForSequence on new round started or reset', () => {
+    useGameStore.getState().applyTraceResolution(resolution);
+    expect(useGameStore.getState().awaitingDischargeForSequence).toBe(resolution.sequenceNumber);
+
+    useGameStore.getState().applyRoundStarted({
+      roomCode: 'CYBER-1',
+      roundNumber: 2,
+      leadProtocol: 'Beta',
+    });
+    expect(useGameStore.getState().awaitingDischargeForSequence).toBeNull();
   });
 });
 
@@ -126,18 +160,12 @@ describe('snapshots during a round', () => {
     expect(useGameStore.getState().lastPlayedCards).toBeNull();
   });
 
-  it('estimates a turn deadline when a turn starts and keeps it for the same turn', () => {
-    const before = Date.now();
-    useGameStore.getState().applyRoomSnapshot(snapshot());
-    const deadline = useGameStore.getState().turnDeadlineUtc;
-    expect(deadline).not.toBeNull();
-    const deadlineMs = new Date(deadline ?? '').getTime();
-    expect(deadlineMs).toBeGreaterThanOrEqual(before + TURN_DURATION_SECONDS * 1000);
+  it('applies authoritative turn deadline from snapshot, null outside TurnActive', () => {
+    const authoritativeDeadline = new Date(Date.now() + 10000).toISOString();
+    useGameStore.getState().applyRoomSnapshot(snapshot({ turnDeadlineUtc: authoritativeDeadline }));
+    expect(useGameStore.getState().turnDeadlineUtc).toBe(authoritativeDeadline);
 
-    useGameStore.getState().applyRoomSnapshot(snapshot({ tablePileCount: 1 }));
-    expect(useGameStore.getState().turnDeadlineUtc).toBe(deadline);
-
-    useGameStore.getState().applyRoomSnapshot(snapshot({ state: 'RoundOver' }));
+    useGameStore.getState().applyRoomSnapshot(snapshot({ state: 'RoundOver', turnDeadlineUtc: null }));
     expect(useGameStore.getState().turnDeadlineUtc).toBeNull();
   });
 

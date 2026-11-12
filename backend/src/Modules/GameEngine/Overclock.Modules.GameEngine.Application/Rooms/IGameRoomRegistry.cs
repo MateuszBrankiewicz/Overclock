@@ -6,7 +6,7 @@ namespace Overclock.Modules.GameEngine.Application.Rooms;
 
 public interface IGameRoomRegistry
 {
-    Result<GameRoomSession> CreateRoom(RoomId id, PlayerId hostId, string hostNickname, string connectionId, Guid sessionToken);
+    Result<GameRoomSession> CreateRoom(RoomId id, PlayerId hostId, string hostNickname, string connectionId, Guid sessionToken, string? preferredCharacterId = null);
 
     bool TryGet(string roomCode, [NotNullWhen(true)] out GameRoomSession? session);
 

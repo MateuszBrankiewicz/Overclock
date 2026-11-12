@@ -15,7 +15,6 @@ import type {
   RoundStartedEvent,
   TraceCalledEvent,
   TraceResolution,
-  TurnStartedEvent,
   VoltageTestStartedEvent,
 } from '../schemas/gameEvents';
 import type { CharacterId } from '../utils/characterCatalog';
@@ -54,20 +53,22 @@ export interface RoomSlice {
   placementByPlayerId: Record<string, number>;
   pendingDischargePlayerId: string | null;
   dischargeDeadlineUtc: string | null;
+  intermissionDeadlineUtc: string | null;
   canActivateExploit: boolean;
   lastDischargeOutcome: CapacitorDischargedEvent | null;
   dischargeCinematic: DischargeCinematic | null;
   /** Discharge received while the trace reveal is still playing; applied when it finishes. */
   queuedDischarge: CapacitorDischargedEvent | null;
+  /** Sequence number of resolved trace awaiting capacitor discharge event. */
+  awaitingDischargeForSequence: number | null;
   sniffedCard: PlayerCard | null;
   selectedCharacterId: CharacterId;
-  characterByPlayerId: Record<string, CharacterId>;
   cameraFocus: ArenaCameraFocus;
   setSelectedCharacter: (characterId: CharacterId) => void;
-  setPlayerCharacter: (playerId: string, characterId: CharacterId) => void;
   setCameraFocus: (focus: ArenaCameraFocus) => void;
   setRoom: (roomCode: string, playerId: string) => void;
   clearDischargeCinematic: () => void;
+  clearAwaitingDischarge: () => void;
   /** Ends the trace reveal and starts any discharge queued behind it. */
   finishTraceReveal: () => void;
   applyRoomSnapshot: (snapshot: RoomStateSnapshot) => void;
@@ -113,7 +114,6 @@ export interface TurnSlice {
   applyRoundStarted: (event: RoundStartedEvent) => void;
   applyCardsPlayed: (event: CardsPlayedEvent) => void;
   applyTraceResolution: (resolution: TraceResolution) => void;
-  setTurnStarted: (event: TurnStartedEvent) => void;
   applyTraceCalled: (event: TraceCalledEvent) => void;
   setRemainingTime: (seconds: number) => void;
   tickRemainingTime: () => void;

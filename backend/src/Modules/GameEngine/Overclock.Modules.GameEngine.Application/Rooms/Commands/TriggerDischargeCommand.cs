@@ -38,7 +38,7 @@ internal sealed class TriggerDischargeCommandHandler(
                     $"Player '{domainPlayerId}' is not the pending discharge player '{room.PendingDischargePlayerId}'."));
             }
 
-            var resolution = voltageCoordinator.ExecuteDischarge(room, domainPlayerId);
+            var resolution = voltageCoordinator.ExecuteDischarge(session, room, domainPlayerId);
             return Result<VoltageTestCoordinator.VoltageTestResolution>.Success(resolution);
         }, ct);
 

@@ -60,12 +60,11 @@ export interface Translations {
     leaveTable: string;
     characterPickerTitle: string;
     characterActive: string;
+    characterTaken: string;
     avatarReady: string;
     leaveConfirm: string;
     leaveYes: string;
     leaveNo: string;
-    waitingForHost: string;
-    hostGone: string;
     footer: string;
     debugToggle: string;
     backToGame: string;
@@ -193,6 +192,16 @@ export interface Translations {
     roundIntroTitle: (round: number) => string;
     roundIntroProtocol: string;
     roundIntroHint: string;
+    muteAudio: string;
+    unmuteAudio: string;
+    muteVoice: string;
+    unmuteVoice: string;
+  };
+  voice: {
+    playCards: (count: number, protocol: string) => string;
+    liar: string;
+    eliminated: string;
+    win: string;
   };
   controls: {
     hotkeysTitle: string;
@@ -325,12 +334,11 @@ export const translations: Record<Language, Translations> = {
       leaveTable: 'Opuść stół',
       characterPickerTitle: 'WYBIERZ POSTAĆ OPERATORA (CYBER-RIG 3D):',
       characterActive: 'WYBRANY',
+      characterTaken: 'ZAJĘTY',
       avatarReady: 'AWATAR 3D GOTOWY',
       leaveConfirm: 'Opuścić stół?',
       leaveYes: 'Tak',
       leaveNo: 'Nie',
-      waitingForHost: 'Czekam na hosta...',
-      hostGone: 'Host opuścił stół.',
       footer: 'DEAD CIRCUIT',
       debugToggle: 'Konsola dev',
       backToGame: 'Wróć do gry',
@@ -459,6 +467,49 @@ export const translations: Record<Language, Translations> = {
       roundIntroTitle: (round) => `RUNDA ${round}`,
       roundIntroProtocol: 'PROTOKÓŁ',
       roundIntroHint: 'Zagrywaj karty tego protokołu — albo blefuj.',
+      muteAudio: 'Wycisz dźwięk',
+      unmuteAudio: 'Włącz dźwięk',
+      muteVoice: 'Wyłącz głosy robotów',
+      unmuteVoice: 'Włącz głosy robotów',
+    },
+    voice: {
+      playCards: (count: number, protocol: string) => {
+        const p = protocol.toLowerCase();
+        if (p === 'alpha') {
+          if (count === 1) return 'jedna alfa';
+          if (count === 2) return 'dwie alfy';
+          if (count === 3) return 'trzy alfy';
+          return `${count} alfy`;
+        }
+        if (p === 'beta') {
+          if (count === 1) return 'jedna beta';
+          if (count === 2) return 'dwie bety';
+          if (count === 3) return 'trzy bety';
+          return `${count} bety`;
+        }
+        if (p === 'gamma') {
+          if (count === 1) return 'jedna gamma';
+          if (count === 2) return 'dwie gammy';
+          if (count === 3) return 'trzy gammy';
+          return `${count} gammy`;
+        }
+        if (p === 'glitch') {
+          if (count === 1) return 'jeden glitch';
+          if (count === 2) return 'dwa glitche';
+          if (count === 3) return 'trzy glitche';
+          return `${count} glitche`;
+        }
+        if (p === 'corrupted') {
+          if (count === 1) return 'jeden corrupted';
+          if (count === 2) return 'dwa corrupted';
+          if (count === 3) return 'trzy corrupted';
+          return `${count} corrupted`;
+        }
+        return `${count} ${protocol}`;
+      },
+      liar: 'KŁAMCA!',
+      eliminated: 'system... offline',
+      win: 'zwycięstwo protokołu',
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -590,12 +641,11 @@ export const translations: Record<Language, Translations> = {
       leaveTable: 'Leave table',
       characterPickerTitle: 'SELECT 3D OPERATOR RIG:',
       characterActive: 'ACTIVE',
+      characterTaken: 'TAKEN',
       avatarReady: '3D AVATAR READY',
       leaveConfirm: 'Leave table?',
       leaveYes: 'Yes',
       leaveNo: 'No',
-      waitingForHost: 'Waiting for the host...',
-      hostGone: 'The host has left the table.',
       footer: 'DEAD CIRCUIT',
       debugToggle: 'Dev console',
       backToGame: 'Back to game',
@@ -724,6 +774,20 @@ export const translations: Record<Language, Translations> = {
       roundIntroTitle: (round) => `ROUND ${round}`,
       roundIntroProtocol: 'PROTOCOL',
       roundIntroHint: 'Play cards of this protocol — or bluff.',
+      muteAudio: 'Mute audio',
+      unmuteAudio: 'Unmute audio',
+      muteVoice: 'Disable robot voices',
+      unmuteVoice: 'Enable robot voices',
+    },
+    voice: {
+      playCards: (count: number, protocol: string) => {
+        const countWord =
+          count === 1 ? 'one' : count === 2 ? 'two' : count === 3 ? 'three' : String(count);
+        return `${countWord} ${protocol.toLowerCase()}`;
+      },
+      liar: 'LIAR!',
+      eliminated: 'system... offline',
+      win: 'protocol victory',
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',

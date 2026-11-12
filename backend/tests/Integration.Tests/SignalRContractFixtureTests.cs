@@ -44,13 +44,6 @@ public class SignalRContractFixtureTests
             BluffDetected: true,
             SequenceNumber: 1);
 
-        var turnStarted = new TurnStartedEvent(
-            Type: "TurnStarted",
-            RoomCode: "CYBER-7X9",
-            ActivePlayerId: player1Id,
-            TurnDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 0, DateTimeKind.Utc),
-            SequenceNumber: 1);
-
         var capacitorDischarged = new CapacitorDischargedEvent(
             Type: "CapacitorDischarged",
             RoomCode: "CYBER-7X9",
@@ -92,8 +85,8 @@ public class SignalRContractFixtureTests
             DecisionDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 5, DateTimeKind.Utc),
             SequenceNumber: 1);
 
-        var playerSeat1 = new PlayerSeatDto(player1Id, "AliceHost", "Active", true, 5, RiskLevel: 1, Exploit: new ExploitDto("PacketSniffer", false));
-        var playerSeat2 = new PlayerSeatDto(player2Id, "BobGuest", "Active", true, 5, RiskLevel: 2, Exploit: new ExploitDto("GroundWire", false));
+        var playerSeat1 = new PlayerSeatDto(player1Id, "AliceHost", "Active", true, 5, CharacterId: "ghost", RiskLevel: 1, Exploit: new ExploitDto("PacketSniffer", false));
+        var playerSeat2 = new PlayerSeatDto(player2Id, "BobGuest", "Active", true, 5, CharacterId: "volt", RiskLevel: 2, Exploit: new ExploitDto("GroundWire", false));
 
         var traceResolution = new TraceResolutionDto(
             AccuserPlayerId: player1Id,
@@ -119,6 +112,7 @@ public class SignalRContractFixtureTests
             WinnerId: null,
             PendingDischargePlayerId: null,
             DischargeDeadlineUtc: null,
+            TurnDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 15, DateTimeKind.Utc),
             CanActivateExploit: true,
             SequenceNumber: 1);
 
@@ -143,6 +137,7 @@ public class SignalRContractFixtureTests
             WinnerId: null,
             PendingDischargePlayerId: null,
             DischargeDeadlineUtc: null,
+            TurnDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 15, DateTimeKind.Utc),
             CanActivateExploit: true,
             SequenceNumber: 1);
 
@@ -151,9 +146,10 @@ public class SignalRContractFixtureTests
         var reconnectContract = new ReconnectContractDto("CYBER-7X9", sessionToken, "conn-xyz-123");
         var activateExploitContract = new ActivateExploitContractDto("CYBER-7X9", player1Id, "PacketSniffer", null);
         var triggerDischargeContract = new TriggerDischargeContractDto("CYBER-7X9", player2Id);
+        var leaveRoomContract = new LeaveRoomContractDto("CYBER-7X9", player1Id);
+        var selectCharacterContract = new SelectCharacterContractDto("CYBER-7X9", player1Id, "volt");
 
         await AssertFixtureAsync(fixtureDir, "TraceCalled.json", traceCalled);
-        await AssertFixtureAsync(fixtureDir, "TurnStarted.json", turnStarted);
         await AssertFixtureAsync(fixtureDir, "CapacitorDischarged.json", capacitorDischarged);
         await AssertFixtureAsync(fixtureDir, "PlayerEliminated.json", playerEliminated);
         await AssertFixtureAsync(fixtureDir, "ExploitTriggered.json", exploitTriggered);
@@ -171,6 +167,9 @@ public class SignalRContractFixtureTests
         await AssertFixtureAsync(fixtureDir, "ReconnectContract.json", reconnectContract);
         await AssertFixtureAsync(fixtureDir, "ActivateExploitContract.json", activateExploitContract);
         await AssertFixtureAsync(fixtureDir, "TriggerDischargeContract.json", triggerDischargeContract);
+        await AssertFixtureAsync(fixtureDir, "LeaveRoomContract.json", leaveRoomContract);
+        await AssertFixtureAsync(fixtureDir, "SelectCharacterContract.json", selectCharacterContract);
+        await AssertFixtureAsync(fixtureDir, "CharacterCatalog.json", Overclock.Modules.GameEngine.Domain.Characters.CharacterCatalog.All);
     }
 
     private static async Task AssertFixtureAsync(string fixtureDir, string filename, object dto)

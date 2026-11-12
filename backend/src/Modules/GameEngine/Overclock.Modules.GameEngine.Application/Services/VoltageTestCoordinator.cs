@@ -50,7 +50,7 @@ public sealed class VoltageTestCoordinator(
             return new VoltageTestResolution(startedEvent, null, null, snapshots);
         }
 
-        return ExecuteDischarge(room, pendingPlayerId);
+        return ExecuteDischarge(session, room, pendingPlayerId);
     }
 
     public VoltageTestResolution ExecuteDischarge(GameRoom room, PlayerId pendingPlayerId)
@@ -94,6 +94,20 @@ public sealed class VoltageTestCoordinator(
 
         var snapshots = ProjectSnapshots(room);
         return new VoltageTestResolution(null, dischargedEvent, eliminatedEvent, snapshots);
+    }
+
+    public VoltageTestResolution ExecuteDischarge(GameRoomSession session, GameRoom room, PlayerId pendingPlayerId)
+    {
+        var resolution = ExecuteDischarge(room, pendingPlayerId);
+        if (room.State == RoomState.RoundOver)
+        {
+            var deadlineUtc = DateTime.UtcNow.Add(timerEngine.IntermissionDuration);
+            room.MarkIntermissionDeadline(deadlineUtc);
+            timerEngine.StartIntermission(session, room.RoundNumber, timerEngine.IntermissionDuration);
+            resolution = resolution with { Snapshots = ProjectSnapshots(room) };
+        }
+
+        return resolution;
     }
 
     public async Task DispatchResolutionAsync(string roomCode, VoltageTestResolution resolution, CancellationToken ct = default)

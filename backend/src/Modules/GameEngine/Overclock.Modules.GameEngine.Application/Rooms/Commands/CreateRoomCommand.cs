@@ -7,7 +7,11 @@ using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 
-public sealed record CreateRoomCommand(string? RoomCode, string HostNickname, string ConnectionId)
+public sealed record CreateRoomCommand(
+    string? RoomCode,
+    string HostNickname,
+    string ConnectionId,
+    string? PreferredCharacterId = null)
     : IRequest<Result<RoomJoinResultDto>>;
 
 internal sealed class CreateRoomCommandHandler(
@@ -35,7 +39,8 @@ internal sealed class CreateRoomCommandHandler(
             hostId,
             request.HostNickname,
             request.ConnectionId,
-            sessionToken);
+            sessionToken,
+            request.PreferredCharacterId);
 
         if (!roomResult.IsSuccess)
         {

@@ -21,6 +21,7 @@
         "status": "Active",
         "isReady": true,
         "handCount": 5,
+        "characterId": "ghost",
         "riskLevel": 1,
         "exploit": {
           "type": "PacketSniffer",
@@ -33,6 +34,7 @@
         "status": "Active",
         "isReady": true,
         "handCount": 5,
+        "characterId": "volt",
         "riskLevel": 2,
         "exploit": {
           "type": "GroundWire",
@@ -62,6 +64,8 @@
     "winnerId": null,
     "pendingDischargePlayerId": null,
     "dischargeDeadlineUtc": null,
+    "turnDeadlineUtc": "2026-10-16T12:00:15Z",
+    "intermissionDeadlineUtc": null,
     "canActivateExploit": true,
     "sequenceNumber": 1
   }

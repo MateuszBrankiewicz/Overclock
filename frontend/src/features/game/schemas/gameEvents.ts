@@ -48,6 +48,7 @@ export const PlayerSeatSchema = z.object({
   status: PlayerStatusSchema,
   isReady: z.boolean(),
   handCount: z.number().int().nonnegative(),
+  characterId: z.string().min(1).default('ghost'),
   riskLevel: z.number().int().min(1).max(6).default(1),
   exploit: ExploitModuleSchema.nullable().optional(),
 });
@@ -57,6 +58,7 @@ export type PlayerSeat = {
   status: PlayerStatus;
   isReady: boolean;
   handCount: number;
+  characterId?: string;
   riskLevel?: number;
   exploit?: ExploitModule | null;
 };
@@ -95,6 +97,8 @@ export const RoomStateSnapshotSchema = z.object({
   winnerId: z.string().uuid().nullable().optional(),
   pendingDischargePlayerId: z.string().uuid().nullable().optional(),
   dischargeDeadlineUtc: z.string().datetime().nullable().optional(),
+  turnDeadlineUtc: z.string().datetime({ offset: true }).nullable().optional(),
+  intermissionDeadlineUtc: z.string().datetime({ offset: true }).nullable().optional(),
   canActivateExploit: z.boolean().default(false),
   sequenceNumber: z.number().int().nonnegative().optional(),
 });
@@ -113,6 +117,8 @@ export type RoomStateSnapshot = {
   winnerId?: string | null;
   pendingDischargePlayerId?: string | null;
   dischargeDeadlineUtc?: string | null;
+  turnDeadlineUtc?: string | null;
+  intermissionDeadlineUtc?: string | null;
   canActivateExploit?: boolean;
   sequenceNumber?: number;
 };
@@ -249,21 +255,6 @@ export type TraceCalledEvent = {
   sequenceNumber?: number;
 };
 
-export const TurnStartedEventSchema = z.object({
-  type: z.literal('TurnStarted'),
-  roomCode: z.string(),
-  activePlayerId: z.string().uuid(),
-  turnDeadlineUtc: z.string().datetime(),
-  sequenceNumber: z.number().int().nonnegative().optional(),
-});
-export type TurnStartedEvent = {
-  type: 'TurnStarted';
-  roomCode: string;
-  activePlayerId: string;
-  turnDeadlineUtc: string;
-  sequenceNumber?: number;
-};
-
 export const CapacitorDischargedEventSchema = z.object({
   type: z.literal('CapacitorDischarged'),
   roomCode: z.string(),
@@ -364,3 +355,17 @@ export const TriggerDischargeContractSchema = z.object({
   playerId: z.string().uuid(),
 });
 export type TriggerDischargeContract = z.infer<typeof TriggerDischargeContractSchema>;
+
+export const LeaveRoomContractSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+});
+export type LeaveRoomContract = z.infer<typeof LeaveRoomContractSchema>;
+
+export const SelectCharacterContractSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  characterId: z.string().min(1),
+});
+export type SelectCharacterContract = z.infer<typeof SelectCharacterContractSchema>;
+

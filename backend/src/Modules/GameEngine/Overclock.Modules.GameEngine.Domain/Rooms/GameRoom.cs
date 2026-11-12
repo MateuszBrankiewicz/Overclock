@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using Overclock.Modules.GameEngine.Domain.Cards;
+using Overclock.Modules.GameEngine.Domain.Characters;
 using Overclock.Modules.GameEngine.Domain.Exploits;
 using Overclock.Modules.GameEngine.Domain.Services;
 using Overclock.Modules.GameEngine.Domain.Voltage;
@@ -27,6 +28,8 @@ public sealed class GameRoom
     public Deck? CurrentDeck { get; private set; }
     public CardProtocol? CurrentTargetProtocol { get; private set; }
     public PlayerId? CurrentTurnPlayerId { get; private set; }
+    public DateTime? CurrentTurnDeadlineUtc { get; private set; }
+    public DateTime? IntermissionDeadlineUtc { get; private set; }
     public long TurnSequenceId { get; private set; }
     public long DischargeSequenceId { get; private set; } = 1;
     public PlayedTurn? LastPlay { get; private set; }
@@ -44,6 +47,8 @@ public sealed class GameRoom
         ? _seats.FirstOrDefault(s => s.Status != PlayerStatus.Eliminated)?.Id
         : null;
 
+    public bool IsEmpty => _seats.Count == 0 || _seats.All(s => s.HasLeft);
+
     private GameRoom(RoomId id, PlayerId hostId, PlayerSeat hostSeat)
     {
         Id = id;
@@ -57,7 +62,8 @@ public sealed class GameRoom
         PlayerId hostId,
         string hostNickname,
         string connectionId,
-        Guid sessionToken)
+        Guid sessionToken,
+        string? preferredCharacterId = null)
     {
         if (string.IsNullOrWhiteSpace(id.Value))
         {
@@ -69,7 +75,11 @@ public sealed class GameRoom
             return Result<GameRoom>.Invalid(new ValidationError("Room.InvalidNickname", "Host nickname cannot be empty."));
         }
 
-        var hostSeat = new PlayerSeat(hostId, hostNickname, connectionId, sessionToken);
+        var characterId = CharacterCatalog.IsValid(preferredCharacterId)
+            ? preferredCharacterId!
+            : CharacterCatalog.DefaultId;
+
+        var hostSeat = new PlayerSeat(hostId, hostNickname, connectionId, sessionToken, characterId);
         var room = new GameRoom(id, hostId, hostSeat);
         return Result<GameRoom>.Success(room);
     }
@@ -78,7 +88,8 @@ public sealed class GameRoom
         PlayerId playerId,
         string nickname,
         string connectionId,
-        Guid sessionToken)
+        Guid sessionToken,
+        string? preferredCharacterId = null)
     {
         if (State != RoomState.Lobby)
         {
@@ -113,7 +124,8 @@ public sealed class GameRoom
                 "Player nickname cannot be empty."));
         }
 
-        var seat = new PlayerSeat(playerId, nickname, connectionId, sessionToken);
+        var characterId = ResolveAvailableCharacterId(preferredCharacterId);
+        var seat = new PlayerSeat(playerId, nickname, connectionId, sessionToken, characterId);
         if (_seats.Count == 0)
         {
             HostId = playerId;
@@ -121,6 +133,50 @@ public sealed class GameRoom
 
         _seats.Add(seat);
         return Result<PlayerSeat>.Success(seat);
+    }
+
+    private string ResolveAvailableCharacterId(string? preferredCharacterId)
+    {
+        if (CharacterCatalog.IsValid(preferredCharacterId) &&
+            !_seats.Any(s => !s.HasLeft && s.CharacterId == preferredCharacterId))
+        {
+            return preferredCharacterId!;
+        }
+
+        return CharacterCatalog.All.FirstOrDefault(id => !_seats.Any(s => !s.HasLeft && s.CharacterId == id))
+            ?? CharacterCatalog.DefaultId;
+    }
+
+    public Result SelectCharacter(PlayerId playerId, string characterId)
+    {
+        if (State != RoomState.Lobby)
+        {
+            return Result.Conflict("Room.NotInLobby", "Characters can only be selected in the lobby.");
+        }
+
+        if (!CharacterCatalog.IsValid(characterId))
+        {
+            return Result.Invalid(new ValidationError("Room.InvalidCharacter", $"Character '{characterId}' is not valid."));
+        }
+
+        var seat = _seats.Find(s => s.Id == playerId);
+        if (seat is null)
+        {
+            return Result.NotFound("Room.PlayerNotFound", $"Player with ID '{playerId}' is not in this room.");
+        }
+
+        if (seat.CharacterId == characterId)
+        {
+            return Result.Success();
+        }
+
+        if (_seats.Any(s => s.Id != playerId && !s.HasLeft && s.CharacterId == characterId))
+        {
+            return Result.Conflict("Room.CharacterTaken", $"Character '{characterId}' is already taken by another player.");
+        }
+
+        seat.AssignCharacter(characterId);
+        return Result.Success();
     }
 
     public Result RemovePlayer(PlayerId playerId)
@@ -140,10 +196,54 @@ public sealed class GameRoom
 
         if (HostId == playerId)
         {
-            HostId = _seats.Count > 0 ? _seats[0].Id : default;
+            var nextHost = HostSuccession.NextHost(_seats, playerId);
+            HostId = nextHost ?? default;
         }
 
         return Result.Success();
+    }
+
+    public Result<LeaveOutcome> Leave(PlayerId playerId)
+    {
+        var seat = _seats.Find(s => s.Id == playerId);
+        if (seat is null || seat.HasLeft)
+        {
+            return Result<LeaveOutcome>.Success(new LeaveOutcome(IsEmpty, null, false));
+        }
+
+        if (State == RoomState.Lobby || State == RoomState.GameOver)
+        {
+            var wasHost = HostId == playerId;
+            _seats.Remove(seat);
+            PlayerId? nextHost = null;
+            if (wasHost)
+            {
+                nextHost = HostSuccession.NextHost(_seats, playerId);
+                HostId = nextHost ?? default;
+            }
+
+            return Result<LeaveOutcome>.Success(new LeaveOutcome(IsEmpty, wasHost ? nextHost : null, false));
+        }
+
+        var oldHostId = HostId;
+        var wasPendingDischarge = PendingDischargePlayerId == playerId;
+
+        seat.MarkLeft();
+        EliminatePlayer(playerId);
+
+        if (wasPendingDischarge)
+        {
+            PendingDischargePlayerId = null;
+            DischargeSequenceId++;
+            var remainingActive = _seats.Count(s => s.Status != PlayerStatus.Eliminated);
+            if (remainingActive > 1 && State != RoomState.GameOver)
+            {
+                State = RoomState.RoundOver;
+            }
+        }
+
+        var hostChangedTo = HostId != oldHostId ? (PlayerId?)HostId : null;
+        return Result<LeaveOutcome>.Success(new LeaveOutcome(IsEmpty, hostChangedTo, true));
     }
 
     public Result SetReady(PlayerId playerId, bool isReady)
@@ -180,10 +280,15 @@ public sealed class GameRoom
         var isNewMatch = State == RoomState.Lobby || State == RoomState.GameOver;
         var rng = randomSource ?? CryptoRandomSource.Instance;
 
+        if (isNewMatch)
+        {
+            _seats.RemoveAll(s => s.HasLeft);
+        }
+
         // Determine prospective active seats without mutating state before validation
         var prospectiveActiveSeats = isNewMatch
-            ? _seats.Where(s => s.Status != PlayerStatus.Eliminated || State == RoomState.GameOver).ToList()
-            : _seats.Where(s => s.Status != PlayerStatus.Eliminated).ToList();
+            ? _seats.Where(s => !s.HasLeft && (s.Status != PlayerStatus.Eliminated || State == RoomState.GameOver)).ToList()
+            : _seats.Where(s => !s.HasLeft && s.Status != PlayerStatus.Eliminated).ToList();
 
         if (prospectiveActiveSeats.Count < Deck.MinPlayers)
         {
@@ -250,12 +355,76 @@ public sealed class GameRoom
         LastTraceResolution = null;
         LastDischargeOutcome = null;
         PendingDischargePlayerId = null;
+        CurrentTurnDeadlineUtc = null;
+        IntermissionDeadlineUtc = null;
         RoundNumber++;
         TurnSequenceId++;
 
         // Determine starting player
         var startingPlayerIndex = (RoundNumber - 1) % activePlayers.Count;
         CurrentTurnPlayerId = activePlayers[startingPlayerIndex].Id;
+
+        State = RoomState.TurnActive;
+        return Result.Success();
+    }
+
+    public Result AdvanceRound(IRandomSource? randomSource = null)
+    {
+        if (State != RoomState.RoundOver)
+        {
+            return Result.Conflict("Room.CannotAdvanceRound", $"Cannot advance round from state '{State}'.");
+        }
+
+        var rng = randomSource ?? CryptoRandomSource.Instance;
+
+        var prospectiveActiveSeats = _seats.Where(s => !s.HasLeft && s.Status != PlayerStatus.Eliminated).ToList();
+        if (prospectiveActiveSeats.Count < Deck.MinPlayers)
+        {
+            return Result.Invalid(new ValidationError(
+                "Room.InsufficientPlayers",
+                $"At least {Deck.MinPlayers} active players are required to start a round, but found {prospectiveActiveSeats.Count}."));
+        }
+
+        var deckResult = Deck.Create(prospectiveActiveSeats.Count, rng);
+        if (!deckResult.IsSuccess)
+        {
+            return Result.Invalid(deckResult.ValidationErrors);
+        }
+
+        foreach (var seat in prospectiveActiveSeats)
+        {
+            seat.ResetForNewRound();
+        }
+
+        State = RoomState.Dealing;
+        CurrentDeck = deckResult.Value;
+
+        foreach (var player in prospectiveActiveSeats)
+        {
+            var dealResult = CurrentDeck.DealHand();
+            if (!dealResult.IsSuccess)
+            {
+                return Result.Invalid(dealResult.ValidationErrors);
+            }
+
+            player.AssignHand(dealResult.Value);
+        }
+
+        var targetProtocolIndex = rng.Next(0, ValidTargetProtocols.Length);
+        CurrentTargetProtocol = ValidTargetProtocols[targetProtocolIndex];
+
+        _tablePile.Clear();
+        LastPlay = null;
+        LastTraceResolution = null;
+        LastDischargeOutcome = null;
+        PendingDischargePlayerId = null;
+        CurrentTurnDeadlineUtc = null;
+        IntermissionDeadlineUtc = null;
+        RoundNumber++;
+        TurnSequenceId++;
+
+        var startingPlayerIndex = (RoundNumber - 1) % prospectiveActiveSeats.Count;
+        CurrentTurnPlayerId = prospectiveActiveSeats[startingPlayerIndex].Id;
 
         State = RoomState.TurnActive;
         return Result.Success();
@@ -330,6 +499,7 @@ public sealed class GameRoom
             // All players have successfully played all their cards without any challenge.
             State = RoomState.RoundOver;
             CurrentTurnPlayerId = null;
+            CurrentTurnDeadlineUtc = null;
             return Result.Success();
         }
 
@@ -339,13 +509,37 @@ public sealed class GameRoom
         {
             State = RoomState.RoundOver;
             CurrentTurnPlayerId = null;
+            CurrentTurnDeadlineUtc = null;
         }
         else
         {
             CurrentTurnPlayerId = nextPlayerId.Value;
+            CurrentTurnDeadlineUtc = null;
             TurnSequenceId++;
         }
 
+        return Result.Success();
+    }
+
+    public Result MarkTurnDeadline(DateTime deadlineUtc)
+    {
+        if (State != RoomState.TurnActive)
+        {
+            return Result.Invalid(new ValidationError("Room.NotInTurnActive", $"Cannot set turn deadline in state '{State}'."));
+        }
+
+        CurrentTurnDeadlineUtc = deadlineUtc;
+        return Result.Success();
+    }
+
+    public Result MarkIntermissionDeadline(DateTime deadlineUtc)
+    {
+        if (State != RoomState.RoundOver)
+        {
+            return Result.Invalid(new ValidationError("Room.NotInRoundOver", $"Cannot set intermission deadline in state '{State}'."));
+        }
+
+        IntermissionDeadlineUtc = deadlineUtc;
         return Result.Success();
     }
 
@@ -386,6 +580,7 @@ public sealed class GameRoom
         State = RoomState.VoltageTest;
         PendingDischargePlayerId = playerId;
         CurrentTurnPlayerId = null;
+        CurrentTurnDeadlineUtc = null;
         DischargeSequenceId++;
 
         return Result<TurnExpiredOutcome>.Success(new TurnExpiredOutcome.LeadForfeit(playerId));
@@ -444,6 +639,7 @@ public sealed class GameRoom
         LastTraceResolution = resolution;
         PendingDischargePlayerId = loserId;
         CurrentTurnPlayerId = null;
+        CurrentTurnDeadlineUtc = null;
 
         return Result<TraceResolution>.Success(resolution);
     }
@@ -456,6 +652,7 @@ public sealed class GameRoom
         }
 
         State = RoomState.VoltageTest;
+        CurrentTurnDeadlineUtc = null;
         DischargeSequenceId++;
         return Result.Success();
     }
@@ -503,6 +700,7 @@ public sealed class GameRoom
             CurrentTurnPlayerId = null;
         }
 
+        CurrentTurnDeadlineUtc = null;
         return Result<DischargeOutcome>.Success(outcome);
     }
 
@@ -736,6 +934,11 @@ public sealed class GameRoom
                 "No player seat found matching the provided session token.");
         }
 
+        if (seat.HasLeft)
+        {
+            return Result<PlayerSeat>.Forbidden("Seat.Left");
+        }
+
         if (seat.Status == PlayerStatus.Eliminated)
         {
             return Result<PlayerSeat>.Invalid(new ValidationError(
@@ -743,7 +946,12 @@ public sealed class GameRoom
                 "Cannot reconnect as an active player because this seat has been eliminated."));
         }
 
-        seat.Reconnect(newConnectionId);
+        var reconnectResult = seat.Reconnect(newConnectionId);
+        if (!reconnectResult.IsSuccess)
+        {
+            return reconnectResult.ToResult<PlayerSeat>();
+        }
+
         return Result<PlayerSeat>.Success(seat);
     }
 
@@ -759,10 +967,10 @@ public sealed class GameRoom
 
         if (HostId == playerId)
         {
-            var nextHost = _seats.FirstOrDefault(s => s.Status != PlayerStatus.Eliminated);
+            var nextHost = HostSuccession.NextHost(_seats, playerId);
             if (nextHost is not null)
             {
-                HostId = nextHost.Id;
+                HostId = nextHost.Value;
             }
         }
 
@@ -771,6 +979,8 @@ public sealed class GameRoom
         {
             State = RoomState.GameOver;
             CurrentTurnPlayerId = null;
+            CurrentTurnDeadlineUtc = null;
+            IntermissionDeadlineUtc = null;
             return Result.Success();
         }
 
@@ -781,10 +991,13 @@ public sealed class GameRoom
             {
                 State = RoomState.RoundOver;
                 CurrentTurnPlayerId = null;
+                CurrentTurnDeadlineUtc = null;
             }
             else
             {
                 CurrentTurnPlayerId = nextPlayer.Value;
+                CurrentTurnDeadlineUtc = null;
+                TurnSequenceId++;
             }
         }
 

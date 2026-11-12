@@ -2,73 +2,62 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveCenterOverlay } from './centerOverlay';
 
-describe('resolveCenterOverlay (BUG-01)', () => {
+describe('resolveCenterOverlay', () => {
   it('returns lobby when roomState is Lobby', () => {
     expect(
       resolveCenterOverlay({
         roomState: 'Lobby',
-        isRevealing: false,
-        isDischarging: false,
+        phase: null,
       })
     ).toBe('lobby');
   });
 
-  it('returns null during card reveal even if in BluffCheck', () => {
+  it('returns null during reveal or discharge phases', () => {
     expect(
       resolveCenterOverlay({
         roomState: 'BluffCheck',
-        isRevealing: true,
-        isDischarging: false,
+        phase: 'reveal',
       })
     ).toBe(null);
-  });
 
-  it('returns null during discharge cinematic', () => {
-    expect(
-      resolveCenterOverlay({
-        roomState: 'VoltageTest',
-        isRevealing: false,
-        isDischarging: true,
-      })
-    ).toBe(null);
-  });
-
-  it('returns null during card reveal even if roomState is RoundOver', () => {
     expect(
       resolveCenterOverlay({
         roomState: 'RoundOver',
-        isRevealing: true,
-        isDischarging: false,
+        phase: 'discharge',
+      })
+    ).toBe(null);
+
+    expect(
+      resolveCenterOverlay({
+        roomState: 'VoltageTest',
+        phase: 'decision',
       })
     ).toBe(null);
   });
 
-  it('returns summary when GameOver and not presenting cinematic', () => {
+  it('returns summary during summary phase', () => {
     expect(
       resolveCenterOverlay({
         roomState: 'GameOver',
-        isRevealing: false,
-        isDischarging: false,
+        phase: 'summary',
       })
     ).toBe('summary');
   });
 
-  it('returns intermission when RoundOver and not presenting cinematic', () => {
+  it('returns intermission during intermission phase', () => {
     expect(
       resolveCenterOverlay({
         roomState: 'RoundOver',
-        isRevealing: false,
-        isDischarging: false,
+        phase: 'intermission',
       })
     ).toBe('intermission');
   });
 
-  it('returns null during active gameplay (TurnActive, Dealing, etc.)', () => {
+  it('returns null during normal active gameplay', () => {
     expect(
       resolveCenterOverlay({
         roomState: 'TurnActive',
-        isRevealing: false,
-        isDischarging: false,
+        phase: null,
       })
     ).toBe(null);
   });

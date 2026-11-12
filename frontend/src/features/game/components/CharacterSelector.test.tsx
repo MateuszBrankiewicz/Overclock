@@ -24,14 +24,33 @@ describe('CharacterSelector & Character Catalog (ADR 0010)', () => {
     expect(html).toContain('NULL-404');
   });
 
-  it('resolves local player character and deterministic distinct opponent characters', () => {
+  it('resolves character by id with fallback to default', () => {
     expect(CHARACTER_CATALOG).toHaveLength(4);
     expect(getCharacterById('proxy').codename).toBe('PROXY-X');
 
-    const myChar = resolveSeatCharacter('p1', 'p1', 'volt', 0);
-    expect(myChar.id).toBe('volt');
+    const charVolt = resolveSeatCharacter('volt');
+    expect(charVolt.id).toBe('volt');
 
-    const oppChar = resolveSeatCharacter('p2-uuid', 'p1', 'volt', 1);
-    expect(oppChar.id).not.toBe('volt');
+    const charProxy = resolveSeatCharacter('proxy');
+    expect(charProxy.id).toBe('proxy');
+
+    const unknownChar = resolveSeatCharacter('unknown-rig');
+    expect(unknownChar.id).toBe('ghost');
+
+    const missingChar = resolveSeatCharacter(null, 'null');
+    expect(missingChar.id).toBe('null');
+  });
+
+  it('renders taken character indicator and disables taken character buttons', () => {
+    const html = renderToString(
+      React.createElement(CharacterSelector, {
+        selectedId: 'volt',
+        onSelect: () => {},
+        takenByCharacterId: { proxy: 'CyberAlice' },
+      })
+    );
+
+    expect(html).toContain('CyberAlice');
+    expect(html).toContain('select-character-proxy');
   });
 });

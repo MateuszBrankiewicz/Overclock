@@ -23,14 +23,15 @@ public sealed class InMemoryGameRoomRegistry : IGameRoomRegistry, IAsyncDisposab
         PlayerId hostId,
         string hostNickname,
         string connectionId,
-        Guid sessionToken)
+        Guid sessionToken,
+        string? preferredCharacterId = null)
     {
         if (_rooms.ContainsKey(id.Value))
         {
             return Result<GameRoomSession>.Conflict("Room.AlreadyExists", $"Room with code '{id.Value}' already exists.");
         }
 
-        var roomResult = GameRoom.Create(id, hostId, hostNickname, connectionId, sessionToken);
+        var roomResult = GameRoom.Create(id, hostId, hostNickname, connectionId, sessionToken, preferredCharacterId);
         if (!roomResult.IsSuccess)
         {
             return Result<GameRoomSession>.Invalid(roomResult.ValidationErrors);

@@ -3,7 +3,6 @@ import React from 'react';
 import { useI18n } from '../../../../../shared/i18n';
 import { type CountdownState, useCountdown } from '../../../hooks/useCountdown';
 import { useGameStore } from '../../../stores/useGameStore';
-import { TURN_DURATION_SECONDS } from '../../../utils/cinematicTiming';
 
 export interface TurnUrgencyCountdownViewProps {
   countdown: CountdownState;
@@ -49,6 +48,6 @@ export interface TurnUrgencyCountdownProps {
 
 export const TurnUrgencyCountdown: React.FC<TurnUrgencyCountdownProps> = ({ isMyTurn }) => {
   const turnDeadlineUtc = useGameStore((s) => s.turnDeadlineUtc);
-  const countdown = useCountdown(turnDeadlineUtc, TURN_DURATION_SECONDS);
+  const countdown = useCountdown(turnDeadlineUtc);
   return <TurnUrgencyCountdownView countdown={countdown} isMyTurn={isMyTurn} />;
 };

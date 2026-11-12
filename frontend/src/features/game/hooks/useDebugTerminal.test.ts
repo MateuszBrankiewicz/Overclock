@@ -7,6 +7,7 @@ import { useUiStore } from '../stores/useUiStore';
 
 const captured: { options?: GameConnectionOptions } = {};
 const invokeHubMethod = vi.fn();
+const invokeHubCommand = vi.fn();
 const clearSession = vi.fn();
 const getSession = vi.fn();
 
@@ -16,8 +17,9 @@ vi.mock('../../../shared/realtime/gameConnection', async (importOriginal) => {
     ...actual,
     createGameConnection: (options?: GameConnectionOptions) => {
       captured.options = options;
-      const fake: Pick<GameConnectionManager, 'invokeHubMethod' | 'clearSession' | 'getSession'> = {
+      const fake: Pick<GameConnectionManager, 'invokeHubMethod' | 'invokeHubCommand' | 'clearSession' | 'getSession'> = {
         invokeHubMethod,
+        invokeHubCommand,
         clearSession,
         getSession,
       };
