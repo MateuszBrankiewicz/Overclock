@@ -2,7 +2,7 @@ import type { PlayerSeat } from '../schemas/gameEvents';
 
 export const HOST_GRACE_SECONDS = 6;
 
-export type IntermissionFallback = 'none' | 'waitingForHost' | 'hostGone' | 'promoted';
+export type IntermissionFallback = 'none' | 'waitingForHost' | 'hostGone';
 
 export interface IntermissionFallbackInput {
   countdown: number;
@@ -19,18 +19,16 @@ export function isHostGone(hostId: string | null, players: PlayerSeat[]): boolea
   return !host || host.status === 'Disconnected';
 }
 
-/** First connected, non-eliminated seat: who should drive the table when the host is gone. */
-export function effectiveHostId(players: PlayerSeat[]): string | null {
-  return players.find((p) => p.status === 'Active')?.playerId ?? null;
-}
-
 /**
  * What a client should show once the intermission countdown reaches zero.
  * The host starts the next round automatically; everyone else waits, and after a grace
- * period learns that the host is gone (the new effective host gets a manual start button).
+ * period learns that the host is gone. Only the server-side host may start a round
+ * (GameRoom.StartRound). The server re-assigns the host when it leaves or is eliminated,
+ * which flips `isHost` on the new host's client; a merely disconnected host is not
+ * re-assigned, so the remaining players can only wait or leave.
  */
 export function getIntermissionFallback(input: IntermissionFallbackInput): IntermissionFallback {
   if (input.countdown > 0 || input.isHost) return 'none';
   if (!input.graceElapsed || !isHostGone(input.hostId, input.players)) return 'waitingForHost';
-  return effectiveHostId(input.players) === input.myPlayerId ? 'promoted' : 'hostGone';
+  return 'hostGone';
 }

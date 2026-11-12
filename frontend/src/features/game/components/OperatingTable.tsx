@@ -8,6 +8,7 @@ import { useRulesModalStore } from '../stores/useRulesModalStore';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
 import { CardRevealSequence } from './CardRevealSequence';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
+import { EventFeed } from './EventFeed';
 import { LeaveTableButton } from './LeaveTableButton';
 import { LobbyPlayerList } from './LobbyPlayerList';
 import { LobbyScreen } from './LobbyScreen';
@@ -88,6 +89,8 @@ export const OperatingTable: React.FC = () => {
           </span>
         </div>
       )}
+
+      {roomState !== 'Lobby' && <EventFeed />}
 
       <BunkerArenaCanvas
         players={players}

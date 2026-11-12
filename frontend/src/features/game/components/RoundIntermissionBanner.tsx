@@ -155,7 +155,6 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
 
         <IntermissionFallbackNotice
           fallback={fallback}
-          onStartNextRound={onStartNextRound}
           onLeave={onLeave}
         />
 

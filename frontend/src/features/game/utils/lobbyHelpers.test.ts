@@ -123,11 +123,11 @@ describe('getIntermissionFallback', () => {
     expect(HOST_GRACE_SECONDS).toBeGreaterThan(0);
   });
 
-  it('declares the host gone after the grace period and promotes the first active seat', () => {
+  it('declares the host gone after the grace period (no client-side promotion)', () => {
     const gone = players.filter((p) => p.playerId !== 'host');
     const input = { ...base, graceElapsed: true, players: gone };
     expect(getIntermissionFallback(input)).toBe('hostGone');
-    expect(getIntermissionFallback({ ...input, myPlayerId: 'p2' })).toBe('promoted');
+    expect(getIntermissionFallback({ ...input, myPlayerId: 'p2' })).toBe('hostGone');
     const disconnected = [seat('host', 'Disconnected'), seat('p2'), seat('p3')];
     expect(getIntermissionFallback({ ...base, graceElapsed: true, players: disconnected })).toBe(
       'hostGone'

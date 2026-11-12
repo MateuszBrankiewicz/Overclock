@@ -5,13 +5,11 @@ import type { IntermissionFallback } from '../utils/intermissionFallback';
 
 export interface IntermissionFallbackNoticeProps {
   fallback: IntermissionFallback;
-  onStartNextRound: () => void;
   onLeave?: () => void;
 }
 
 export const IntermissionFallbackNotice: React.FC<IntermissionFallbackNoticeProps> = ({
   fallback,
-  onStartNextRound,
   onLeave,
 }) => {
   const { t } = useI18n();
@@ -26,15 +24,6 @@ export const IntermissionFallbackNotice: React.FC<IntermissionFallbackNoticeProp
   return (
     <>
       <span className="text-xs text-red-300 font-bold">{t.home.hostGone}</span>
-      {fallback === 'promoted' && (
-        <button
-          type="button"
-          onClick={onStartNextRound}
-          className="mt-1 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-black cursor-pointer shadow-md transition-all active:scale-95"
-        >
-          [{t.intermission.fallbackStart}]
-        </button>
-      )}
       {onLeave && (
         <button
           type="button"
