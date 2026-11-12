@@ -217,6 +217,19 @@ export interface Translations {
     actionFailed: (action: string, detail: string) => string;
     dismiss: string;
   };
+  feed: {
+    title: string;
+    you: string;
+    unknownPlayer: string;
+    exploits: Record<'PacketSniffer' | 'GroundWire' | 'OverclockInjector' | 'EmpFlare', string>;
+    played: (who: string, count: number, protocol: string) => string;
+    traceCalled: (who: string) => string;
+    exploitUsed: (who: string, exploit: string) => string;
+    survived: (who: string, roll: number) => string;
+    overloaded: (who: string, roll: number) => string;
+    eliminated: (who: string, placement: number) => string;
+    roundStarted: (round: number) => string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -435,6 +448,19 @@ export const translations: Record<Language, Translations> = {
       actionFailed: (action, detail) => `Akcja nie powiodła się (${action}): ${detail}`,
       dismiss: 'Zamknij',
     },
+    feed: {
+      title: 'ZDARZENIA',
+      you: 'Ty',
+      unknownPlayer: 'Nieznany',
+      exploits: { PacketSniffer: 'SNIFFER', GroundWire: 'UZIEMIENIE', OverclockInjector: 'OVERCLOCK', EmpFlare: 'EMP FLARE' },
+      played: (who, count, protocol) => `${who} zagrywa ${count}× ${protocol}`,
+      traceCalled: (who) => `${who} wywołuje TRACE!`,
+      exploitUsed: (who, exploit) => `${who} używa ${exploit}`,
+      survived: (who, roll) => `${who} przeżywa wyładowanie (rzut ${roll})`,
+      overloaded: (who, roll) => `${who} przeciążony! (rzut ${roll})`,
+      eliminated: (who, placement) => `${who} wyeliminowany — #${placement}`,
+      roundStarted: (round) => `Runda ${round} rozpoczęta`,
+    },
   },
   en: {
     common: {
@@ -650,6 +676,19 @@ export const translations: Record<Language, Translations> = {
       contractViolation: 'Received invalid data from the server',
       actionFailed: (action, detail) => `Action failed (${action}): ${detail}`,
       dismiss: 'Dismiss',
+    },
+    feed: {
+      title: 'EVENTS',
+      you: 'You',
+      unknownPlayer: 'Unknown',
+      exploits: { PacketSniffer: 'SNIFFER', GroundWire: 'GROUND WIRE', OverclockInjector: 'OVERCLOCK', EmpFlare: 'EMP FLARE' },
+      played: (who, count, protocol) => `${who} played ${count}× ${protocol}`,
+      traceCalled: (who) => `${who} calls TRACE!`,
+      exploitUsed: (who, exploit) => `${who} used ${exploit}`,
+      survived: (who, roll) => `${who} survived the discharge (roll ${roll})`,
+      overloaded: (who, roll) => `${who} overloaded! (roll ${roll})`,
+      eliminated: (who, placement) => `${who} eliminated — #${placement}`,
+      roundStarted: (round) => `Round ${round} started`,
     },
   },
 };

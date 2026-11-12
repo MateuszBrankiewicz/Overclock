@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { vibrate } from '../../../shared/lib/haptics';
 import {
   clearGameSession,
   createGameConnection,
@@ -25,6 +26,7 @@ import {
 import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
+import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
 
 let sharedConnection: GameConnectionManager | null = null;
 let startupResumeAttempted = false;
@@ -43,6 +45,24 @@ function setConnectionStatus(status: ConnectionStatus): void {
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Side effects of a validated game event, run after the store apply:
+ * appends a human-readable feed entry and triggers haptics for the local player.
+ */
+export function recordGameEvent(source: FeedSource): void {
+  const { players, playerId } = useGameStore.getState();
+  const ui = useUiStore.getState();
+  if (source.kind === 'RoundStarted' && source.event.roundNumber === 1) ui.clearFeed();
+  ui.pushFeedEntry(
+    formatFeedEvent(source, { players, localPlayerId: playerId, t: useI18n.getState().t.feed })
+  );
+  if (source.kind === 'CapacitorDischarged' && source.event.playerId === playerId) {
+    vibrate(source.event.overloaded ? 'overload' : 'shock');
+  } else if (source.kind === 'PlayerEliminated' && source.event.playerId === playerId) {
+    vibrate('overload');
+  }
 }
 
 function reportError(message: string): void {
@@ -64,6 +84,7 @@ export async function resumeSavedSession(
     if (!options.resetOnFailure) return;
     conn.clearSession();
     useGameStore.getState().leaveRoom();
+    useUiStore.getState().clearFeed();
   };
   try {
     const res = await conn.invokeHubMethod('Reconnect', PlayerGameStateSchema, {
@@ -149,6 +170,7 @@ export function useGameSession() {
       clearGameSession();
     }
     leaveRoomLocal();
+    useUiStore.getState().clearFeed();
   }, [leaveRoomLocal]);
 
   useEffect(() => {
@@ -189,6 +211,7 @@ export function useGameSession() {
           { sequenceNumber: event.sequenceNumber, minDurationMs: 350 }
         );
         applyCardsPlayed(event);
+        recordGameEvent({ kind: 'CardsPlayed', event: event });
         logMessage(`CardsPlayed: count=${event.cardCount}, protocol=${event.declaredProtocol}`);
       }),
       conn.on('TraceCalled', TraceResolutionSchema, (resolution) => {
@@ -198,6 +221,7 @@ export function useGameSession() {
           { sequenceNumber: resolution.sequenceNumber, minDurationMs: 600 }
         );
         applyTraceResolution(resolution);
+        recordGameEvent({ kind: 'TraceCalled', event: resolution });
         logMessage(`TraceCalled: bluffDetected=${resolution.bluffDetected ? 'true' : 'false'}`);
       }),
       conn.on('RoundStarted', RoundStartedEventSchema, (event) => {
@@ -207,6 +231,7 @@ export function useGameSession() {
           { sequenceNumber: event.sequenceNumber, minDurationMs: 250 }
         );
         applyRoundStarted(event);
+        recordGameEvent({ kind: 'RoundStarted', event: event });
         logMessage(`RoundStarted: round ${event.roundNumber}, lead=${event.leadProtocol ?? 'none'}`);
       }),
       conn.on('CapacitorDischarged', CapacitorDischargedEventSchema, (event) => {
@@ -216,6 +241,7 @@ export function useGameSession() {
           { sequenceNumber: event.sequenceNumber, minDurationMs: 400 }
         );
         applyCapacitorDischarged(event);
+        recordGameEvent({ kind: 'CapacitorDischarged', event: event });
         logMessage(`CapacitorDischarged: player=${event.playerId}, roll=${event.roll}, risk=${event.riskLevel}->${event.resultingRiskLevel}, overloaded=${event.overloaded}`);
       }),
       conn.on('PlayerEliminated', PlayerEliminatedEventSchema, (event) => {
@@ -225,6 +251,7 @@ export function useGameSession() {
           { sequenceNumber: event.sequenceNumber, minDurationMs: 500 }
         );
         applyPlayerEliminated(event);
+        recordGameEvent({ kind: 'PlayerEliminated', event: event });
         logMessage(`PlayerEliminated: player=${event.playerId}, placement=#${event.placement}`);
       }),
       conn.on('ExploitTriggered', ExploitTriggeredEventSchema, (event) => {
@@ -234,6 +261,7 @@ export function useGameSession() {
           { sequenceNumber: event.sequenceNumber, minDurationMs: 350 }
         );
         applyExploitTriggered(event);
+        recordGameEvent({ kind: 'ExploitTriggered', event: event });
         logMessage(`ExploitTriggered: player=${event.playerId}, exploit=${event.exploit}`);
       }),
       conn.on('PacketSniffed', PacketSniffedEventSchema, (event) => {

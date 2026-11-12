@@ -1,0 +1,83 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { useGameStore } from '../stores/useGameStore';
+import { useUiStore } from '../stores/useUiStore';
+import { recordGameEvent } from './useDebugTerminal';
+
+const ID = '123e4567-e89b-12d3-a456-426614174001';
+const OTHER = '123e4567-e89b-12d3-a456-426614174002';
+
+describe('recordGameEvent', () => {
+  const vibrateMock = vi.fn((_pattern: VibratePattern) => true);
+
+  beforeEach(() => {
+    vibrateMock.mockClear();
+    vi.stubGlobal('navigator', { vibrate: vibrateMock });
+    useUiStore.setState({ feed: [] });
+    useGameStore.setState({
+      playerId: ID,
+      players: [
+        { playerId: ID, nickname: 'Volt', status: 'Active', isReady: true, handCount: 3 },
+        { playerId: OTHER, nickname: 'Ghost', status: 'Active', isReady: true, handCount: 3 },
+      ],
+    });
+  });
+
+  it('pushes a feed entry for a played event', () => {
+    recordGameEvent({
+      kind: 'CardsPlayed',
+      event: { playerId: OTHER, cardCount: 2, declaredProtocol: 'Alpha' },
+    });
+    const feed = useUiStore.getState().feed;
+    expect(feed).toHaveLength(1);
+    expect(feed[0]?.text).toContain('Ghost');
+    expect(feed[0]?.text).toContain('ALPHA');
+    expect(vibrateMock).not.toHaveBeenCalled();
+  });
+
+  it('vibrates briefly when the local player is shocked but survives', () => {
+    recordGameEvent({
+      kind: 'CapacitorDischarged',
+      event: {
+        type: 'CapacitorDischarged',
+        roomCode: 'R',
+        playerId: ID,
+        roll: 4,
+        riskLevel: 1,
+        resultingRiskLevel: 2,
+        overloaded: false,
+      },
+    });
+    expect(vibrateMock).toHaveBeenCalledWith(60);
+  });
+
+  it('vibrates a long pattern when the local player is overloaded, not for others', () => {
+    recordGameEvent({
+      kind: 'CapacitorDischarged',
+      event: {
+        type: 'CapacitorDischarged',
+        roomCode: 'R',
+        playerId: ID,
+        roll: 1,
+        riskLevel: 1,
+        resultingRiskLevel: 1,
+        overloaded: true,
+      },
+    });
+    expect(vibrateMock).toHaveBeenCalledWith([200, 80, 200, 80, 400]);
+    vibrateMock.mockClear();
+    recordGameEvent({
+      kind: 'PlayerEliminated',
+      event: { type: 'PlayerEliminated', roomCode: 'R', playerId: OTHER, placement: 3 },
+    });
+    expect(vibrateMock).not.toHaveBeenCalled();
+  });
+
+  it('clears the feed when the first round starts', () => {
+    useUiStore.getState().pushFeedEntry({ text: 'old', tone: 'neutral' });
+    recordGameEvent({ kind: 'RoundStarted', event: { roomCode: 'R', roundNumber: 1 } });
+    const texts = useUiStore.getState().feed.map((f) => f.text);
+    expect(texts).not.toContain('old');
+    expect(texts).toHaveLength(1);
+  });
+});
