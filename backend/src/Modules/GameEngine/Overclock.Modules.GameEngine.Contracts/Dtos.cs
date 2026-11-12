@@ -46,6 +46,7 @@ public sealed record PlayerGameStateDto(
     Guid? PendingDischargePlayerId = null,
     DateTime? DischargeDeadlineUtc = null,
     DateTime? TurnDeadlineUtc = null,
+    DateTime? IntermissionDeadlineUtc = null,
     bool CanActivateExploit = false,
     long SequenceNumber = 1);
 
@@ -89,6 +90,7 @@ public sealed record GameStateSnapshotDto(
     Guid? PendingDischargePlayerId = null,
     DateTime? DischargeDeadlineUtc = null,
     DateTime? TurnDeadlineUtc = null,
+    DateTime? IntermissionDeadlineUtc = null,
     bool CanActivateExploit = false,
     long SequenceNumber = 1);
 

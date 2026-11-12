@@ -53,6 +53,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   placementByPlayerId: {},
   pendingDischargePlayerId: null,
   dischargeDeadlineUtc: null,
+  intermissionDeadlineUtc: null,
   canActivateExploit: false,
   lastDischargeOutcome: null,
   dischargeCinematic: null,
@@ -166,6 +167,9 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         dischargeDeadlineUtc:
           snapshot.dischargeDeadlineUtc ??
           (snapshot.state === 'VoltageTest' ? state.dischargeDeadlineUtc : null),
+        intermissionDeadlineUtc:
+          snapshot.intermissionDeadlineUtc ??
+          (snapshot.state === 'RoundOver' ? state.intermissionDeadlineUtc : null),
         canActivateExploit: snapshot.canActivateExploit ?? false,
         lastDischargeOutcome: shouldClearLastDischarge ? null : state.lastDischargeOutcome,
         sniffedCard: shouldClearSniffedCard ? null : state.sniffedCard,
@@ -285,6 +289,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       placementByPlayerId: {},
       pendingDischargePlayerId: null,
       dischargeDeadlineUtc: null,
+      intermissionDeadlineUtc: null,
       canActivateExploit: false,
       lastDischargeOutcome: null,
       dischargeCinematic: null,

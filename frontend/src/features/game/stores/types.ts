@@ -53,6 +53,7 @@ export interface RoomSlice {
   placementByPlayerId: Record<string, number>;
   pendingDischargePlayerId: string | null;
   dischargeDeadlineUtc: string | null;
+  intermissionDeadlineUtc: string | null;
   canActivateExploit: boolean;
   lastDischargeOutcome: CapacitorDischargedEvent | null;
   dischargeCinematic: DischargeCinematic | null;

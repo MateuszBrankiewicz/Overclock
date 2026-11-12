@@ -38,6 +38,8 @@ internal sealed class StartRoundCommandHandler(
                 return result.ToResult<StartRoundOutcome>();
             }
 
+            turnTimer.Cancel(room.Id.Value, TimerKind.Intermission);
+
             var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(TurnTimerEngine.DefaultTurnDuration);
             room.MarkTurnDeadline(deadlineUtc);
             turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);

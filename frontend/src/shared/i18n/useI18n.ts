@@ -64,8 +64,6 @@ export interface Translations {
     leaveConfirm: string;
     leaveYes: string;
     leaveNo: string;
-    waitingForHost: string;
-    hostGone: string;
     footer: string;
     debugToggle: string;
     backToGame: string;
@@ -329,8 +327,6 @@ export const translations: Record<Language, Translations> = {
       leaveConfirm: 'Opuścić stół?',
       leaveYes: 'Tak',
       leaveNo: 'Nie',
-      waitingForHost: 'Czekam na hosta...',
-      hostGone: 'Host opuścił stół.',
       footer: 'DEAD CIRCUIT',
       debugToggle: 'Konsola dev',
       backToGame: 'Wróć do gry',
@@ -594,8 +590,6 @@ export const translations: Record<Language, Translations> = {
       leaveConfirm: 'Leave table?',
       leaveYes: 'Yes',
       leaveNo: 'No',
-      waitingForHost: 'Waiting for the host...',
-      hostGone: 'The host has left the table.',
       footer: 'DEAD CIRCUIT',
       debugToggle: 'Dev console',
       backToGame: 'Back to game',

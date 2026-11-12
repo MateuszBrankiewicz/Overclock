@@ -101,6 +101,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                         else
                         {
                             var wasCurrentTurnPlayer = activeRoom.CurrentTurnPlayerId == info.PlayerId;
+                            var wasRoundOver = activeRoom.State == RoomState.RoundOver;
                             var eliminateResult = activeRoom.EliminatePlayer(info.PlayerId);
                             if (!eliminateResult.IsSuccess)
                             {
@@ -110,6 +111,13 @@ internal sealed class DisconnectPlayerCommandHandler(
                             if (activeRoom.State == RoomState.GameOver)
                             {
                                 turnTimer.Cancel(activeRoom.Id.Value);
+                            }
+                            else if (!wasRoundOver && activeRoom.State == RoomState.RoundOver)
+                            {
+                                turnTimer.Cancel(activeRoom.Id.Value);
+                                var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(turnTimer.IntermissionDuration);
+                                activeRoom.MarkIntermissionDeadline(deadlineUtc);
+                                turnTimer.StartIntermission(activeSession, activeRoom.RoundNumber, turnTimer.IntermissionDuration);
                             }
                             else if (wasCurrentTurnPlayer && activeRoom.State == RoomState.TurnActive && activeRoom.CurrentTurnPlayerId is { } nextPlayerId)
                             {

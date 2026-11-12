@@ -28,6 +28,7 @@ public sealed class GameRoom
     public CardProtocol? CurrentTargetProtocol { get; private set; }
     public PlayerId? CurrentTurnPlayerId { get; private set; }
     public DateTime? CurrentTurnDeadlineUtc { get; private set; }
+    public DateTime? IntermissionDeadlineUtc { get; private set; }
     public long TurnSequenceId { get; private set; }
     public long DischargeSequenceId { get; private set; } = 1;
     public PlayedTurn? LastPlay { get; private set; }
@@ -303,12 +304,75 @@ public sealed class GameRoom
         LastDischargeOutcome = null;
         PendingDischargePlayerId = null;
         CurrentTurnDeadlineUtc = null;
+        IntermissionDeadlineUtc = null;
         RoundNumber++;
         TurnSequenceId++;
 
         // Determine starting player
         var startingPlayerIndex = (RoundNumber - 1) % activePlayers.Count;
         CurrentTurnPlayerId = activePlayers[startingPlayerIndex].Id;
+
+        State = RoomState.TurnActive;
+        return Result.Success();
+    }
+
+    public Result AdvanceRound(IRandomSource? randomSource = null)
+    {
+        if (State != RoomState.RoundOver)
+        {
+            return Result.Conflict("Room.CannotAdvanceRound", $"Cannot advance round from state '{State}'.");
+        }
+
+        var rng = randomSource ?? CryptoRandomSource.Instance;
+
+        var prospectiveActiveSeats = _seats.Where(s => !s.HasLeft && s.Status != PlayerStatus.Eliminated).ToList();
+        if (prospectiveActiveSeats.Count < Deck.MinPlayers)
+        {
+            return Result.Invalid(new ValidationError(
+                "Room.InsufficientPlayers",
+                $"At least {Deck.MinPlayers} active players are required to start a round, but found {prospectiveActiveSeats.Count}."));
+        }
+
+        var deckResult = Deck.Create(prospectiveActiveSeats.Count, rng);
+        if (!deckResult.IsSuccess)
+        {
+            return Result.Invalid(deckResult.ValidationErrors);
+        }
+
+        foreach (var seat in prospectiveActiveSeats)
+        {
+            seat.ResetForNewRound();
+        }
+
+        State = RoomState.Dealing;
+        CurrentDeck = deckResult.Value;
+
+        foreach (var player in prospectiveActiveSeats)
+        {
+            var dealResult = CurrentDeck.DealHand();
+            if (!dealResult.IsSuccess)
+            {
+                return Result.Invalid(dealResult.ValidationErrors);
+            }
+
+            player.AssignHand(dealResult.Value);
+        }
+
+        var targetProtocolIndex = rng.Next(0, ValidTargetProtocols.Length);
+        CurrentTargetProtocol = ValidTargetProtocols[targetProtocolIndex];
+
+        _tablePile.Clear();
+        LastPlay = null;
+        LastTraceResolution = null;
+        LastDischargeOutcome = null;
+        PendingDischargePlayerId = null;
+        CurrentTurnDeadlineUtc = null;
+        IntermissionDeadlineUtc = null;
+        RoundNumber++;
+        TurnSequenceId++;
+
+        var startingPlayerIndex = (RoundNumber - 1) % prospectiveActiveSeats.Count;
+        CurrentTurnPlayerId = prospectiveActiveSeats[startingPlayerIndex].Id;
 
         State = RoomState.TurnActive;
         return Result.Success();
@@ -413,6 +477,17 @@ public sealed class GameRoom
         }
 
         CurrentTurnDeadlineUtc = deadlineUtc;
+        return Result.Success();
+    }
+
+    public Result MarkIntermissionDeadline(DateTime deadlineUtc)
+    {
+        if (State != RoomState.RoundOver)
+        {
+            return Result.Invalid(new ValidationError("Room.NotInRoundOver", $"Cannot set intermission deadline in state '{State}'."));
+        }
+
+        IntermissionDeadlineUtc = deadlineUtc;
         return Result.Success();
     }
 
@@ -853,6 +928,7 @@ public sealed class GameRoom
             State = RoomState.GameOver;
             CurrentTurnPlayerId = null;
             CurrentTurnDeadlineUtc = null;
+            IntermissionDeadlineUtc = null;
             return Result.Success();
         }
 

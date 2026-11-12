@@ -145,6 +145,7 @@ public sealed class TurnTimerEngineTests
         Assert.Equal(1, room.TurnSequenceId);
     }
 
+
     [Fact]
     public async Task Timer_StaleSequenceDoesNotMutateRoom()
     {
@@ -161,6 +162,60 @@ public sealed class TurnTimerEngineTests
         Assert.Equal(currentPlayerId, room.CurrentTurnPlayerId);
         Assert.Equal(1, room.TurnSequenceId);
     }
+
+    [Fact]
+    public async Task Timer_Intermission_AdvancesRoundAutomatically_WhenInRoundOver()
+    {
+        var (room, hostPlayerId, secondPlayerId) = CreateActiveRoom();
+        await using var session = new GameRoomSession(room, new RoomActor(room));
+
+        var hostSeat = room.Seats.First(s => s.Id == hostPlayerId);
+        room.PlayCards(hostPlayerId, [hostSeat.Hand[0].Id], room.CurrentTargetProtocol!.Value);
+        room.CallTrace(secondPlayerId);
+        room.CompleteBluffCheck();
+        room.DischargeCapacitor(room.PendingDischargePlayerId!.Value, new SafeRollRandomSource());
+        Assert.Equal(RoomState.RoundOver, room.State);
+
+        var delay = new ManualTurnDelay();
+        var notifier = new FakeGameNotifier();
+        await using var timer = new TurnTimerEngine(delay, notifier, null, new SafeRollRandomSource(), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(10));
+
+        timer.StartIntermission(session, room.RoundNumber, TimeSpan.FromSeconds(10));
+        await delay.AdvanceAsync();
+        var roundStarted = await notifier.RoundStartedReceived.WaitAsync(TimeSpan.FromSeconds(3));
+        await session.EnqueueAsync(_ => Result.Success());
+
+        Assert.Equal(RoomState.TurnActive, room.State);
+        Assert.Equal(2, room.RoundNumber);
+        Assert.Equal(2, roundStarted.RoundNumber);
+        Assert.NotNull(room.CurrentTurnPlayerId);
+    }
+
+    [Fact]
+    public async Task Timer_Intermission_StaleRoundNumber_IsIgnored()
+    {
+        var (room, hostPlayerId, secondPlayerId) = CreateActiveRoom();
+        await using var session = new GameRoomSession(room, new RoomActor(room));
+
+        var hostSeat = room.Seats.First(s => s.Id == hostPlayerId);
+        room.PlayCards(hostPlayerId, [hostSeat.Hand[0].Id], room.CurrentTargetProtocol!.Value);
+        room.CallTrace(secondPlayerId);
+        room.CompleteBluffCheck();
+        room.DischargeCapacitor(room.PendingDischargePlayerId!.Value, new SafeRollRandomSource());
+        Assert.Equal(RoomState.RoundOver, room.State);
+
+        var delay = new ManualTurnDelay();
+        var notifier = new FakeGameNotifier();
+        await using var timer = new TurnTimerEngine(delay, notifier, null, new SafeRollRandomSource(), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(10));
+
+        timer.StartIntermission(session, 99, TimeSpan.FromSeconds(10));
+        await delay.AdvanceAsync();
+        await session.EnqueueAsync(_ => Result.Success());
+
+        Assert.Equal(RoomState.RoundOver, room.State);
+        Assert.Equal(1, room.RoundNumber);
+    }
+
 
     private static (GameRoom Room, PlayerId CurrentPlayerId, PlayerId NextPlayerId) CreateActiveRoom(SharedKernel.IRandomSource? randomSource = null)
     {
@@ -193,7 +248,11 @@ public sealed class TurnTimerEngineTests
 
     private sealed class SafeRollRandomSource : SharedKernel.IRandomSource
     {
-        public int Next(int minValue, int maxValue) => 6;
+        public int Next(int minValue, int maxValue)
+        {
+            if (minValue <= 6 && 6 < maxValue) return 6;
+            return minValue;
+        }
     }
 
     private sealed class ManualTurnDelay : ITurnDelay
@@ -283,10 +342,13 @@ public sealed class TurnTimerEngineTests
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _voltageStartReceived =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<RoundStartedDto> _roundStartedReceived =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Task BroadcastReceived => _broadcastReceived.Task;
         public Task DischargeReceived => _dischargeReceived.Task;
         public Task VoltageStartReceived => _voltageStartReceived.Task;
+        public Task<RoundStartedDto> RoundStartedReceived => _roundStartedReceived.Task;
 
         public int BroadcastCount { get; private set; }
         public string? LastBroadcastRoomCode { get; private set; }
@@ -324,8 +386,11 @@ public sealed class TurnTimerEngineTests
             return Task.CompletedTask;
         }
 
-        public Task NotifyRoundStartedAsync(string roomCode, RoundStartedDto notification, CancellationToken ct = default) =>
-            Task.CompletedTask;
+        public Task NotifyRoundStartedAsync(string roomCode, RoundStartedDto notification, CancellationToken ct = default)
+        {
+            _roundStartedReceived.TrySetResult(notification);
+            return Task.CompletedTask;
+        }
 
         public Task NotifyCapacitorDischargedAsync(string roomCode, CapacitorDischargedEvent notification, CancellationToken ct = default)
         {

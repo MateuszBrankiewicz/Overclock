@@ -67,8 +67,16 @@ export function useCountdown(
   deadlineUtc: string | null | undefined,
   fullSeconds?: number
 ): CountdownState {
-  const [state, setState] = useState<CountdownState>(IDLE_COUNTDOWN);
   const deadlineMs = parseDeadline(deadlineUtc);
+  const [state, setState] = useState<CountdownState>(() =>
+    deadlineMs === null
+      ? IDLE_COUNTDOWN
+      : computeCountdown(
+          deadlineMs,
+          Date.now(),
+          fullSeconds ?? Math.max(1, (deadlineMs - Date.now()) / 1000)
+        )
+  );
 
   useEffect(() => {
     if (deadlineMs === null) return;

@@ -470,6 +470,33 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
       expect(useGameStore.getState().turnDeadlineUtc).toBeNull();
     });
 
+    it('applies authoritative intermissionDeadlineUtc from snapshot and clears it on RoundStarted', () => {
+      const intermissionDeadline = new Date(Date.now() + 10000).toISOString();
+      useGameStore.getState().applyRoomSnapshot({
+        roomCode: 'CYBER-7X9',
+        state: 'RoundOver',
+        hostId: '11111111-1111-4111-8111-111111111111',
+        myPlayerId: '11111111-1111-4111-8111-111111111111',
+        myHand: [],
+        seats: [],
+        tablePileCount: 0,
+        roundNumber: 1,
+        intermissionDeadlineUtc: intermissionDeadline,
+      });
+
+      expect(useGameStore.getState().intermissionDeadlineUtc).toBe(intermissionDeadline);
+
+      useGameStore.getState().applyRoundStarted({
+        type: 'RoundStarted',
+        roomCode: 'CYBER-7X9',
+        roundNumber: 2,
+        leadProtocol: 'Alpha',
+        activePlayerId: '11111111-1111-4111-8111-111111111111',
+      });
+
+      expect(useGameStore.getState().intermissionDeadlineUtc).toBeNull();
+    });
+
     it('reconnect mid-turn preserves server deadline reflecting remaining time rather than 15s', () => {
       const remainingMs = 6000;
       const midTurnDeadline = new Date(Date.now() + remainingMs).toISOString();
