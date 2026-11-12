@@ -5,10 +5,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
-import type { CardProtocol, RoomState } from '../../schemas/gameEvents';
+import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
 import { prefersReducedMotion } from './hud/motion';
 import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
+import { RevealedCards3D } from './RevealedCards3D';
 
 export interface TableCenterpiece3DProps {
   tablePileCount: number;
@@ -23,6 +24,9 @@ export interface TableCenterpiece3DProps {
   shockTargetPos?: [number, number, number] | null;
   isOverloadedShock?: boolean;
   testedRiskLevel?: number;
+  revealedCards?: PlayerCard[] | null;
+  revealDeclaredProtocol?: CardProtocol | null;
+  revealStartedAtMs?: number | null;
 }
 
 const PROTOCOL_HEX: Record<string, string> = {
@@ -45,6 +49,9 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   shockTargetPos,
   isOverloadedShock = false,
   testedRiskLevel = 1,
+  revealedCards = null,
+  revealDeclaredProtocol = null,
+  revealStartedAtMs = null,
 }) => {
   const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
@@ -75,15 +82,21 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
     ? '#f59e0b'
     : protocolColor;
 
+  // The snapshot already counts the cards in flight: hold them back until they land.
+  const visiblePileCount = isFlying
+    ? Math.max(0, tablePileCount - Math.max(1, Math.min(3, lastPlayCardCount)))
+    : tablePileCount;
+  const isRevealing = Boolean(revealedCards && revealedCards.length > 0 && revealStartedAtMs !== null);
+
   const stackTransforms = useMemo(() => {
-    const count = Math.min(tablePileCount, 14);
+    const count = Math.min(isRevealing ? 0 : visiblePileCount, 14);
     return Array.from({ length: count }).map((_, i) => ({
       x: (((i * 29) % 11) - 5) * 0.015,
       z: (((i * 17) % 11) - 5) * 0.015,
       y: 0.77 + i * 0.022,
       rotY: (((i * 43) % 30) - 15) * (Math.PI / 180),
     }));
-  }, [tablePileCount]);
+  }, [visiblePileCount, isRevealing]);
 
   useFrame(({ clock }, delta) => {
     const elapsed = clock.getElapsedTime();
@@ -267,14 +280,24 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
           {Array.from({ length: Math.max(1, Math.min(3, lastPlayCardCount)) }).map((_, i) => (
             <mesh key={i} position={[(i - 1) * 0.22, i * 0.03, 0]} castShadow>
               <boxGeometry args={[0.42, 0.02, 0.62]} />
+              {/* Played face-down: show the card back, with a protocol-coloured glow trail. */}
               <meshStandardMaterial
-                color={protocolColor}
+                map={backTexture ?? undefined}
+                color="#ffffff"
                 emissive={protocolColor}
-                emissiveIntensity={2.4}
+                emissiveIntensity={0.6}
               />
             </mesh>
           ))}
         </group>
+      )}
+
+      {isRevealing && revealedCards && revealStartedAtMs !== null && (
+        <RevealedCards3D
+          cards={revealedCards}
+          declaredProtocol={revealDeclaredProtocol}
+          startedAtMs={revealStartedAtMs}
+        />
       )}
 
       {/* Laser Diagnostic Scanner Beam during CALL TRACE (BluffCheck) */}

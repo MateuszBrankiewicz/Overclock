@@ -27,6 +27,21 @@ export interface DischargeCinematic {
   startedAtMs: number;
 }
 
+/** Card reveal after a trace: plays before the discharge cinematic. */
+export interface TraceRevealCinematic {
+  resolution: TraceResolution;
+  startedAtMs: number;
+  /** Seats as they were when the trace was called, so the outcome is not spoiled early. */
+  seatsAtReveal: PlayerSeat[];
+}
+
+/** "Round N - protocol X" announcement shown when a round starts. */
+export interface RoundIntro {
+  roundNumber: number;
+  protocol: CardProtocol | null;
+  startedAtMs: number;
+}
+
 export interface RoomSlice {
   roomCode: string | null;
   roomState: RoomState | null;
@@ -42,6 +57,8 @@ export interface RoomSlice {
   canActivateExploit: boolean;
   lastDischargeOutcome: CapacitorDischargedEvent | null;
   dischargeCinematic: DischargeCinematic | null;
+  /** Discharge received while the trace reveal is still playing; applied when it finishes. */
+  queuedDischarge: CapacitorDischargedEvent | null;
   sniffedCard: PlayerCard | null;
   selectedCharacterId: CharacterId;
   characterByPlayerId: Record<string, CharacterId>;
@@ -51,6 +68,8 @@ export interface RoomSlice {
   setCameraFocus: (focus: ArenaCameraFocus) => void;
   setRoom: (roomCode: string, playerId: string) => void;
   clearDischargeCinematic: () => void;
+  /** Ends the trace reveal and starts any discharge queued behind it. */
+  finishTraceReveal: () => void;
   applyRoomSnapshot: (snapshot: RoomStateSnapshot) => void;
   applyPlayerJoined: (event: PlayerJoinedEvent) => void;
   applyPlayerStatusChanged: (event: PlayerStatusChangedEvent) => void;
@@ -86,6 +105,11 @@ export interface TurnSlice {
   lastPlayedCards: CardsPlayedEvent | null;
   lastTraceResolution: TraceResolution | null;
   lastTrace: TraceCalledEvent | null;
+  traceReveal: TraceRevealCinematic | null;
+  /** Sequence number of the last trace that was revealed (dedupes event + invoke response). */
+  lastRevealedTraceSequence: number | null;
+  roundIntro: RoundIntro | null;
+  clearRoundIntro: () => void;
   applyRoundStarted: (event: RoundStartedEvent) => void;
   applyCardsPlayed: (event: CardsPlayedEvent) => void;
   applyTraceResolution: (resolution: TraceResolution) => void;

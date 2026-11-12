@@ -4,8 +4,6 @@ import { describe, expect, it } from 'vitest';
 import { getCharacterById } from '../../../utils/characterCatalog';
 import { ActionStrip } from './ActionStrip';
 import { classifyCard } from './cardMarks';
-import { DiceRoll } from './DiceRoll';
-import { buildDiceSequence } from './diceRoll';
 import { INITIAL_FIRST_TURN_HINT, nextFirstTurnHint } from './firstTurnHint';
 import { resolveHotkey } from './hotkeys';
 
@@ -47,22 +45,6 @@ describe('resolveHotkey', () => {
 
   it('does not repeat actions while a key is held', () => {
     expect(resolveHotkey({ key: 'Enter', repeat: true }, ctx)).toBeNull();
-  });
-});
-
-describe('dice roll', () => {
-  it('always lands on the rolled face without back-to-back repeats', () => {
-    for (let roll = 1; roll <= 6; roll++) {
-      const seq = buildDiceSequence(roll);
-      expect(seq[seq.length - 1]).toBe(roll);
-      expect(seq.every((f) => f >= 1 && f <= 6)).toBe(true);
-      for (let i = 1; i < seq.length; i++) expect(seq[i]).not.toBe(seq[i - 1]);
-    }
-  });
-
-  it('shows the result immediately under reduced motion', () => {
-    const html = renderToString(<DiceRoll roll={4} overloaded={false} reducedMotion />);
-    expect(html).toContain('data-face="4"');
   });
 });
 

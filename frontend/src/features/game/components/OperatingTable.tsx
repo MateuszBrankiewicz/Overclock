@@ -5,6 +5,7 @@ import { useI18n } from '../../../shared/i18n';
 import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
+import { DISCHARGE_CINEMATIC_MS, traceRevealDurationMs } from '../utils/cinematicTiming';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
 import { CardRevealSequence } from './CardRevealSequence';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
@@ -15,6 +16,7 @@ import { LobbyScreen } from './LobbyScreen';
 import { MatchSummary } from './MatchSummary';
 import { RoomCodeBadge } from './RoomCodeBadge';
 import { RoundIntermissionBanner } from './RoundIntermissionBanner';
+import { RoundIntroBanner } from './RoundIntroBanner';
 
 export const OperatingTable: React.FC = () => {
   const session = useGameSession();
@@ -28,7 +30,7 @@ export const OperatingTable: React.FC = () => {
   const hostId = useGameStore((s) => s.hostId);
   const winnerId = useGameStore((s) => s.winnerId);
   const placementByPlayerId = useGameStore((s) => s.placementByPlayerId);
-  const players = useGameStore((s) => s.players);
+  const livePlayers = useGameStore((s) => s.players);
   const activePlayerId = useGameStore((s) => s.activePlayerId);
   const currentTargetProtocol = useGameStore((s) => s.currentTargetProtocol);
   const tablePileCount = useGameStore((s) => s.tablePileCount);
@@ -36,7 +38,10 @@ export const OperatingTable: React.FC = () => {
   const selectedCardIds = useGameStore((s) => s.selectedCardIds);
   const toggleCardSelection = useGameStore((s) => s.toggleCardSelection);
   const lastPlayedCards = useGameStore((s) => s.lastPlayedCards);
-  const lastTraceResolution = useGameStore((s) => s.lastTraceResolution);
+  const traceReveal = useGameStore((s) => s.traceReveal);
+  const finishTraceReveal = useGameStore((s) => s.finishTraceReveal);
+  const roundIntro = useGameStore((s) => s.roundIntro);
+  const clearRoundIntro = useGameStore((s) => s.clearRoundIntro);
   const pendingDischargePlayerId = useGameStore((s) => s.pendingDischargePlayerId);
   const canActivateExploit = useGameStore((s) => s.canActivateExploit);
   const roundNumber = useGameStore((s) => s.roundNumber);
@@ -50,14 +55,26 @@ export const OperatingTable: React.FC = () => {
   const setSelectedCharacter = useGameStore((s) => s.setSelectedCharacter);
   const setCameraFocus = useGameStore((s) => s.setCameraFocus);
 
-  // Auto-clear discharge cinematic after 3.6s animation completes
+  // Presentation order after a trace: card reveal -> discharge on the operator -> next-round countdown.
+  useEffect(() => {
+    if (!traceReveal) return;
+    const remaining =
+      traceRevealDurationMs(traceReveal.resolution.revealedCards.length) -
+      (Date.now() - traceReveal.startedAtMs);
+    const timer = setTimeout(finishTraceReveal, Math.max(0, remaining));
+    return () => clearTimeout(timer);
+  }, [traceReveal, finishTraceReveal]);
+
   useEffect(() => {
     if (!dischargeCinematic) return;
-    const timer = setTimeout(() => {
-      clearDischargeCinematic();
-    }, 3600);
+    const remaining = DISCHARGE_CINEMATIC_MS - (Date.now() - dischargeCinematic.startedAtMs);
+    const timer = setTimeout(clearDischargeCinematic, Math.max(0, remaining));
     return () => clearTimeout(timer);
   }, [dischargeCinematic, clearDischargeCinematic]);
+
+  // While the cards are being revealed, show the table as it was when the trace was called.
+  const players = traceReveal?.seatsAtReveal ?? livePlayers;
+  const isPresentingOutcome = Boolean(traceReveal || dischargeCinematic);
 
   const me = players.find((p) => p.playerId === playerId);
   const pendingPlayer = players.find((p) => p.playerId === pendingDischargePlayerId);
@@ -69,10 +86,11 @@ export const OperatingTable: React.FC = () => {
   const isMyTurn = Boolean(activePlayerId && playerId && activePlayerId === playerId && !isEliminated);
   const isHost = Boolean(hostId && playerId && hostId === playerId);
 
+  const revealResolution = traceReveal?.resolution ?? null;
   const accuserNickname =
-    players.find((p) => p.playerId === lastTraceResolution?.accuserPlayerId)?.nickname ?? t.common.player;
+    players.find((p) => p.playerId === revealResolution?.accuserPlayerId)?.nickname ?? t.common.player;
   const accusedNickname =
-    players.find((p) => p.playerId === lastTraceResolution?.accusedPlayerId)?.nickname ?? t.common.opponent;
+    players.find((p) => p.playerId === revealResolution?.accusedPlayerId)?.nickname ?? t.common.opponent;
   if (!roomCode) {
     return <LobbyScreen />;
   }
@@ -92,6 +110,16 @@ export const OperatingTable: React.FC = () => {
 
       {roomState !== 'Lobby' && <EventFeed />}
 
+      {roundIntro && !isPresentingOutcome && (
+        <RoundIntroBanner
+          key={`${roundIntro.roundNumber}:${roundIntro.startedAtMs}`}
+          roundNumber={roundIntro.roundNumber}
+          protocol={roundIntro.protocol}
+          startedAtMs={roundIntro.startedAtMs}
+          onDone={clearRoundIntro}
+        />
+      )}
+
       <BunkerArenaCanvas
         players={players}
         myPlayerId={playerId}
@@ -101,7 +129,10 @@ export const OperatingTable: React.FC = () => {
         characterByPlayerId={characterByPlayerId}
         tablePileCount={tablePileCount}
         currentTargetProtocol={currentTargetProtocol}
-        roomState={roomState}
+        roomState={traceReveal ? 'BluffCheck' : roomState}
+        revealedCards={revealResolution?.revealedCards ?? null}
+        revealDeclaredProtocol={revealResolution?.declaredProtocol ?? null}
+        revealStartedAtMs={traceReveal?.startedAtMs ?? null}
         lastPlayedCards={lastPlayedCards}
         cameraFocus={cameraFocus}
         onCameraFocusChange={setCameraFocus}
@@ -117,6 +148,11 @@ export const OperatingTable: React.FC = () => {
         onCallTrace={() => void session.callTrace()}
         onActivateExploit={(exp, newTarget) => void session.activateExploit(exp, newTarget)}
         isVoltageTestActive={roomState === 'VoltageTest'}
+        overlayMode={
+          roomState === 'Lobby' || (!isPresentingOutcome && (roomState === 'GameOver' || roomState === 'RoundOver'))
+            ? 'modal'
+            : 'passive'
+        }
         dischargeCinematic={dischargeCinematic}
         pendingPlayerNickname={pendingPlayer?.nickname ?? t.common.operator}
         isLocalPlayerPending={isLocalPlayerPending}
@@ -153,7 +189,19 @@ export const OperatingTable: React.FC = () => {
             onSetReady={(ready) => void session.setReady(ready)}
             onStartRound={() => void session.startRound()}
           />
-        ) : roomState === 'GameOver' && !dischargeCinematic ? (
+        ) : revealResolution ? (
+          // Verdict panel at the top; the cards themselves flip face-up on the 3D table.
+          <div className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-3 pointer-events-none">
+            <CardRevealSequence
+              key={traceReveal?.startedAtMs}
+              revealedCards={revealResolution.revealedCards}
+              declaredProtocol={revealResolution.declaredProtocol}
+              bluffDetected={revealResolution.bluffDetected}
+              accuserNickname={accuserNickname}
+              accusedNickname={accusedNickname}
+            />
+          </div>
+        ) : dischargeCinematic ? null : roomState === 'GameOver' ? (
           <MatchSummary
             players={players}
             placementByPlayerId={placementByPlayerId}
@@ -164,18 +212,6 @@ export const OperatingTable: React.FC = () => {
             onPlayAgain={() => void session.startRound()}
             onLeave={() => session.leaveRoom()}
           />
-        ) : roomState === 'BluffCheck' ? (
-          <div className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-3 pointer-events-none">
-            <CardRevealSequence
-              revealedCards={lastTraceResolution?.revealedCards ?? []}
-              declaredProtocol={
-                lastTraceResolution?.declaredProtocol ?? (currentTargetProtocol ?? 'Alpha')
-              }
-              bluffDetected={lastTraceResolution?.bluffDetected ?? false}
-              accuserNickname={accuserNickname}
-              accusedNickname={accusedNickname}
-            />
-          </div>
         ) : roomState === 'RoundOver' ? (
           <RoundIntermissionBanner
             key={roundNumber}
@@ -186,7 +222,7 @@ export const OperatingTable: React.FC = () => {
             hostId={hostId}
             myPlayerId={playerId}
             onLeave={() => session.leaveRoom()}
-            isDischargeCinematicActive={Boolean(dischargeCinematic)}
+            isDischargeCinematicActive={false}
             onStartNextRound={() => void session.startRound()}
           />
         ) : null}

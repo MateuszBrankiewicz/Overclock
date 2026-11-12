@@ -1,7 +1,8 @@
 import type { StateCreator } from 'zustand';
 
-import type { PlayerSeat } from '../../schemas/gameEvents';
+import type { CapacitorDischargedEvent, PlayerSeat } from '../../schemas/gameEvents';
 import type { CharacterId } from '../../utils/characterCatalog';
+import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
 import type { GameState, RoomSlice } from '../types';
 
 const getInitialCharacterId = (): CharacterId => {
@@ -18,6 +19,28 @@ const getInitialCharacterId = (): CharacterId => {
   return 'ghost';
 };
 
+function dischargeUpdate(state: GameState, event: CapacitorDischargedEvent): Partial<GameState> {
+  return {
+    lastDischargeOutcome: event,
+    dischargeCinematic: {
+      event,
+      startedAtMs: Date.now(),
+    },
+    queuedDischarge: null,
+    pendingDischargePlayerId: null,
+    dischargeDeadlineUtc: null,
+    players: state.players.map((seat) =>
+      seat.playerId === event.playerId
+        ? {
+            ...seat,
+            riskLevel: event.resultingRiskLevel,
+            status: event.overloaded ? 'Eliminated' : seat.status,
+          }
+        : seat
+    ),
+  };
+}
+
 export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set) => ({
   roomCode: null,
   roomState: null,
@@ -32,12 +55,23 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   canActivateExploit: false,
   lastDischargeOutcome: null,
   dischargeCinematic: null,
+  queuedDischarge: null,
   sniffedCard: null,
   selectedCharacterId: getInitialCharacterId(),
   characterByPlayerId: {},
   cameraFocus: 'overview',
 
   clearDischargeCinematic: () => set({ dischargeCinematic: null }),
+
+  finishTraceReveal: () =>
+    set((state) => {
+      if (!state.traceReveal) return state;
+      const queued = state.queuedDischarge;
+      return {
+        traceReveal: null,
+        ...(queued ? dischargeUpdate(state, queued) : {}),
+      };
+    }),
 
   setSelectedCharacter: (characterId) => {
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
@@ -93,6 +127,20 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         snapshot.state === 'GameOver' ||
         snapshot.state === 'VoltageTest';
 
+      const isSameRound = snapshot.roundNumber === state.roundNumber;
+      const isSameTurn =
+        state.roomState === 'TurnActive' &&
+        snapshot.state === 'TurnActive' &&
+        isSameRound &&
+        snapshot.currentTurnPlayerId === state.activePlayerId;
+      // The server does not send the turn deadline yet (ADR 0015): estimate it when a turn starts.
+      const turnDeadlineUtc =
+        snapshot.state !== 'TurnActive'
+          ? null
+          : isSameTurn && state.turnDeadlineUtc
+            ? state.turnDeadlineUtc
+            : estimateTurnDeadlineUtc();
+
       return {
         roomCode: snapshot.roomCode,
         roomState: snapshot.state,
@@ -123,7 +171,11 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         lastTraceResolution: shouldClearTraceResolution
           ? null
           : (snapshot.lastTraceResolution ?? state.lastTraceResolution),
-        lastPlayedCards: null,
+        turnDeadlineUtc,
+        // Keep the last play while the round goes on: the snapshot right after CardsPlayed
+        // must not cancel the card flight animation.
+        lastPlayedCards:
+          snapshot.state === 'TurnActive' && isSameRound ? state.lastPlayedCards : null,
         lastTrace: null,
       };
     }),
@@ -154,30 +206,17 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   applyCapacitorDischarged: (event) =>
     set((state) => {
       if (
-        state.dischargeCinematic &&
         event.sequenceNumber !== undefined &&
-        state.dischargeCinematic.event.sequenceNumber === event.sequenceNumber
+        (state.dischargeCinematic?.event.sequenceNumber === event.sequenceNumber ||
+          state.queuedDischarge?.sequenceNumber === event.sequenceNumber)
       ) {
         return state;
       }
-      return {
-        lastDischargeOutcome: event,
-        dischargeCinematic: {
-          event,
-          startedAtMs: Date.now(),
-        },
-        pendingDischargePlayerId: null,
-        dischargeDeadlineUtc: null,
-        players: state.players.map((seat) =>
-          seat.playerId === event.playerId
-            ? {
-                ...seat,
-                riskLevel: event.resultingRiskLevel,
-                status: event.overloaded ? 'Eliminated' : seat.status,
-              }
-            : seat
-        ),
-      };
+      // Let the card reveal finish first; finishTraceReveal starts the discharge afterwards.
+      if (state.traceReveal) {
+        return { queuedDischarge: event, pendingDischargePlayerId: null, dischargeDeadlineUtc: null };
+      }
+      return dischargeUpdate(state, event);
     }),
 
   applyPlayerEliminated: (event) =>
@@ -238,6 +277,10 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       canActivateExploit: false,
       lastDischargeOutcome: null,
       dischargeCinematic: null,
+      queuedDischarge: null,
+      traceReveal: null,
+      lastRevealedTraceSequence: null,
+      roundIntro: null,
       sniffedCard: null,
       myCards: [],
       selectedCardIds: [],

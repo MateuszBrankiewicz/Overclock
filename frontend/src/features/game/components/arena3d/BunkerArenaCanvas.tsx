@@ -22,7 +22,6 @@ import { createDischargeBadgeTexture } from './dischargeBadgeTexture';
 import { ActionStrip } from './hud/ActionStrip';
 import { CameraPresetBar } from './hud/CameraPresetBar';
 import { CardMarkLegend } from './hud/CardMarkLegend';
-import { DiceRoll } from './hud/DiceRoll';
 import { FirstTurnHint } from './hud/FirstTurnHint';
 import { useFirstTurnHint } from './hud/firstTurnHint';
 import { HotkeyCheatSheet } from './hud/HotkeyCheatSheet';
@@ -30,6 +29,7 @@ import { useFinePointer } from './hud/motion';
 import { OverloadVignette } from './hud/OverloadVignette';
 import { PhaseTimers } from './hud/PhaseTimers';
 import { ActiveTurnLabel, YourTurnBanner } from './hud/TurnStatusHud';
+import { TurnUrgencyCountdown } from './hud/TurnUrgencyCountdown';
 import { useArenaHotkeys } from './hud/useArenaHotkeys';
 import { useExploitPicker } from './hud/useExploitPicker';
 import { VoltageControls } from './hud/VoltageControls';
@@ -73,6 +73,15 @@ export interface BunkerArenaCanvasProps {
   onDeployGroundWire?: () => void;
   onTriggerDischarge?: () => void;
   onDismissDischarge?: () => void;
+  /** Cards flipped face-up on the table after a trace. */
+  revealedCards?: PlayerCard[] | null;
+  revealDeclaredProtocol?: CardProtocol | null;
+  revealStartedAtMs?: number | null;
+  /**
+   * `modal`: the centre panel (lobby, summary, intermission) takes touch input and scrolls on
+   * small screens. `passive`: it only displays and the table stays draggable around it.
+   */
+  overlayMode?: 'modal' | 'passive';
 }
 
 function checkWebGLAvailable(): boolean {
@@ -146,6 +155,10 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   onDeployGroundWire,
   onTriggerDischarge,
   onDismissDischarge,
+  revealedCards = null,
+  revealDeclaredProtocol = null,
+  revealStartedAtMs = null,
+  overlayMode = 'passive',
 }) => {
   const { t } = useI18n();
   const [webGLSupported] = useState<boolean>(() => checkWebGLAvailable());
@@ -283,7 +296,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     <div
       data-testid="bunker-arena-stage"
       {...dragHandlers}
-      className="relative w-full h-full min-h-[100dvh] bg-black overflow-hidden select-none touch-none font-mono"
+      className="relative w-full h-full min-h-[100dvh] bg-black overflow-hidden select-none font-mono"
     >
       {/* Top In-Bounds Visor Bar */}
       <div className="absolute top-3 left-3 right-3 z-30 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
@@ -309,7 +322,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
 
       {/* Fullscreen WebGL 3D First-Person POV Scene */}
       {webGLSupported ? (
-        <div className="absolute inset-0 w-full h-full">
+        <div className="absolute inset-0 w-full h-full touch-none">
           <Canvas frameloop={frameloop} shadows dpr={[1, 1.5]} camera={{ position: [0, 1.94, 3.15], fov: 50 }}>
             <color attach="background" args={['#040406']} />
             <fog attach="fog" args={['#040406', 5.2, 12.5]} />
@@ -356,6 +369,9 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               shockTargetPos={shockTargetInfo.pos}
               isOverloadedShock={shockTargetInfo.isOverloaded}
               testedRiskLevel={dischargeCinematic?.event.riskLevel ?? 1}
+              revealedCards={revealedCards}
+              revealDeclaredProtocol={revealDeclaredProtocol}
+              revealStartedAtMs={revealStartedAtMs}
             />
 
             {dischargeCinematic && badgeTexture && badgePosition && (
@@ -464,13 +480,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       />
       <HotkeyCheatSheet open={hotkeys.helpOpen} onClose={hotkeys.closeHelp} />
 
-      {dischargeCinematic && (
-        <DiceRoll
-          key={dischargeCinematic.startedAtMs}
-          roll={dischargeCinematic.event.roll}
-          overloaded={dischargeCinematic.event.overloaded}
-        />
-      )}
+      {roomState === 'TurnActive' && <TurnUrgencyCountdown isMyTurn={isMyTurn && !isEliminated} />}
 
       {isVoltageTestActive && (
         <VoltageControls
@@ -498,11 +508,24 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       </div>
 
       {/* Center Stage Overlay Slot (Lobby Roster / Bluff Reveal / GameOver) */}
-      {children && (
-        <div className="relative z-20 flex items-center justify-center p-4 min-h-[100dvh] pointer-events-none">
-          <div className="pointer-events-auto w-full max-w-2xl">{children}</div>
-        </div>
-      )}
+      {children &&
+        (overlayMode === 'modal' ? (
+          // Own scroll container: on phones the lobby is taller than the screen, and touches
+          // here must scroll the panel instead of rotating the camera underneath.
+          <div
+            data-testid="arena-overlay-modal"
+            data-no-camera-drag
+            className="absolute inset-0 z-20 overflow-y-auto overscroll-contain touch-pan-y"
+          >
+            <div className="flex min-h-full items-center justify-center px-4 pt-24 pb-8 sm:p-4 sm:pt-20">
+              <div className="w-full max-w-2xl">{children}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="relative z-20 flex items-center justify-center p-4 min-h-[100dvh] pointer-events-none">
+            <div className="pointer-events-auto w-full max-w-2xl">{children}</div>
+          </div>
+        ))}
     </div>
   );
 };

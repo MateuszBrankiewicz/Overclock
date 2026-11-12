@@ -143,10 +143,16 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
 
       <div className="mt-4 pt-3 border-t border-zinc-800/80 w-full flex flex-col items-center gap-2">
         {!isDischargeCinematicActive ? (
-          <div className="flex items-center gap-2 text-xs font-bold text-cyan-300 animate-pulse">
-            <span>⚡ {t.intermission.nextCycleAuto}</span>
-            <span className="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-400 font-black text-white text-sm">
-              {countdown}s
+          <div
+            data-testid="intermission-countdown"
+            className="flex flex-col items-center gap-1 text-cyan-300"
+          >
+            <span className="text-xs font-bold tracking-widest">⚡ {t.intermission.nextCycleAuto}</span>
+            <span
+              key={countdown}
+              className="text-5xl sm:text-6xl font-black text-white tabular-nums drop-shadow-[0_0_18px_rgba(34,211,238,0.9)] animate-pulse"
+            >
+              {countdown}
             </span>
           </div>
         ) : (

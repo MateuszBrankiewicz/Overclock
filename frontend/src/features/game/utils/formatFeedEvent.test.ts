@@ -72,6 +72,9 @@ describe('formatFeedEvent', () => {
       text: 'Round 2 started',
       tone: 'info',
     });
+    expect(
+      formatFeedEvent({ kind: 'RoundStarted', event: { roomCode: 'R', roundNumber: 3, leadProtocol: 'Beta' } }, ctx())
+    ).toEqual({ text: 'Round 3 started — protocol BETA', tone: 'info' });
   });
 
   it('shows the local player as You / Ty', () => {

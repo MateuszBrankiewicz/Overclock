@@ -6,6 +6,7 @@ import { getCharacterById } from '../../../utils/characterCatalog';
 import { ActionStrip } from './ActionStrip';
 import { TimerBar } from './TimerBar';
 import { ActiveTurnLabel, YourTurnBannerView } from './TurnStatusHud';
+import { TurnUrgencyCountdownView } from './TurnUrgencyCountdown';
 import { createExploitPickerController } from './useExploitPicker';
 
 describe('TimerBar', () => {
@@ -120,5 +121,22 @@ describe('EMP Flare protocol picker flow (ADR 0009)', () => {
     expect(html).toContain('ALPHA');
     expect(html).toContain('BETA');
     expect(html).toContain('GAMMA');
+  });
+});
+
+describe('turn urgency countdown', () => {
+  const base = { secondsLeft: 3, fraction: 0.2, isCritical: true, isActive: true };
+
+  it('shows the big countdown in the last seconds of a turn', () => {
+    const html = renderToString(<TurnUrgencyCountdownView countdown={base} isMyTurn />);
+    expect(html).toContain('turn-urgency-countdown');
+    expect(html).toContain('>3<');
+  });
+
+  it('stays hidden before the critical window', () => {
+    const html = renderToString(
+      <TurnUrgencyCountdownView countdown={{ ...base, secondsLeft: 9, isCritical: false }} isMyTurn />
+    );
+    expect(html).toBe('');
   });
 });

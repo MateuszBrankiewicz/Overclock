@@ -3,6 +3,7 @@ import React from 'react';
 import { useI18n } from '../../../../../shared/i18n';
 import type { RoomState } from '../../../schemas/gameEvents';
 import { useGameStore } from '../../../stores/useGameStore';
+import { TURN_DURATION_SECONDS } from '../../../utils/cinematicTiming';
 import { TimerHud } from './TimerBar';
 
 export interface PhaseTimersProps {
@@ -21,7 +22,7 @@ export const PhaseTimers: React.FC<PhaseTimersProps> = ({ roomState }) => {
         testId="turn-timer"
         label={t.hud.turnTimer}
         deadlineUtc={turnDeadlineUtc}
-        fullSeconds={15}
+        fullSeconds={TURN_DURATION_SECONDS}
       />
     );
   }

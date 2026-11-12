@@ -26,7 +26,12 @@ vi.mock('../../../shared/realtime/gameConnection', async (importOriginal) => {
   };
 });
 
-import { getSharedConnection, resetSessionHookForTests, resumeSavedSession } from './useDebugTerminal';
+import {
+  getSharedConnection,
+  isSnapshotForCurrentRoom,
+  resetSessionHookForTests,
+  resumeSavedSession,
+} from './useDebugTerminal';
 
 const SESSION = { roomId: 'CYBER-1', sessionToken: '123e4567-e89b-12d3-a456-426614174000' };
 const ID = '123e4567-e89b-12d3-a456-426614174001';
@@ -91,5 +96,13 @@ describe('session hook connection logic', () => {
     const ok = await resumeSavedSession(getSharedConnection(), { resetOnFailure: true });
     expect(ok).toBe(false);
     expect(invokeHubMethod).not.toHaveBeenCalled();
+  });
+});
+
+describe('isSnapshotForCurrentRoom', () => {
+  it('drops snapshots after the player left or for another room', () => {
+    expect(isSnapshotForCurrentRoom(null, 'CYBER-1')).toBe(false);
+    expect(isSnapshotForCurrentRoom('CYBER-2', 'CYBER-1')).toBe(false);
+    expect(isSnapshotForCurrentRoom('CYBER-1', 'CYBER-1')).toBe(true);
   });
 });

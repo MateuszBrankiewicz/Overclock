@@ -65,6 +65,11 @@ export function recordGameEvent(source: FeedSource): void {
   }
 }
 
+/** Broadcast snapshots are only accepted for the room this client is currently seated in. */
+export function isSnapshotForCurrentRoom(currentRoomCode: string | null, snapshotRoomCode: string): boolean {
+  return currentRoomCode !== null && currentRoomCode === snapshotRoomCode;
+}
+
 function reportError(message: string): void {
   useUiStore.getState().pushToast({ kind: 'error', message });
 }
@@ -178,6 +183,12 @@ export function useGameSession() {
 
     const unsubs = [
       conn.on('ReceiveGameState', RoomStateSnapshotSchema, (snapshot) => {
+        // Joining always goes through CreateRoom/JoinRoom/Reconnect, which apply their own
+        // snapshot. A broadcast for any other room (e.g. one we just left) must not pull us back.
+        if (!isSnapshotForCurrentRoom(useGameStore.getState().roomCode, snapshot.roomCode)) {
+          logMessage(`Ignored ReceiveGameState for room ${snapshot.roomCode}`);
+          return;
+        }
         useActionQueue.getState().enqueueAction(
           'ReceiveGameState',
           snapshot,

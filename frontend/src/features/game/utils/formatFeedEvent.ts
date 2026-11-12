@@ -65,6 +65,9 @@ export function formatFeedEvent(source: FeedSource, ctx: FeedContext): Omit<Feed
       return { text: t.eliminated(name(e.playerId), e.placement), tone: 'danger' };
     }
     case 'RoundStarted':
-      return { text: t.roundStarted(source.event.roundNumber), tone: 'info' };
+      return {
+        text: t.roundStarted(source.event.roundNumber, source.event.leadProtocol?.toUpperCase()),
+        tone: 'info',
+      };
   }
 }

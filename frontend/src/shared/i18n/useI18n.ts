@@ -197,6 +197,10 @@ export interface Translations {
     cameraTable: string;
     cameraRivals: string;
     secondsShort: string;
+    hurryUp: string;
+    roundIntroTitle: (round: number) => string;
+    roundIntroProtocol: string;
+    roundIntroHint: string;
   };
   controls: {
     hotkeysTitle: string;
@@ -212,7 +216,6 @@ export interface Translations {
     legendMatch: string;
     legendWild: string;
     legendBluff: string;
-    diceRolling: string;
   };
   rules: {
     modalTitle: string;
@@ -267,7 +270,7 @@ export interface Translations {
     survived: (who: string, roll: number) => string;
     overloaded: (who: string, roll: number) => string;
     eliminated: (who: string, placement: number) => string;
-    roundStarted: (round: number) => string;
+    roundStarted: (round: number, protocol?: string) => string;
   };
 }
 
@@ -470,6 +473,10 @@ export const translations: Record<Language, Translations> = {
       cameraTable: 'STÓŁ',
       cameraRivals: 'RYWALE',
       secondsShort: 's',
+      hurryUp: 'KOŃCZY SIĘ CZAS',
+      roundIntroTitle: (round) => `RUNDA ${round}`,
+      roundIntroProtocol: 'PROTOKÓŁ',
+      roundIntroHint: 'Zagrywaj karty tego protokołu — albo blefuj.',
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -485,7 +492,6 @@ export const translations: Record<Language, Translations> = {
       legendMatch: 'zgodna',
       legendWild: 'dzika',
       legendBluff: 'blef',
-      diceRolling: 'Rzut kością D6',
     },
     rules: {
       modalTitle: 'ZASADY GRY // DEAD CIRCUIT',
@@ -540,7 +546,8 @@ export const translations: Record<Language, Translations> = {
       survived: (who, roll) => `${who} przeżywa wyładowanie (rzut ${roll})`,
       overloaded: (who, roll) => `${who} przeciążony! (rzut ${roll})`,
       eliminated: (who, placement) => `${who} wyeliminowany — #${placement}`,
-      roundStarted: (round) => `Runda ${round} rozpoczęta`,
+      roundStarted: (round, protocol) =>
+        protocol ? `Runda ${round} rozpoczęta — protokół ${protocol}` : `Runda ${round} rozpoczęta`,
     },
   },
   en: {
@@ -741,6 +748,10 @@ export const translations: Record<Language, Translations> = {
       cameraTable: 'TABLE',
       cameraRivals: 'RIVALS',
       secondsShort: 's',
+      hurryUp: 'TIME IS RUNNING OUT',
+      roundIntroTitle: (round) => `ROUND ${round}`,
+      roundIntroProtocol: 'PROTOCOL',
+      roundIntroHint: 'Play cards of this protocol — or bluff.',
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',
@@ -756,7 +767,6 @@ export const translations: Record<Language, Translations> = {
       legendMatch: 'match',
       legendWild: 'wild',
       legendBluff: 'bluff',
-      diceRolling: 'Rolling the D6',
     },
     rules: {
       modalTitle: 'OPERATIONAL MANUAL // DEAD CIRCUIT',
@@ -811,7 +821,8 @@ export const translations: Record<Language, Translations> = {
       survived: (who, roll) => `${who} survived the discharge (roll ${roll})`,
       overloaded: (who, roll) => `${who} overloaded! (roll ${roll})`,
       eliminated: (who, placement) => `${who} eliminated — #${placement}`,
-      roundStarted: (round) => `Round ${round} started`,
+      roundStarted: (round, protocol) =>
+        protocol ? `Round ${round} started — protocol ${protocol}` : `Round ${round} started`,
     },
   },
 };

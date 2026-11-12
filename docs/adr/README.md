@@ -31,3 +31,4 @@ We follow the [Michael Nygard / MADR](https://adr.github.io/madr/) format to cap
 | [0012](0012-synchronised-character-selection-via-playerseat-characterid.md) | [Synchronised Character Selection via PlayerSeat CharacterId](0012-synchronised-character-selection-via-playerseat-characterid.md) | **Accepted** | 2026-11-12 |
 | [0013](0013-server-driven-round-advance-and-host-re-assignment-on-disconnect.md) | [Server-Driven Round Advance and Host Re-Assignment on Disconnect](0013-server-driven-round-advance-and-host-re-assignment-on-disconnect.md) | **Accepted** | 2026-11-12 |
 | [0014](0014-game-audio-engine-on-the-web-audio-api.md) | [Game Audio Engine on the Web Audio API](0014-game-audio-engine-on-the-web-audio-api.md) | **Accepted** | 2026-11-12 |
+| [0015](0015-authoritative-turn-deadline-in-room-snapshots.md) | [Authoritative turn deadline in room snapshots](0015-authoritative-turn-deadline-in-room-snapshots.md) | **Accepted** | 2026-11-12 |
