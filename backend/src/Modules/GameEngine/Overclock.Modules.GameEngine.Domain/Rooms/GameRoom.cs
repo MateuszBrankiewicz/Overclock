@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using Overclock.Modules.GameEngine.Domain.Cards;
+using Overclock.Modules.GameEngine.Domain.Characters;
 using Overclock.Modules.GameEngine.Domain.Exploits;
 using Overclock.Modules.GameEngine.Domain.Services;
 using Overclock.Modules.GameEngine.Domain.Voltage;
@@ -61,7 +62,8 @@ public sealed class GameRoom
         PlayerId hostId,
         string hostNickname,
         string connectionId,
-        Guid sessionToken)
+        Guid sessionToken,
+        string? preferredCharacterId = null)
     {
         if (string.IsNullOrWhiteSpace(id.Value))
         {
@@ -73,7 +75,11 @@ public sealed class GameRoom
             return Result<GameRoom>.Invalid(new ValidationError("Room.InvalidNickname", "Host nickname cannot be empty."));
         }
 
-        var hostSeat = new PlayerSeat(hostId, hostNickname, connectionId, sessionToken);
+        var characterId = CharacterCatalog.IsValid(preferredCharacterId)
+            ? preferredCharacterId!
+            : CharacterCatalog.DefaultId;
+
+        var hostSeat = new PlayerSeat(hostId, hostNickname, connectionId, sessionToken, characterId);
         var room = new GameRoom(id, hostId, hostSeat);
         return Result<GameRoom>.Success(room);
     }
@@ -82,7 +88,8 @@ public sealed class GameRoom
         PlayerId playerId,
         string nickname,
         string connectionId,
-        Guid sessionToken)
+        Guid sessionToken,
+        string? preferredCharacterId = null)
     {
         if (State != RoomState.Lobby)
         {
@@ -117,7 +124,8 @@ public sealed class GameRoom
                 "Player nickname cannot be empty."));
         }
 
-        var seat = new PlayerSeat(playerId, nickname, connectionId, sessionToken);
+        var characterId = ResolveAvailableCharacterId(preferredCharacterId);
+        var seat = new PlayerSeat(playerId, nickname, connectionId, sessionToken, characterId);
         if (_seats.Count == 0)
         {
             HostId = playerId;
@@ -125,6 +133,50 @@ public sealed class GameRoom
 
         _seats.Add(seat);
         return Result<PlayerSeat>.Success(seat);
+    }
+
+    private string ResolveAvailableCharacterId(string? preferredCharacterId)
+    {
+        if (CharacterCatalog.IsValid(preferredCharacterId) &&
+            !_seats.Any(s => !s.HasLeft && s.CharacterId == preferredCharacterId))
+        {
+            return preferredCharacterId!;
+        }
+
+        return CharacterCatalog.All.FirstOrDefault(id => !_seats.Any(s => !s.HasLeft && s.CharacterId == id))
+            ?? CharacterCatalog.DefaultId;
+    }
+
+    public Result SelectCharacter(PlayerId playerId, string characterId)
+    {
+        if (State != RoomState.Lobby)
+        {
+            return Result.Conflict("Room.NotInLobby", "Characters can only be selected in the lobby.");
+        }
+
+        if (!CharacterCatalog.IsValid(characterId))
+        {
+            return Result.Invalid(new ValidationError("Room.InvalidCharacter", $"Character '{characterId}' is not valid."));
+        }
+
+        var seat = _seats.Find(s => s.Id == playerId);
+        if (seat is null)
+        {
+            return Result.NotFound("Room.PlayerNotFound", $"Player with ID '{playerId}' is not in this room.");
+        }
+
+        if (seat.CharacterId == characterId)
+        {
+            return Result.Success();
+        }
+
+        if (_seats.Any(s => s.Id != playerId && !s.HasLeft && s.CharacterId == characterId))
+        {
+            return Result.Conflict("Room.CharacterTaken", $"Character '{characterId}' is already taken by another player.");
+        }
+
+        seat.AssignCharacter(characterId);
+        return Result.Success();
     }
 
     public Result RemovePlayer(PlayerId playerId)

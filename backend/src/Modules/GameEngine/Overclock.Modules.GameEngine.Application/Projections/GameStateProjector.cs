@@ -42,6 +42,7 @@ public sealed class GameStateProjector : IGameStateProjector
                 s.Status.ToString(),
                 s.IsReady,
                 s.Hand.Count,
+                s.CharacterId,
                 s.Risk.Level,
                 s.Exploit is not null ? new ExploitDto(s.Exploit.Type.ToString(), s.Exploit.IsBurned) : null))
             .ToList();

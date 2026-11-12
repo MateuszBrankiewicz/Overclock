@@ -59,9 +59,7 @@ export const OperatingTable: React.FC = () => {
   const clearAwaitingDischarge = useGameStore((s) => s.clearAwaitingDischarge);
   const sniffedCard = useGameStore((s) => s.sniffedCard);
   const selectedCharacterId = useGameStore((s) => s.selectedCharacterId);
-  const characterByPlayerId = useGameStore((s) => s.characterByPlayerId);
   const cameraFocus = useGameStore((s) => s.cameraFocus);
-  const setSelectedCharacter = useGameStore((s) => s.setSelectedCharacter);
   const setCameraFocus = useGameStore((s) => s.setCameraFocus);
 
   // Presentation order after a trace: card reveal -> discharge on the operator -> next-round countdown.
@@ -150,7 +148,6 @@ export const OperatingTable: React.FC = () => {
         activePlayerId={activePlayerId}
         pendingDischargePlayerId={pendingDischargePlayerId}
         selectedCharacterId={selectedCharacterId}
-        characterByPlayerId={characterByPlayerId}
         tablePileCount={tablePileCount}
         currentTargetProtocol={currentTargetProtocol}
         roomState={phase === 'reveal' ? 'BluffCheck' : roomState}
@@ -212,8 +209,7 @@ export const OperatingTable: React.FC = () => {
             roomCode={roomCode}
             isHost={isHost}
             selectedCharacterId={selectedCharacterId}
-            characterByPlayerId={characterByPlayerId}
-            onSelectCharacter={setSelectedCharacter}
+            onSelectCharacter={(id) => void session.selectCharacter(id)}
             onSetReady={(ready) => void session.setReady(ready)}
             onStartRound={() => void session.startRound()}
           />

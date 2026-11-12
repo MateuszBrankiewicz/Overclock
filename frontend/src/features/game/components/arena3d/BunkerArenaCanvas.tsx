@@ -14,8 +14,7 @@ import type {
 import type { ArenaCameraFocus, DischargeCinematic } from '../../stores/types';
 import { useGameStore } from '../../stores/useGameStore';
 import { useRulesModalStore } from '../../stores/useRulesModalStore';
-import type { CharacterId } from '../../utils/characterCatalog';
-import { getCharacterById, resolveSeatCharacter } from '../../utils/characterCatalog';
+import { type CharacterId, resolveSeatCharacter } from '../../utils/characterCatalog';
 import { ArenaFallback } from './ArenaFallback';
 import { CameraController } from './CameraController';
 import { createDischargeBadgeTexture } from './dischargeBadgeTexture';
@@ -45,7 +44,6 @@ export interface BunkerArenaCanvasProps {
   activePlayerId: string | null;
   pendingDischargePlayerId: string | null;
   selectedCharacterId: CharacterId;
-  characterByPlayerId: Record<string, CharacterId>;
   tablePileCount: number;
   currentTargetProtocol: CardProtocol | null;
   roomState: RoomState | null;
@@ -129,7 +127,6 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   activePlayerId,
   pendingDischargePlayerId,
   selectedCharacterId,
-  characterByPlayerId,
   tablePileCount,
   currentTargetProtocol,
   roomState,
@@ -187,10 +184,10 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   );
   const exploitPicker = useExploitPicker(onActivateExploit);
 
-  const myCharacter = useMemo(
-    () => getCharacterById(selectedCharacterId),
-    [selectedCharacterId]
-  );
+  const myCharacter = useMemo(() => {
+    const mySeat = players.find((p) => p.playerId === myPlayerId);
+    return resolveSeatCharacter(mySeat?.characterId ?? selectedCharacterId);
+  }, [players, myPlayerId, selectedCharacterId]);
 
   const opponents = useMemo(
     () => players.filter((p) => p.playerId !== myPlayerId),
@@ -407,13 +404,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
 
             {opponents.map((opp, idx) => {
               const layout = seatLayouts[idx] ?? { position: [0, 0, -2.4], rotationY: 0 };
-              const charProfile = resolveSeatCharacter(
-                opp.playerId,
-                myPlayerId,
-                selectedCharacterId,
-                idx + 1,
-                characterByPlayerId
-              );
+              const charProfile = resolveSeatCharacter(opp.characterId);
               const isTargetOfCinematic =
                 dischargeCinematic?.event.playerId === opp.playerId;
               const isBeingShocked =
@@ -465,7 +456,6 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
           myPlayerId={myPlayerId}
           myCharacter={myCharacter}
           selectedCharacterId={selectedCharacterId}
-          characterByPlayerId={characterByPlayerId}
           tablePileCount={tablePileCount}
           currentTargetProtocol={currentTargetProtocol}
           lastPlayedCards={lastPlayedCards}

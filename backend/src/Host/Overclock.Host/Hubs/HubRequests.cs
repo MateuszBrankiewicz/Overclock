@@ -2,11 +2,13 @@ using Overclock.Modules.GameEngine.Domain.Cards;
 
 namespace Overclock.Host.Hubs;
 
-public sealed record CreateRoomRequest(string HostNickname, string? RoomCode = null);
+public sealed record CreateRoomRequest(string HostNickname, string? RoomCode = null, string? PreferredCharacterId = null);
 
-public sealed record JoinRoomRequest(string RoomCode, string Nickname);
+public sealed record JoinRoomRequest(string RoomCode, string Nickname, string? PreferredCharacterId = null);
 
 public sealed record SetReadyRequest(string RoomCode, bool IsReady);
+
+public sealed record SelectCharacterRequest(string RoomCode, string CharacterId);
 
 public sealed record StartRoundRequest(string RoomCode);
 

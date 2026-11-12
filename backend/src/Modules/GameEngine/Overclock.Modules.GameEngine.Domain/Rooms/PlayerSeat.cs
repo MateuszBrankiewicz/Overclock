@@ -1,5 +1,6 @@
 using Ardalis.Result;
 using Overclock.Modules.GameEngine.Domain.Cards;
+using Overclock.Modules.GameEngine.Domain.Characters;
 using Overclock.Modules.GameEngine.Domain.Exploits;
 using Overclock.Modules.GameEngine.Domain.Voltage;
 
@@ -13,6 +14,7 @@ public sealed class PlayerSeat
     public string Nickname { get; }
     public string? ConnectionId { get; private set; }
     public Guid SessionToken { get; }
+    public string CharacterId { get; private set; }
     public IReadOnlyList<Card> Hand => _hand;
     public PlayerStatus Status { get; private set; }
     public bool HasLeft { get; private set; }
@@ -26,6 +28,7 @@ public sealed class PlayerSeat
         string nickname,
         string? connectionId,
         Guid sessionToken,
+        string characterId = CharacterCatalog.DefaultId,
         PlayerStatus status = PlayerStatus.Active,
         bool isReady = false,
         CapacitorRisk? risk = null,
@@ -35,10 +38,16 @@ public sealed class PlayerSeat
         Nickname = nickname;
         ConnectionId = connectionId;
         SessionToken = sessionToken;
+        CharacterId = characterId;
         Status = status;
         IsReady = isReady;
         Risk = risk ?? CapacitorRisk.Initial;
         Exploit = exploit;
+    }
+
+    internal void AssignCharacter(string characterId)
+    {
+        CharacterId = characterId;
     }
 
     internal void AssignExploit(ExploitModule exploit)

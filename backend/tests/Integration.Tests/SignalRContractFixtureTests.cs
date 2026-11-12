@@ -85,8 +85,8 @@ public class SignalRContractFixtureTests
             DecisionDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 5, DateTimeKind.Utc),
             SequenceNumber: 1);
 
-        var playerSeat1 = new PlayerSeatDto(player1Id, "AliceHost", "Active", true, 5, RiskLevel: 1, Exploit: new ExploitDto("PacketSniffer", false));
-        var playerSeat2 = new PlayerSeatDto(player2Id, "BobGuest", "Active", true, 5, RiskLevel: 2, Exploit: new ExploitDto("GroundWire", false));
+        var playerSeat1 = new PlayerSeatDto(player1Id, "AliceHost", "Active", true, 5, CharacterId: "ghost", RiskLevel: 1, Exploit: new ExploitDto("PacketSniffer", false));
+        var playerSeat2 = new PlayerSeatDto(player2Id, "BobGuest", "Active", true, 5, CharacterId: "volt", RiskLevel: 2, Exploit: new ExploitDto("GroundWire", false));
 
         var traceResolution = new TraceResolutionDto(
             AccuserPlayerId: player1Id,
@@ -147,6 +147,7 @@ public class SignalRContractFixtureTests
         var activateExploitContract = new ActivateExploitContractDto("CYBER-7X9", player1Id, "PacketSniffer", null);
         var triggerDischargeContract = new TriggerDischargeContractDto("CYBER-7X9", player2Id);
         var leaveRoomContract = new LeaveRoomContractDto("CYBER-7X9", player1Id);
+        var selectCharacterContract = new SelectCharacterContractDto("CYBER-7X9", player1Id, "volt");
 
         await AssertFixtureAsync(fixtureDir, "TraceCalled.json", traceCalled);
         await AssertFixtureAsync(fixtureDir, "CapacitorDischarged.json", capacitorDischarged);
@@ -167,6 +168,8 @@ public class SignalRContractFixtureTests
         await AssertFixtureAsync(fixtureDir, "ActivateExploitContract.json", activateExploitContract);
         await AssertFixtureAsync(fixtureDir, "TriggerDischargeContract.json", triggerDischargeContract);
         await AssertFixtureAsync(fixtureDir, "LeaveRoomContract.json", leaveRoomContract);
+        await AssertFixtureAsync(fixtureDir, "SelectCharacterContract.json", selectCharacterContract);
+        await AssertFixtureAsync(fixtureDir, "CharacterCatalog.json", Overclock.Modules.GameEngine.Domain.Characters.CharacterCatalog.All);
     }
 
     private static async Task AssertFixtureAsync(string fixtureDir, string filename, object dto)

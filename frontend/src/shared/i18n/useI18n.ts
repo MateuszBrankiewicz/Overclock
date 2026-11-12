@@ -60,6 +60,7 @@ export interface Translations {
     leaveTable: string;
     characterPickerTitle: string;
     characterActive: string;
+    characterTaken: string;
     avatarReady: string;
     leaveConfirm: string;
     leaveYes: string;
@@ -323,6 +324,7 @@ export const translations: Record<Language, Translations> = {
       leaveTable: 'Opuść stół',
       characterPickerTitle: 'WYBIERZ POSTAĆ OPERATORA (CYBER-RIG 3D):',
       characterActive: 'WYBRANY',
+      characterTaken: 'ZAJĘTY',
       avatarReady: 'AWATAR 3D GOTOWY',
       leaveConfirm: 'Opuścić stół?',
       leaveYes: 'Tak',
@@ -586,6 +588,7 @@ export const translations: Record<Language, Translations> = {
       leaveTable: 'Leave table',
       characterPickerTitle: 'SELECT 3D OPERATOR RIG:',
       characterActive: 'ACTIVE',
+      characterTaken: 'TAKEN',
       avatarReady: '3D AVATAR READY',
       leaveConfirm: 'Leave table?',
       leaveYes: 'Yes',

@@ -100,31 +100,17 @@ export const CHARACTER_CATALOG: readonly CharacterProfile[] = [
   },
 ] as const;
 
-export function getCharacterById(id: CharacterId): CharacterProfile {
+export function isCharacterId(id: string | null | undefined): id is CharacterId {
+  return typeof id === 'string' && CHARACTER_CATALOG.some((c) => c.id === id);
+}
+
+export function getCharacterById(id: string | null | undefined): CharacterProfile {
   return CHARACTER_CATALOG.find((c) => c.id === id) ?? CHARACTER_CATALOG[0];
 }
 
 export function resolveSeatCharacter(
-  seatPlayerId: string,
-  myPlayerId: string | null,
-  selectedCharacterId: CharacterId,
-  seatIndex = 0,
-  characterOverrides?: Record<string, CharacterId>
+  characterId: string | null | undefined,
+  fallbackId: CharacterId = 'ghost'
 ): CharacterProfile {
-  if (myPlayerId && seatPlayerId === myPlayerId) {
-    return getCharacterById(selectedCharacterId);
-  }
-
-  const override = characterOverrides?.[seatPlayerId];
-  if (override) {
-    return getCharacterById(override);
-  }
-
-  const otherCharacters = CHARACTER_CATALOG.filter((c) => c.id !== selectedCharacterId);
-  let hash = seatIndex * 17;
-  for (let i = 0; i < seatPlayerId.length; i++) {
-    hash = (hash * 31 + seatPlayerId.charCodeAt(i)) >>> 0;
-  }
-  const picked = otherCharacters[hash % otherCharacters.length] ?? CHARACTER_CATALOG[0];
-  return picked;
+  return getCharacterById(characterId ?? fallbackId);
 }
