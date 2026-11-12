@@ -141,6 +141,17 @@ export interface Translations {
     groundChipDesc: string;
     close: string;
   };
+  network: {
+    connecting: string;
+    reconnecting: string;
+    disconnected: string;
+    connectionError: string;
+    reconnectFailed: string;
+    sessionExpired: string;
+    contractViolation: string;
+    actionFailed: (action: string, detail: string) => string;
+    dismiss: string;
+  };
 }
 
 export const translations: Record<Language, Translations> = {
@@ -283,6 +294,17 @@ export const translations: Record<Language, Translations> = {
       groundChipDesc: 'SN74-GND // UZIEMIENIE: Aktywowane przed wyładowaniem kondensatora. Obniża poziom ryzyka awarii o 50% przed rzutem kością.',
       close: 'ZAMKNIJ PRZEWODNIK',
     },
+    network: {
+      connecting: 'Łączenie…',
+      reconnecting: 'Ponowne łączenie…',
+      disconnected: 'Rozłączono',
+      connectionError: 'Błąd połączenia z serwerem',
+      reconnectFailed: 'Nie udało się wrócić do pokoju. Dołącz ponownie.',
+      sessionExpired: 'Sesja wygasła. Wróć do lobby.',
+      contractViolation: 'Otrzymano nieprawidłowe dane z serwera',
+      actionFailed: (action, detail) => `Akcja nie powiodła się (${action}): ${detail}`,
+      dismiss: 'Zamknij',
+    },
   },
   en: {
     common: {
@@ -422,6 +444,17 @@ export const translations: Record<Language, Translations> = {
       overclockChipDesc: 'SN74-INJ // OVERCLOCK INJECTOR: Interrupt opponent active turn and collapse their timer to 5 seconds to induce panic.',
       groundChipDesc: 'SN74-GND // GROUND WIRE: Deployed before dielectric testing. Halves capacitor breakdown risk (-50%) before the D6 roll.',
       close: 'CLOSE MANUAL',
+    },
+    network: {
+      connecting: 'Connecting…',
+      reconnecting: 'Reconnecting…',
+      disconnected: 'Disconnected',
+      connectionError: 'Server connection error',
+      reconnectFailed: 'Could not rejoin the room. Please join again.',
+      sessionExpired: 'Session expired. Returning to lobby.',
+      contractViolation: 'Received invalid data from the server',
+      actionFailed: (action, detail) => `Action failed (${action}): ${detail}`,
+      dismiss: 'Dismiss',
     },
   },
 };

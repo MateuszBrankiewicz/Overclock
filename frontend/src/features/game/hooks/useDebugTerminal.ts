@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useI18n } from '../../../shared/i18n';
 import {
+  clearGameSession,
   createGameConnection,
   GameConnectionManager,
 } from '../../../shared/realtime/gameConnection';
@@ -22,13 +24,86 @@ import {
 } from '../schemas/gameEvents';
 import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
+import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
 
 let sharedConnection: GameConnectionManager | null = null;
+let startupResumeAttempted = false;
+let pendingStart: Promise<void> | null = null;
+
+/** Test helper: allows re-running the one-time startup session resume. */
+export function resetSessionHookForTests(): void {
+  sharedConnection = null;
+  startupResumeAttempted = false;
+  pendingStart = null;
+}
+
+function setConnectionStatus(status: ConnectionStatus): void {
+  useUiStore.getState().setConnectionStatus(status);
+}
+
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function reportError(message: string): void {
+  useUiStore.getState().pushToast({ kind: 'error', message });
+}
+
+/**
+ * Re-attaches the current connection to the saved room via the hub `Reconnect` method.
+ * Does not start the connection. Returns true when the room snapshot was applied.
+ */
+export async function resumeSavedSession(
+  conn: Pick<GameConnectionManager, 'getSession' | 'invokeHubMethod' | 'clearSession'>,
+  options: { resetOnFailure: boolean }
+): Promise<boolean> {
+  const session = conn.getSession();
+  if (!session) return false;
+  const net = useI18n.getState().t.network;
+  const abort = () => {
+    if (!options.resetOnFailure) return;
+    conn.clearSession();
+    useGameStore.getState().leaveRoom();
+  };
+  try {
+    const res = await conn.invokeHubMethod('Reconnect', PlayerGameStateSchema, {
+      roomCode: session.roomId,
+      sessionToken: session.sessionToken,
+    });
+    if (res.isSuccess && res.data) {
+      useGameStore.getState().applyRoomSnapshot(res.data);
+      return true;
+    }
+    reportError(net.actionFailed('Reconnect', res.error ?? res.errorCode ?? net.reconnectFailed));
+    abort();
+  } catch (err) {
+    reportError(net.actionFailed('Reconnect', errText(err)));
+    abort();
+  }
+  return false;
+}
+
+/** Lazily creates the app-wide SignalR connection wired to the UI store. */
+export function getSharedConnection(log: (msg: string) => void = () => undefined): GameConnectionManager {
+  if (sharedConnection) return sharedConnection;
+  const created: GameConnectionManager = createGameConnection({
+    onReconnecting: () => setConnectionStatus('Reconnecting'),
+    onReconnected: async () => {
+      setConnectionStatus('Connected');
+      await resumeSavedSession(created, { resetOnFailure: false });
+    },
+    onClosed: () => setConnectionStatus('Disconnected'),
+    onContractViolation: (eventName, error) => {
+      log(`Contract Violation in ${eventName}: ${error.message}`);
+      reportError(`${useI18n.getState().t.network.contractViolation} (${eventName})`);
+    },
+  });
+  sharedConnection = created;
+  return created;
+}
 
 export function useGameSession() {
-  const [connectionStatus, setConnectionStatus] = useState<string>(() =>
-    sharedConnection?.isConnected ? 'Connected' : 'Disconnected'
-  );
+  const connectionStatus = useUiStore((state) => state.connectionStatus);
   const [lastLog, setLastLog] = useState<string>('Terminal initialized');
 
   const roomCode = useGameStore((state) => state.roomCode);
@@ -45,7 +120,7 @@ export function useGameSession() {
   const applyExploitTriggered = useGameStore((state) => state.applyExploitTriggered);
   const applyPacketSniffed = useGameStore((state) => state.applyPacketSniffed);
   const applyVoltageTestStarted = useGameStore((state) => state.applyVoltageTestStarted);
-  const leaveRoom = useGameStore((state) => state.leaveRoom);
+  const leaveRoomLocal = useGameStore((state) => state.leaveRoom);
 
   const [customProtocol, setCustomProtocol] = useState<CardProtocol | null>(null);
   const selectedProtocol = customProtocol ?? currentTargetProtocol ?? 'Alpha';
@@ -59,19 +134,25 @@ export function useGameSession() {
     setLastLog(`[${timestamp}] ${msg}`);
   }, []);
 
-  useEffect(() => {
-    if (!sharedConnection) {
-      sharedConnection = createGameConnection({
-        onReconnecting: () => setConnectionStatus('Reconnecting'),
-        onReconnected: () => setConnectionStatus('Connected'),
-        onClosed: () => setConnectionStatus('Disconnected'),
-        onContractViolation: (eventName, error) => {
-          logMessage(`Contract Violation in ${eventName}: ${error.message}`);
-        },
-      });
-    }
+  const fail = useCallback(
+    (action: string, detail: string) => {
+      logMessage(`${action} failed: ${detail}`);
+      reportError(useI18n.getState().t.network.actionFailed(action, detail));
+    },
+    [logMessage]
+  );
 
-    const conn = sharedConnection;
+  const leaveRoom = useCallback(() => {
+    if (sharedConnection) {
+      sharedConnection.clearSession();
+    } else {
+      clearGameSession();
+    }
+    leaveRoomLocal();
+  }, [leaveRoomLocal]);
+
+  useEffect(() => {
+    const conn = getSharedConnection(logMessage);
 
     const unsubs = [
       conn.on('ReceiveGameState', RoomStateSnapshotSchema, (snapshot) => {
@@ -176,16 +257,27 @@ export function useGameSession() {
     ];
 
     if (!conn.isConnected) {
-      void conn
-        .start()
-        .then(() => {
+      setConnectionStatus('Connecting');
+      pendingStart ??= conn.start();
+      void pendingStart
+        .then(async () => {
+          pendingStart = null;
           setConnectionStatus('Connected');
           logMessage('Connected to SignalR GameHub');
+          if (!startupResumeAttempted) {
+            startupResumeAttempted = true;
+            const resumed = await resumeSavedSession(conn, { resetOnFailure: true });
+            if (resumed) logMessage('Session resumed after page load');
+          }
         })
         .catch((err: unknown) => {
+          pendingStart = null;
           setConnectionStatus('Error');
-          logMessage(`Failed to connect: ${err instanceof Error ? err.message : String(err)}`);
+          logMessage(`Failed to connect: ${errText(err)}`);
+          reportError(useI18n.getState().t.network.connectionError);
         });
+    } else {
+      startupResumeAttempted = true;
     }
 
     return () => {
@@ -231,10 +323,10 @@ export function useGameSession() {
         applyRoomSnapshot(res.data.gameState);
         logMessage(`Created room ${res.data.roomCode} as ${nickname}`);
       } else {
-        logMessage(`CreateRoom failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('CreateRoom', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`CreateRoom error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('CreateRoom', errText(err));
     }
   };
 
@@ -251,10 +343,10 @@ export function useGameSession() {
         applyRoomSnapshot(res.data.gameState);
         logMessage(`Joined room ${res.data.roomCode} as ${nickname}`);
       } else {
-        logMessage(`JoinRoom failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('JoinRoom', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`JoinRoom error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('JoinRoom', errText(err));
     }
   };
 
@@ -266,10 +358,10 @@ export function useGameSession() {
       if (res.isSuccess) {
         logMessage(`SetReady sent: isReady=${isReady ? 'true' : 'false'}`);
       } else {
-        logMessage(`SetReady failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('SetReady', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`SetReady error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('SetReady', errText(err));
     }
   };
 
@@ -281,10 +373,10 @@ export function useGameSession() {
       if (res.isSuccess) {
         logMessage('StartRound sent');
       } else {
-        logMessage(`StartRound failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('StartRound', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`StartRound error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('StartRound', errText(err));
     }
   };
 
@@ -306,10 +398,10 @@ export function useGameSession() {
         useGameStore.getState().clearSelection();
         logMessage(`PlayCards success: played ${cards.length} card(s) face-down as '${targetProtocol}'`);
       } else {
-        logMessage(`PlayCards failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('PlayCards', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`PlayCards error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('PlayCards', errText(err));
     }
   };
 
@@ -323,10 +415,10 @@ export function useGameSession() {
         applyTraceResolution(res.data);
         logMessage(`CallTrace sent: BluffDetected=${res.data.bluffDetected ? 'true' : 'false'}`);
       } else {
-        logMessage(`CallTrace failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('CallTrace', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`CallTrace error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('CallTrace', errText(err));
     }
   };
 
@@ -339,27 +431,19 @@ export function useGameSession() {
 
   const reconnect = async () => {
     if (!sharedConnection) return;
-    const session = sharedConnection.getSession();
-    if (!session) {
+    if (!sharedConnection.getSession()) {
       logMessage('No active session saved in sessionStorage to reconnect');
       return;
     }
     try {
       await sharedConnection.start();
       setConnectionStatus('Connected');
-      const res = await sharedConnection.invokeHubMethod('Reconnect', PlayerGameStateSchema, {
-        roomCode: session.roomId,
-        sessionToken: session.sessionToken,
-      });
-      if (res.isSuccess && res.data) {
-        applyRoomSnapshot(res.data);
-        logMessage(`Reconnected successfully to room ${res.data.roomCode}`);
-      } else {
-        logMessage(`Reconnect failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
-      }
     } catch (err) {
-      logMessage(`Reconnect error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('Reconnect', errText(err));
+      return;
     }
+    const resumed = await resumeSavedSession(sharedConnection, { resetOnFailure: false });
+    if (resumed) logMessage('Reconnected successfully');
   };
 
   const activateExploit = async (exploit: string, newTargetProtocol?: string) => {
@@ -375,10 +459,10 @@ export function useGameSession() {
       if (res.isSuccess) {
         logMessage(`ActivateExploit success: ${exploit}`);
       } else {
-        logMessage(`ActivateExploit failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('ActivateExploit', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`ActivateExploit error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('ActivateExploit', errText(err));
     }
   };
 
@@ -393,10 +477,10 @@ export function useGameSession() {
       if (res.isSuccess) {
         logMessage('TriggerDischarge success: capacitor discharged');
       } else {
-        logMessage(`TriggerDischarge failed: ${res.error ?? res.errorCode ?? 'Unknown error'}`);
+        fail('TriggerDischarge', res.error ?? res.errorCode ?? 'Unknown error');
       }
     } catch (err) {
-      logMessage(`TriggerDischarge error: ${err instanceof Error ? err.message : String(err)}`);
+      fail('TriggerDischarge', errText(err));
     }
   };
 

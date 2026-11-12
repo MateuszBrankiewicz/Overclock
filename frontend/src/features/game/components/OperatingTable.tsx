@@ -8,6 +8,7 @@ import { useGameStore } from '../stores/useGameStore';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
 import { CardRevealSequence } from './CardRevealSequence';
 import { CharacterSelector } from './CharacterSelector';
+import { ConnectionStatusPill } from './ConnectionStatusPill';
 import { GameRulesModal } from './GameRulesModal';
 import { LobbyPlayerList } from './LobbyPlayerList';
 import { RoomCodeBadge } from './RoomCodeBadge';
@@ -243,6 +244,7 @@ export const OperatingTable: React.FC = () => {
         topBarSlot={
           <div className="flex flex-wrap items-center gap-2 bg-black/80 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl text-xs">
             <RoomCodeBadge roomCode={roomCode} />
+            <ConnectionStatusPill />
             {roomState === 'GameOver' && isHost && (
               <button
                 type="button"

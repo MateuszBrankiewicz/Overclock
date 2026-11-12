@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { DebugTerminal } from './features/game/components/DebugTerminal';
 import { GameRulesModal } from './features/game/components/GameRulesModal';
 import { OperatingTable } from './features/game/components/OperatingTable';
+import { ToastHost } from './features/game/components/ToastHost';
 import { useI18n } from './shared/i18n';
 
 const queryClient = new QueryClient();
@@ -17,6 +18,7 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="relative min-h-screen bg-zinc-950 text-emerald-400 font-mono flex flex-col p-4 sm:p-6 overflow-hidden">
+        <ToastHost />
         {/* CRT Scanline overlay */}
         <div className="absolute inset-0 scanlines pointer-events-none z-50" />
 
