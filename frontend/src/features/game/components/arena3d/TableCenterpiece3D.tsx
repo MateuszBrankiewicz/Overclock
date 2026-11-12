@@ -27,6 +27,8 @@ export interface TableCenterpiece3DProps {
   revealedCards?: PlayerCard[] | null;
   revealDeclaredProtocol?: CardProtocol | null;
   revealStartedAtMs?: number | null;
+  bluffDetected?: boolean;
+  revealLoserPos?: [number, number, number] | null;
 }
 
 const PROTOCOL_HEX: Record<string, string> = {
@@ -52,6 +54,8 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   revealedCards = null,
   revealDeclaredProtocol = null,
   revealStartedAtMs = null,
+  bluffDetected = false,
+  revealLoserPos = null,
 }) => {
   const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
@@ -344,6 +348,16 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
             />
           </mesh>
         </group>
+      )}
+
+      {/* Short 3D Lightning Bolt fired from Table Center towards loser during trace verdict */}
+      {isRevealing && revealLoserPos && (
+        <LightningArc3D
+          start={[0, 1.1, 0]}
+          end={revealLoserPos}
+          color={bluffDetected ? '#ef4444' : '#38bdf8'}
+          intensity={8}
+        />
       )}
 
       {/* 3D Crackling Lightning Bolt fired from Cylinder directly into Target Operator */}

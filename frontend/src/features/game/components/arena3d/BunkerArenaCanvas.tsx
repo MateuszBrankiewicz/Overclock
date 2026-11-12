@@ -77,6 +77,8 @@ export interface BunkerArenaCanvasProps {
   revealedCards?: PlayerCard[] | null;
   revealDeclaredProtocol?: CardProtocol | null;
   revealStartedAtMs?: number | null;
+  bluffDetected?: boolean;
+  revealLoserPlayerId?: string | null;
   /**
    * `modal`: the centre panel (lobby, summary, intermission) takes touch input and scrolls on
    * small screens. `passive`: it only displays and the table stays draggable around it.
@@ -158,6 +160,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   revealedCards = null,
   revealDeclaredProtocol = null,
   revealStartedAtMs = null,
+  bluffDetected = false,
+  revealLoserPlayerId = null,
   overlayMode = 'passive',
 }) => {
   const { t } = useI18n();
@@ -269,6 +273,19 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     return [0, 1.1, -2.4];
   }, [lastPlayedCards, myPlayerId, opponents, seatLayouts]);
 
+  const revealLoserPos = useMemo<[number, number, number] | null>(() => {
+    if (!revealLoserPlayerId) return null;
+    if (revealLoserPlayerId === myPlayerId) {
+      return [0, 1.35, 1.8];
+    }
+    const oppIdx = opponents.findIndex((o) => o.playerId === revealLoserPlayerId);
+    if (oppIdx >= 0 && seatLayouts[oppIdx]) {
+      const p = seatLayouts[oppIdx].position;
+      return [p[0], 1.35, p[2]];
+    }
+    return [0, 1.35, -2.4];
+  }, [revealLoserPlayerId, myPlayerId, opponents, seatLayouts]);
+
   const canTransmit = isMyTurn && !isEliminated && selectedCardIds.length > 0;
   const canTrace = isMyTurn && !isEliminated && tablePileCount > 0;
   const canUseChip = Boolean(canActivateExploit && exploit && !exploit.isBurned);
@@ -372,6 +389,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               revealedCards={revealedCards}
               revealDeclaredProtocol={revealDeclaredProtocol}
               revealStartedAtMs={revealStartedAtMs}
+              bluffDetected={bluffDetected}
+              revealLoserPos={revealLoserPos}
             />
 
             {dischargeCinematic && badgeTexture && badgePosition && (

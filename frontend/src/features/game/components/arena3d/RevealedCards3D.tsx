@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
 import React, { useMemo, useRef } from 'react';
-import type { Group } from 'three';
+import type { Group, MeshStandardMaterial } from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
 import type { CardProtocol, PlayerCard } from '../../schemas/gameEvents';
@@ -36,6 +36,7 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
 }) => {
   const { t } = useI18n();
   const groupRef = useRef<Group>(null);
+  const rimMaterialRef = useRef<MeshStandardMaterial>(null);
   const mark = classifyCard(card.protocol, declaredProtocol);
   const markColor = MARK_COLOR[mark];
   const frontTexture = useMemo(
@@ -60,6 +61,28 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
     // Face-down (front facing the table) -> lifted -> face-up.
     group.rotation.x = -Math.PI / 2 + Math.PI * (1 - ease);
     group.position.y = 0.82 + Math.sin(ease * Math.PI) * 0.25;
+
+    // Verdict highlighting after all cards are flipped
+    const allFlippedAt = startedAtMs + total * REVEAL_CARD_STAGGER_MS + FLIP_DURATION_MS;
+    const rim = rimMaterialRef.current;
+    if (rim) {
+      if (Date.now() >= allFlippedAt) {
+        if (reducedMotion) {
+          rim.emissiveIntensity = mark === 'bluff' ? 3.0 : mark === 'wild' ? 2.2 : 2.0;
+        } else {
+          const elapsed = (Date.now() - allFlippedAt) / 1000;
+          if (mark === 'bluff') {
+            rim.emissiveIntensity = 2.3 + 0.7 * Math.sin(elapsed * 8);
+          } else if (mark === 'wild') {
+            rim.emissiveIntensity = 1.8 + 0.4 * Math.sin(elapsed * 4);
+          } else {
+            rim.emissiveIntensity = 1.6 + 0.4 * Math.sin(elapsed * 4);
+          }
+        }
+      } else {
+        rim.emissiveIntensity = 1.6;
+      }
+    }
   });
 
   const x = (index - (total - 1) / 2) * CARD_SPACING;
@@ -69,7 +92,12 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
       {/* Mark-coloured rim, so match / wild / bluff reads at a glance from far seats. */}
       <mesh position={[0, 0, -0.002]}>
         <planeGeometry args={[0.46, 0.64]} />
-        <meshStandardMaterial color={markColor} emissive={markColor} emissiveIntensity={1.6} />
+        <meshStandardMaterial
+          ref={rimMaterialRef}
+          color={markColor}
+          emissive={markColor}
+          emissiveIntensity={1.6}
+        />
       </mesh>
       <mesh>
         <planeGeometry args={[0.42, 0.6]} />
