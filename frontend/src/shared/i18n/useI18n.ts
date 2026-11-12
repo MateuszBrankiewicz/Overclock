@@ -5,16 +5,17 @@ export type Language = 'pl' | 'en';
 export interface Translations {
   common: {
     appTitle: string;
-    operatingTable: string;
-    debugTerminal: string;
     gameRules: string;
     copied: string;
     copyCode: string;
-    copyLink: string;
     room: string;
-    netOnline: string;
-    netOffline: string;
     status: string;
+    close: string;
+    host: string;
+    you: string;
+    player: string;
+    opponent: string;
+    operator: string;
   };
   lobby: {
     title: string;
@@ -42,6 +43,43 @@ export interface Translations {
     youTag: string;
     readyYes: string;
     markReady: string;
+  };
+  home: {
+    heroTagline: string;
+    nicknameLabel: string;
+    nicknamePlaceholder: string;
+    createCta: string;
+    joinHeading: string;
+    joinCta: string;
+    characterHeading: string;
+    invite: string;
+    inviteShareTitle: string;
+    inviteShareText: string;
+    inviteCopied: string;
+    inviteFailed: string;
+    leaveTable: string;
+    characterPickerTitle: string;
+    characterActive: string;
+    avatarReady: string;
+    leaveConfirm: string;
+    leaveYes: string;
+    leaveNo: string;
+    waitingForHost: string;
+    hostGone: string;
+    footer: string;
+    debugToggle: string;
+    backToGame: string;
+  };
+  summary: {
+    title: string;
+    winnerLabel: string;
+    podiumTitle: string;
+    youTag: string;
+    roundsPlayed: string;
+    playersCount: string;
+    playAgain: string;
+    waitingForHost: string;
+    leave: string;
   };
   table: {
     targetProtocol: string;
@@ -72,6 +110,7 @@ export interface Translations {
     waitYourTurn: string;
     noCardsOnTable: string;
     confidential: string;
+    busEncrypted: string;
   };
   chips: {
     packetSniffer: string;
@@ -111,6 +150,72 @@ export interface Translations {
     nextCycleAuto: string;
     spectatorModeNotice: string;
     fallbackStart: string;
+    breakdownDesc: string;
+    dischargeResolving: string;
+  };
+  reveal: {
+    scanTitle: string;
+    declared: string;
+    bluffVerdict: string;
+    honestVerdict: string;
+    bluffDetail: (nickname: string) => string;
+    honestDetail: (nickname: string) => string;
+  };
+  arena: {
+    hologramProtocol: string;
+    hologramPile: string;
+    hologramYourTurn: string;
+    hologramTurnOf: string;
+    overloadTitle: string;
+    overloadSub: string;
+    visorBlackout: string;
+    visorTransmitting: string;
+    visorLocked: string;
+    visorHighVoltage: string;
+    visorSynthesis: string;
+    badgeOverload: string;
+    badgeStabilized: string;
+    badgeRoll: string;
+    badgeRisk: string;
+    badgeVerdictOverload: (roll: number, risk: number) => string;
+    badgeVerdictSurvived: (roll: number, risk: number, resulting: number) => string;
+    cardReady: string;
+    cardSelectHint: string;
+    cardBack: string;
+  };
+  hud: {
+    turnTimer: string;
+    dischargeTimer: string;
+    yourTurnBanner: string;
+    opponentTurnBanner: string;
+    empPickerTitle: string;
+    empPickerHint: string;
+    empPickerCurrent: string;
+    empPickerCancel: string;
+    chipLabel: string;
+    cameraPov: string;
+    cameraTable: string;
+    cameraRivals: string;
+    secondsShort: string;
+    hurryUp: string;
+    roundIntroTitle: (round: number) => string;
+    roundIntroProtocol: string;
+    roundIntroHint: string;
+  };
+  controls: {
+    hotkeysTitle: string;
+    hotkeysCards: string;
+    hotkeysTransmit: string;
+    hotkeysTrace: string;
+    hotkeysChip: string;
+    hotkeysClear: string;
+    hotkeysHelp: string;
+    hotkeysClose: string;
+    firstTurnHint: string;
+    firstTurnDismiss: string;
+    legendMatch: string;
+    legendWild: string;
+    legendBluff: string;
   };
   rules: {
     modalTitle: string;
@@ -140,6 +245,32 @@ export interface Translations {
     overclockChipDesc: string;
     groundChipDesc: string;
     close: string;
+    wildTag: string;
+    bluffOnlyTag: string;
+  };
+  network: {
+    connecting: string;
+    reconnecting: string;
+    disconnected: string;
+    connectionError: string;
+    reconnectFailed: string;
+    sessionExpired: string;
+    contractViolation: string;
+    actionFailed: (action: string, detail: string) => string;
+    dismiss: string;
+  };
+  feed: {
+    title: string;
+    you: string;
+    unknownPlayer: string;
+    exploits: Record<'PacketSniffer' | 'GroundWire' | 'OverclockInjector' | 'EmpFlare', string>;
+    played: (who: string, count: number, protocol: string) => string;
+    traceCalled: (who: string) => string;
+    exploitUsed: (who: string, exploit: string) => string;
+    survived: (who: string, roll: number) => string;
+    overloaded: (who: string, roll: number) => string;
+    eliminated: (who: string, placement: number) => string;
+    roundStarted: (round: number, protocol?: string) => string;
   };
 }
 
@@ -147,22 +278,23 @@ export const translations: Record<Language, Translations> = {
   pl: {
     common: {
       appTitle: 'PROJECT: OVERCLOCK // DEAD CIRCUIT',
-      operatingTable: 'STÓŁ ROZGRYWKI',
-      debugTerminal: 'KONSOLA DIAGNOSTYCZNA',
       gameRules: 'Zasady gry',
       copied: 'Skopiowano!',
       copyCode: 'Kopiuj kod',
-      copyLink: 'Kopiuj link do pokoju',
       room: 'POKÓJ',
-      netOnline: 'SIEĆ: ONLINE',
-      netOffline: 'SIEĆ: ROZŁĄCZONO',
+      close: 'Zamknij',
+      host: 'HOST',
+      you: 'TY',
+      player: 'Gracz',
+      opponent: 'Przeciwnik',
+      operator: 'Operator',
       status: 'STATUS',
     },
     lobby: {
-      title: 'STANOWISKO OPERATORA // KONFIGURACJA GRY',
+      title: 'DEAD CIRCUIT',
       subtitle: 'Dead Circuit — cyberpunkowa gra blefu, zarządzania ryzykiem i przeciążeń obwodów.',
       operatorNick: 'TWÓJ IDENTYFIKATOR (NICK):',
-      roomCode: 'KOD POKOJU (POZOSTAW PUSTE DLA NOWEGO STOŁU):',
+      roomCode: 'KOD POKOJU:',
       roomCodePlaceholder: 'NP. CYBER-7X9',
       createTable: 'STWÓRZ NOWY STÓŁ',
       createTableSub: '[INITIALIZE TABLE]',
@@ -184,6 +316,43 @@ export const translations: Record<Language, Translations> = {
       youTag: '(TY)',
       readyYes: 'TAK (ZMIEŃ)',
       markReady: 'OZNACZ: GOTOWY',
+    },
+    home: {
+      heroTagline: 'Blefuj, ryzykuj i przetrwaj przeciążenie obwodów.',
+      nicknameLabel: 'Twój nick',
+      nicknamePlaceholder: 'Wpisz nick',
+      createCta: 'Stwórz stół',
+      joinHeading: 'Masz kod od znajomego?',
+      joinCta: 'Dołącz',
+      characterHeading: 'Wybierz postać',
+      invite: 'Zaproś',
+      inviteShareTitle: 'Dead Circuit',
+      inviteShareText: 'Dołącz do mojego stołu w Dead Circuit!',
+      inviteCopied: 'Link do stołu skopiowany.',
+      inviteFailed: 'Nie udało się skopiować linku.',
+      leaveTable: 'Opuść stół',
+      characterPickerTitle: 'WYBIERZ POSTAĆ OPERATORA (CYBER-RIG 3D):',
+      characterActive: 'WYBRANY',
+      avatarReady: 'AWATAR 3D GOTOWY',
+      leaveConfirm: 'Opuścić stół?',
+      leaveYes: 'Tak',
+      leaveNo: 'Nie',
+      waitingForHost: 'Czekam na hosta...',
+      hostGone: 'Host opuścił stół.',
+      footer: 'DEAD CIRCUIT',
+      debugToggle: 'Konsola dev',
+      backToGame: 'Wróć do gry',
+    },
+    summary: {
+      title: 'KONIEC ROZGRYWKI',
+      winnerLabel: 'Zwycięzca',
+      podiumTitle: 'Klasyfikacja',
+      youTag: '(TY)',
+      roundsPlayed: 'Rozegrane rundy',
+      playersCount: 'Liczba graczy',
+      playAgain: 'Zagraj ponownie',
+      waitingForHost: 'Czekamy, aż host rozpocznie rewanż...',
+      leave: 'Opuść stół',
     },
     table: {
       targetProtocol: 'WYMAGANY PROTOKÓŁ:',
@@ -214,6 +383,7 @@ export const translations: Record<Language, Translations> = {
       waitYourTurn: 'Poczekaj na swoją kolej',
       noCardsOnTable: 'Brak kart na stole do sprawdzenia',
       confidential: '[POUFNE // TYLKO TWÓJ EKRAN]',
+      busEncrypted: 'MAGISTRALA ZASZYFROWANA',
     },
     chips: {
       packetSniffer: 'SNIFFER PAKIETÓW',
@@ -253,6 +423,75 @@ export const translations: Record<Language, Translations> = {
       nextCycleAuto: 'START KOLEJNEGO CYKLU ZA',
       spectatorModeNotice: 'ZOSTAŁEŚ WYELIMINOWANY // TRYB OBSERWATORA',
       fallbackStart: 'WYMUŚ START RUNDY',
+      breakdownDesc: 'Przebicie dielektryka. Obwód otwarty.',
+      dischargeResolving: 'Trwa rozładowanie...',
+    },
+    reveal: {
+      scanTitle: '[SKAN DIAGNOSTYCZNY TRACE]',
+      declared: 'DEKLAROWANO',
+      bluffVerdict: '⚡ PRZECIĄŻENIE WYSOKIM NAPIĘCIEM // BLEF WYKRYTY!',
+      honestVerdict: '🛡 INTEGRALNOŚĆ POTWIERDZONA // AUTENTYCZNY SPRZĘT!',
+      bluffDetail: (nickname) =>
+        `Operator [${nickname}] przesłał uszkodzone pakiety i nie przeszedł kontroli integralności!`,
+      honestDetail: (nickname) =>
+        `Oskarżyciel [${nickname}] wywołał fałszywy alarm i przyjmuje wyładowanie wysokiego napięcia!`,
+    },
+    arena: {
+      hologramProtocol: 'PROTOKÓŁ',
+      hologramPile: 'STOS',
+      hologramYourTurn: 'TWÓJ RUCH',
+      hologramTurnOf: 'RUCH',
+      overloadTitle: '⚡ KRYTYCZNE PRZECIĄŻENIE // UTRATA SYGNAŁU',
+      overloadSub: 'OBRAZ PRZEKIEROWANY NA DRONA OBSERWATORA',
+      visorBlackout: 'UTRATA SYGNAŁU // BLACKOUT',
+      visorTransmitting: '>>> NADAJE <<<',
+      visorLocked: 'ZABLOKOWANY',
+      visorHighVoltage: '⚡ RDZEŃ WYSOKIEGO NAPIĘCIA ⚡',
+      visorSynthesis: 'SYNTEZA // ŁĄCZE NEURONOWE',
+      badgeOverload: '⚡ WYKRYTO PRZECIĄŻENIE DIELEKTRYKA',
+      badgeStabilized: '🛡️ WYŁADOWANIE DIELEKTRYKA ZSTABILIZOWANE',
+      badgeRoll: 'RZUT K6',
+      badgeRisk: 'RYZYKO',
+      badgeVerdictOverload: (roll, risk) => `RZUT ${roll} ≤ ${risk} // ZWARCIE // WYELIMINOWANY`,
+      badgeVerdictSurvived: (roll, risk, resulting) =>
+        `RZUT ${roll} > ${risk} // PRZETRWAŁ // RYZYKO: ${resulting}/6`,
+      cardReady: '▲ GOTOWA DO ZAGRANIA ▲',
+      cardSelectHint: 'KLIKNIJ ABY WYBRAĆ',
+      cardBack: 'ZASZYFROWANY PAKIET',
+    },
+    hud: {
+      turnTimer: 'CZAS TURY',
+      dischargeTimer: 'CZAS NA ROZŁADOWANIE',
+      yourTurnBanner: 'TWÓJ RUCH',
+      opponentTurnBanner: 'Ruch gracza',
+      empPickerTitle: 'EMP FLARE // NOWY PROTOKÓŁ',
+      empPickerHint: 'Wyczyść stos i wybierz nowy protokół docelowy:',
+      empPickerCurrent: 'obecny',
+      empPickerCancel: 'Anuluj',
+      chipLabel: 'CHIP',
+      cameraPov: 'POV',
+      cameraTable: 'STÓŁ',
+      cameraRivals: 'RYWALE',
+      secondsShort: 's',
+      hurryUp: 'KOŃCZY SIĘ CZAS',
+      roundIntroTitle: (round) => `RUNDA ${round}`,
+      roundIntroProtocol: 'PROTOKÓŁ',
+      roundIntroHint: 'Zagrywaj karty tego protokołu — albo blefuj.',
+    },
+    controls: {
+      hotkeysTitle: 'SKRÓTY KLAWISZOWE',
+      hotkeysCards: 'Zaznacz / odznacz kartę z ręki',
+      hotkeysTransmit: 'Wyślij zaznaczone karty',
+      hotkeysTrace: 'Sprawdź blef',
+      hotkeysChip: 'Użyj chipa',
+      hotkeysClear: 'Odznacz karty / zamknij okno',
+      hotkeysHelp: 'Pokaż / ukryj tę ściągawkę',
+      hotkeysClose: 'Zamknij',
+      firstTurnHint: 'Zaznacz 1–3 karty, a następnie wyślij je.',
+      firstTurnDismiss: 'Rozumiem',
+      legendMatch: 'zgodna',
+      legendWild: 'dzika',
+      legendBluff: 'blef',
     },
     rules: {
       modalTitle: 'ZASADY GRY // DEAD CIRCUIT',
@@ -282,31 +521,59 @@ export const translations: Record<Language, Translations> = {
       overclockChipDesc: 'SN74-INJ // INJEKTOR: Przerywa turę przeciwnika i skraca jego limit czasu do zaledwie 5 sekund, wymuszając błąd pod presją.',
       groundChipDesc: 'SN74-GND // UZIEMIENIE: Aktywowane przed wyładowaniem kondensatora. Obniża poziom ryzyka awarii o 50% przed rzutem kością.',
       close: 'ZAMKNIJ PRZEWODNIK',
+      wildTag: 'DOWOLNA',
+      bluffOnlyTag: 'TYLKO BLEF',
+    },
+    network: {
+      connecting: 'Łączenie…',
+      reconnecting: 'Ponowne łączenie…',
+      disconnected: 'Rozłączono',
+      connectionError: 'Błąd połączenia z serwerem',
+      reconnectFailed: 'Nie udało się wrócić do pokoju. Dołącz ponownie.',
+      sessionExpired: 'Sesja wygasła. Wróć do lobby.',
+      contractViolation: 'Otrzymano nieprawidłowe dane z serwera',
+      actionFailed: (action, detail) => `Akcja nie powiodła się (${action}): ${detail}`,
+      dismiss: 'Zamknij',
+    },
+    feed: {
+      title: 'ZDARZENIA',
+      you: 'Ty',
+      unknownPlayer: 'Nieznany',
+      exploits: { PacketSniffer: 'SNIFFER', GroundWire: 'UZIEMIENIE', OverclockInjector: 'OVERCLOCK', EmpFlare: 'EMP FLARE' },
+      played: (who, count, protocol) => `${who} zagrywa ${count}× ${protocol}`,
+      traceCalled: (who) => `${who} wywołuje TRACE!`,
+      exploitUsed: (who, exploit) => `${who} używa ${exploit}`,
+      survived: (who, roll) => `${who} przeżywa wyładowanie (rzut ${roll})`,
+      overloaded: (who, roll) => `${who} przeciążony! (rzut ${roll})`,
+      eliminated: (who, placement) => `${who} wyeliminowany — #${placement}`,
+      roundStarted: (round, protocol) =>
+        protocol ? `Runda ${round} rozpoczęta — protokół ${protocol}` : `Runda ${round} rozpoczęta`,
     },
   },
   en: {
     common: {
       appTitle: 'PROJECT: OVERCLOCK // DEAD CIRCUIT',
-      operatingTable: 'OPERATING TABLE',
-      debugTerminal: 'DEBUG TERMINAL',
       gameRules: 'Game Rules',
       copied: 'Copied!',
       copyCode: 'Copy Code',
-      copyLink: 'Copy Room Link',
       room: 'ROOM',
-      netOnline: 'NET: ONLINE',
-      netOffline: 'NET: OFFLINE',
+      close: 'Close',
+      host: 'HOST',
+      you: 'YOU',
+      player: 'Player',
+      opponent: 'Opponent',
+      operator: 'Operator',
       status: 'STATUS',
     },
     lobby: {
-      title: 'HARDWARE TERMINAL // DECK SETUP',
+      title: 'DEAD CIRCUIT',
       subtitle: 'Dead Circuit — a cyberpunk game of bluffing, hardware risks, and capacitor overloads.',
       operatorNick: 'OPERATOR IDENTIFIER (NICKNAME):',
-      roomCode: 'ROOM CODE (EMPTY TO CREATE NEW LOBBY):',
+      roomCode: 'ROOM CODE:',
       roomCodePlaceholder: 'E.G. CYBER-7X9',
-      createTable: 'INITIALIZE TABLE',
+      createTable: 'CREATE TABLE',
       createTableSub: '[INITIALIZE TABLE]',
-      connectTable: 'CONNECT TO TABLE',
+      connectTable: 'JOIN TABLE',
       connectTableSub: '[CONNECT TO TABLE]',
       waitingForPlayers: 'Awaiting operators to join...',
       playersInLobby: 'OPERATORS AT TABLE:',
@@ -324,6 +591,43 @@ export const translations: Record<Language, Translations> = {
       youTag: '(YOU)',
       readyYes: 'YES (TOGGLE)',
       markReady: 'MARK: READY',
+    },
+    home: {
+      heroTagline: 'Bluff, take risks and survive the circuit overload.',
+      nicknameLabel: 'Your nickname',
+      nicknamePlaceholder: 'Enter a nickname',
+      createCta: 'Create table',
+      joinHeading: 'Got a code from a friend?',
+      joinCta: 'Join',
+      characterHeading: 'Pick your character',
+      invite: 'Invite',
+      inviteShareTitle: 'Dead Circuit',
+      inviteShareText: 'Join my table in Dead Circuit!',
+      inviteCopied: 'Table link copied.',
+      inviteFailed: 'Could not copy the link.',
+      leaveTable: 'Leave table',
+      characterPickerTitle: 'SELECT 3D OPERATOR RIG:',
+      characterActive: 'ACTIVE',
+      avatarReady: '3D AVATAR READY',
+      leaveConfirm: 'Leave table?',
+      leaveYes: 'Yes',
+      leaveNo: 'No',
+      waitingForHost: 'Waiting for the host...',
+      hostGone: 'The host has left the table.',
+      footer: 'DEAD CIRCUIT',
+      debugToggle: 'Dev console',
+      backToGame: 'Back to game',
+    },
+    summary: {
+      title: 'MATCH OVER',
+      winnerLabel: 'Winner',
+      podiumTitle: 'Standings',
+      youTag: '(YOU)',
+      roundsPlayed: 'Rounds played',
+      playersCount: 'Players',
+      playAgain: 'Play again',
+      waitingForHost: 'Waiting for the host to start a rematch...',
+      leave: 'Leave table',
     },
     table: {
       targetProtocol: 'TARGET PROTOCOL:',
@@ -354,6 +658,7 @@ export const translations: Record<Language, Translations> = {
       waitYourTurn: 'Wait for your turn',
       noCardsOnTable: 'No packets on table to challenge',
       confidential: '[CONFIDENTIAL // LOCAL OPERATOR ONLY]',
+      busEncrypted: 'BUS ENCRYPTED',
     },
     chips: {
       packetSniffer: 'PACKET SNIFFER',
@@ -393,6 +698,75 @@ export const translations: Record<Language, Translations> = {
       nextCycleAuto: 'NEXT CYCLE STARTING IN',
       spectatorModeNotice: 'YOU WERE ELIMINATED // SPECTATOR MODE',
       fallbackStart: 'FORCE START ROUND',
+      breakdownDesc: 'Dielectric breakdown occurred. Circuit opened.',
+      dischargeResolving: 'Discharge sequence resolving...',
+    },
+    reveal: {
+      scanTitle: '[DIAGNOSTIC TRACE SCAN]',
+      declared: 'DECLARED',
+      bluffVerdict: '⚡ HIGH VOLTAGE OVERLOAD // BLUFF DETECTED!',
+      honestVerdict: '🛡 INTEGRITY VERIFIED // AUTHENTIC HARDWARE!',
+      bluffDetail: (nickname) =>
+        `Operator [${nickname}] transmitted corrupt packets and failed integrity check!`,
+      honestDetail: (nickname) =>
+        `Accuser [${nickname}] triggered false alarm and absorbs high voltage discharge!`,
+    },
+    arena: {
+      hologramProtocol: 'PROTOCOL',
+      hologramPile: 'PILE',
+      hologramYourTurn: 'YOUR TURN',
+      hologramTurnOf: 'TURN',
+      overloadTitle: '⚡ CRITICAL OVERLOAD // SIGNAL LOST',
+      overloadSub: 'FEED REDIRECTED TO SPECTATOR DRONE',
+      visorBlackout: 'SIGNAL LOST // BLACKOUT',
+      visorTransmitting: '>>> TRANSMITTING <<<',
+      visorLocked: 'LOCKED',
+      visorHighVoltage: '⚡ HIGH VOLTAGE CORE ⚡',
+      visorSynthesis: 'SYNTHESIS // NEURAL LINK',
+      badgeOverload: '⚡ DIELECTRIC OVERLOAD DETECTED',
+      badgeStabilized: '🛡️ DIELECTRIC DISCHARGE STABILIZED',
+      badgeRoll: 'D6 ROLL',
+      badgeRisk: 'RISK',
+      badgeVerdictOverload: (roll, risk) => `ROLL ${roll} ≤ ${risk} // SHORT CIRCUIT // ELIMINATED`,
+      badgeVerdictSurvived: (roll, risk, resulting) =>
+        `ROLL ${roll} > ${risk} // SURVIVED // RISK: ${resulting}/6`,
+      cardReady: '▲ READY TO PLAY ▲',
+      cardSelectHint: 'CLICK TO SELECT',
+      cardBack: 'ENCRYPTED PACKET',
+    },
+    hud: {
+      turnTimer: 'TURN TIMER',
+      dischargeTimer: 'DISCHARGE TIMER',
+      yourTurnBanner: 'YOUR TURN',
+      opponentTurnBanner: 'Operator turn',
+      empPickerTitle: 'EMP FLARE // NEW PROTOCOL',
+      empPickerHint: 'Purge the pile and pick the new target protocol:',
+      empPickerCurrent: 'current',
+      empPickerCancel: 'Cancel',
+      chipLabel: 'CHIP',
+      cameraPov: 'POV',
+      cameraTable: 'TABLE',
+      cameraRivals: 'RIVALS',
+      secondsShort: 's',
+      hurryUp: 'TIME IS RUNNING OUT',
+      roundIntroTitle: (round) => `ROUND ${round}`,
+      roundIntroProtocol: 'PROTOCOL',
+      roundIntroHint: 'Play cards of this protocol — or bluff.',
+    },
+    controls: {
+      hotkeysTitle: 'KEYBOARD SHORTCUTS',
+      hotkeysCards: 'Select / deselect a card in hand',
+      hotkeysTransmit: 'Transmit selected cards',
+      hotkeysTrace: 'Call trace',
+      hotkeysChip: 'Use chip',
+      hotkeysClear: 'Clear selection / close popup',
+      hotkeysHelp: 'Toggle this cheat-sheet',
+      hotkeysClose: 'Close',
+      firstTurnHint: 'Select 1–3 cards, then transmit them.',
+      firstTurnDismiss: 'Got it',
+      legendMatch: 'match',
+      legendWild: 'wild',
+      legendBluff: 'bluff',
     },
     rules: {
       modalTitle: 'OPERATIONAL MANUAL // DEAD CIRCUIT',
@@ -422,6 +796,33 @@ export const translations: Record<Language, Translations> = {
       overclockChipDesc: 'SN74-INJ // OVERCLOCK INJECTOR: Interrupt opponent active turn and collapse their timer to 5 seconds to induce panic.',
       groundChipDesc: 'SN74-GND // GROUND WIRE: Deployed before dielectric testing. Halves capacitor breakdown risk (-50%) before the D6 roll.',
       close: 'CLOSE MANUAL',
+      wildTag: 'WILD',
+      bluffOnlyTag: 'BLUFF ONLY',
+    },
+    network: {
+      connecting: 'Connecting…',
+      reconnecting: 'Reconnecting…',
+      disconnected: 'Disconnected',
+      connectionError: 'Server connection error',
+      reconnectFailed: 'Could not rejoin the room. Please join again.',
+      sessionExpired: 'Session expired. Returning to lobby.',
+      contractViolation: 'Received invalid data from the server',
+      actionFailed: (action, detail) => `Action failed (${action}): ${detail}`,
+      dismiss: 'Dismiss',
+    },
+    feed: {
+      title: 'EVENTS',
+      you: 'You',
+      unknownPlayer: 'Unknown',
+      exploits: { PacketSniffer: 'SNIFFER', GroundWire: 'GROUND WIRE', OverclockInjector: 'OVERCLOCK', EmpFlare: 'EMP FLARE' },
+      played: (who, count, protocol) => `${who} played ${count}× ${protocol}`,
+      traceCalled: (who) => `${who} calls TRACE!`,
+      exploitUsed: (who, exploit) => `${who} used ${exploit}`,
+      survived: (who, roll) => `${who} survived the discharge (roll ${roll})`,
+      overloaded: (who, roll) => `${who} overloaded! (roll ${roll})`,
+      eliminated: (who, placement) => `${who} eliminated — #${placement}`,
+      roundStarted: (round, protocol) =>
+        protocol ? `Round ${round} started — protocol ${protocol}` : `Round ${round} started`,
     },
   },
 };

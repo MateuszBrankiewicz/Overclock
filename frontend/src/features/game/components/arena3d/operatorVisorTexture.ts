@@ -4,11 +4,20 @@ import type { CharacterProfile } from '../../utils/characterCatalog';
 
 const visorTextureCache = new Map<string, THREE.CanvasTexture>();
 
+export interface OperatorVisorLabels {
+  blackout: string;
+  transmitting: string;
+  locked: string;
+  highVoltage: string;
+  synthesis: string;
+}
+
 export function createOperatorVisorTexture(
   character: CharacterProfile,
   isEliminated: boolean,
   isPendingVoltage: boolean,
-  isActiveTurn: boolean
+  isActiveTurn: boolean,
+  labels: OperatorVisorLabels
 ): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') {
     return null;
@@ -16,7 +25,7 @@ export function createOperatorVisorTexture(
 
   const key = `${character.id}:${isEliminated ? 'dead' : 'alive'}:${
     isPendingVoltage ? 'volt' : 'norm'
-  }:${isActiveTurn ? 'turn' : 'idle'}`;
+  }:${isActiveTurn ? 'turn' : 'idle'}:${Object.values(labels).join('|')}`;
   const cached = visorTextureCache.get(key);
   if (cached) {
     return cached;
@@ -70,7 +79,7 @@ export function createOperatorVisorTexture(
     ctx.fillStyle = '#ef4444';
     ctx.font = '900 32px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('SIGNAL LOST // BLACKOUT', 256, 218);
+    ctx.fillText(labels.blackout, 256, 218);
   } else if (character.visorStyle === 'matrix') {
     // GHOST-01 fierce cybernetic angular LED eyes
     ctx.fillStyle = mainColor;
@@ -98,7 +107,7 @@ export function createOperatorVisorTexture(
     ctx.fillStyle = subColor;
     ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(isActiveTurn ? '>>> TRANSMITTING <<<' : 'GHOST-01 // LOCKED', 256, 215);
+    ctx.fillText(isActiveTurn ? labels.transmitting : `${character.codename} // ${labels.locked}`, 256, 215);
   } else if (character.visorStyle === 'tesla') {
     // VOLT-9 Heavy industrial slit visor + high-voltage arcs
     ctx.fillStyle = '#1c1917';
@@ -119,7 +128,7 @@ export function createOperatorVisorTexture(
     ctx.fillStyle = mainColor;
     ctx.font = '900 26px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('⚡ HIGH VOLTAGE CORE ⚡', 256, 216);
+    ctx.fillText(labels.highVoltage, 256, 216);
   } else if (character.visorStyle === 'dome') {
     // PROXY-X Dual circular synth optics + neural waveform
     ctx.strokeStyle = mainColor;
@@ -140,7 +149,7 @@ export function createOperatorVisorTexture(
     ctx.fillStyle = mainColor;
     ctx.font = 'bold 24px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('SYNTHESIS // NEURAL LINK', 256, 216);
+    ctx.fillText(labels.synthesis, 256, 216);
   } else {
     // NULL-404 Oscilloscope glitch visor + menacing cyber-eyes
     ctx.strokeStyle = subColor;

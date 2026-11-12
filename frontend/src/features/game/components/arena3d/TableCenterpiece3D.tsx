@@ -4,9 +4,12 @@ import clsx from 'clsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 
-import type { CardProtocol, RoomState } from '../../schemas/gameEvents';
+import { useI18n } from '../../../../shared/i18n';
+import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
+import { prefersReducedMotion } from './hud/motion';
 import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
+import { RevealedCards3D } from './RevealedCards3D';
 
 export interface TableCenterpiece3DProps {
   tablePileCount: number;
@@ -14,11 +17,16 @@ export interface TableCenterpiece3DProps {
   roomState: RoomState | null;
   lastPlaySeatPosition?: [number, number, number] | null;
   lastPlayCardCount?: number;
+  /** Changes identity on every CardsPlayed event; triggers the seat -> pile flight. */
+  flightToken?: object | null;
   isMyTurn?: boolean;
   activePlayerNickname?: string;
   shockTargetPos?: [number, number, number] | null;
   isOverloadedShock?: boolean;
   testedRiskLevel?: number;
+  revealedCards?: PlayerCard[] | null;
+  revealDeclaredProtocol?: CardProtocol | null;
+  revealStartedAtMs?: number | null;
 }
 
 const PROTOCOL_HEX: Record<string, string> = {
@@ -35,27 +43,34 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   roomState,
   lastPlaySeatPosition,
   lastPlayCardCount = 1,
+  flightToken = null,
   isMyTurn = false,
   activePlayerNickname,
   shockTargetPos,
   isOverloadedShock = false,
   testedRiskLevel = 1,
+  revealedCards = null,
+  revealDeclaredProtocol = null,
+  revealStartedAtMs = null,
 }) => {
+  const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
   const capacitorDrumRef = useRef<Group>(null);
   const laserScannerRef = useRef<Mesh>(null);
   const flyingGroupRef = useRef<Group>(null);
 
-  const [flightProgress, setFlightProgress] = useState<number>(1);
-  const prevPileCountRef = useRef<number>(tablePileCount);
-  const backTexture = useMemo(() => createPcbCardBackTexture(), []);
+  const [isFlying, setIsFlying] = useState(false);
+  const flightProgressRef = useRef(1);
+  const prevFlightTokenRef = useRef<object | null>(flightToken);
+  const backTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
   useEffect(() => {
-    if (tablePileCount > prevPileCountRef.current) {
-      setFlightProgress(0);
+    if (flightToken && flightToken !== prevFlightTokenRef.current && !prefersReducedMotion()) {
+      flightProgressRef.current = 0;
+      setIsFlying(true);
     }
-    prevPileCountRef.current = tablePileCount;
-  }, [tablePileCount]);
+    prevFlightTokenRef.current = flightToken;
+  }, [flightToken]);
 
   const protocolColor = PROTOCOL_HEX[currentTargetProtocol ?? 'Alpha'] ?? '#10b981';
   const isBluffCheck = roomState === 'BluffCheck';
@@ -67,22 +82,28 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
     ? '#f59e0b'
     : protocolColor;
 
+  // The snapshot already counts the cards in flight: hold them back until they land.
+  const visiblePileCount = isFlying
+    ? Math.max(0, tablePileCount - Math.max(1, Math.min(3, lastPlayCardCount)))
+    : tablePileCount;
+  const isRevealing = Boolean(revealedCards && revealedCards.length > 0 && revealStartedAtMs !== null);
+
   const stackTransforms = useMemo(() => {
-    const count = Math.min(tablePileCount, 14);
+    const count = Math.min(isRevealing ? 0 : visiblePileCount, 14);
     return Array.from({ length: count }).map((_, i) => ({
       x: (((i * 29) % 11) - 5) * 0.015,
       z: (((i * 17) % 11) - 5) * 0.015,
       y: 0.77 + i * 0.022,
       rotY: (((i * 43) % 30) - 15) * (Math.PI / 180),
     }));
-  }, [tablePileCount]);
+  }, [visiblePileCount, isRevealing]);
 
   useFrame(({ clock }, delta) => {
-    const t = clock.getElapsedTime();
+    const elapsed = clock.getElapsedTime();
 
     if (lampGroupRef.current) {
-      lampGroupRef.current.rotation.z = Math.sin(t * 0.9) * 0.035;
-      lampGroupRef.current.rotation.x = Math.cos(t * 0.7) * 0.025;
+      lampGroupRef.current.rotation.z = Math.sin(elapsed * 0.9) * 0.035;
+      lampGroupRef.current.rotation.x = Math.cos(elapsed * 0.7) * 0.025;
     }
 
     if (capacitorDrumRef.current && isVoltageTest) {
@@ -93,17 +114,19 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
         capacitorDrumRef.current.position.y = 1.35;
       } else {
         capacitorDrumRef.current.rotation.y += delta * 7.5;
-        capacitorDrumRef.current.position.y = 1.25 + Math.sin(t * 6) * 0.05;
+        capacitorDrumRef.current.position.y = 1.25 + Math.sin(elapsed * 6) * 0.05;
       }
     }
 
     if (laserScannerRef.current && isBluffCheck) {
-      laserScannerRef.current.position.z = Math.sin(t * 5) * 0.65;
+      laserScannerRef.current.position.z = Math.sin(elapsed * 5) * 0.65;
     }
 
-    if (flightProgress < 1) {
-      const next = Math.min(1, flightProgress + delta * 2.4);
-      setFlightProgress(next);
+    if (flightProgressRef.current < 1) {
+      // ~400 ms seat -> pile tween
+      const next = Math.min(1, flightProgressRef.current + delta * 2.5);
+      flightProgressRef.current = next;
+      if (next >= 1) setIsFlying(false);
 
       if (flyingGroupRef.current) {
         const origin = lastPlaySeatPosition ?? [0, 1.1, 2.2];
@@ -219,16 +242,18 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
               className="font-black px-2 py-0.5 rounded text-black"
               style={{ backgroundColor: protocolColor }}
             >
-              PROTOKÓŁ: {currentTargetProtocol ?? 'ALPHA'}
+              {t.arena.hologramProtocol}: {currentTargetProtocol ?? 'ALPHA'}
             </span>
-            <span className="text-zinc-300 font-bold">STOS: {tablePileCount}</span>
+            <span className="text-zinc-300 font-bold">{t.arena.hologramPile}: {tablePileCount}</span>
             <span
               className={clsx(
                 'font-extrabold',
                 isMyTurn ? 'text-emerald-400 animate-pulse' : 'text-amber-400'
               )}
             >
-              {isMyTurn ? '● TWÓJ RUCH' : `○ RUCH: ${activePlayerNickname ?? '...'}`}
+              {isMyTurn
+                ? `● ${t.arena.hologramYourTurn}`
+                : `○ ${t.arena.hologramTurnOf}: ${activePlayerNickname ?? '...'}`}
             </span>
           </div>
         </Html>
@@ -250,19 +275,29 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
       ))}
 
       {/* Parabolic 3D Card Flight from Active Player Seat */}
-      {flightProgress < 1 && (
+      {isFlying && (
         <group ref={flyingGroupRef}>
           {Array.from({ length: Math.max(1, Math.min(3, lastPlayCardCount)) }).map((_, i) => (
             <mesh key={i} position={[(i - 1) * 0.22, i * 0.03, 0]} castShadow>
               <boxGeometry args={[0.42, 0.02, 0.62]} />
+              {/* Played face-down: show the card back, with a protocol-coloured glow trail. */}
               <meshStandardMaterial
-                color={protocolColor}
+                map={backTexture ?? undefined}
+                color="#ffffff"
                 emissive={protocolColor}
-                emissiveIntensity={2.4}
+                emissiveIntensity={0.6}
               />
             </mesh>
           ))}
         </group>
+      )}
+
+      {isRevealing && revealedCards && revealStartedAtMs !== null && (
+        <RevealedCards3D
+          cards={revealedCards}
+          declaredProtocol={revealDeclaredProtocol}
+          startedAtMs={revealStartedAtMs}
+        />
       )}
 
       {/* Laser Diagnostic Scanner Beam during CALL TRACE (BluffCheck) */}

@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand';
 
+import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
 import type { GameState, TurnSlice } from '../types';
 
 export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set) => ({
@@ -12,9 +13,20 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
   lastPlayedCards: null,
   lastTraceResolution: null,
   lastTrace: null,
+  traceReveal: null,
+  lastRevealedTraceSequence: null,
+  roundIntro: null,
+
+  clearRoundIntro: () => set({ roundIntro: null }),
 
   applyRoundStarted: (event) =>
     set({
+      roundIntro: {
+        roundNumber: event.roundNumber,
+        protocol: event.leadProtocol ?? null,
+        startedAtMs: Date.now(),
+      },
+      turnDeadlineUtc: estimateTurnDeadlineUtc(),
       roundNumber: event.roundNumber,
       roomState: 'TurnActive',
       currentTargetProtocol: event.leadProtocol ?? null,
@@ -54,11 +66,29 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
     }),
 
   applyTraceResolution: (resolution) =>
-    set((state) => ({
-      lastTraceResolution: resolution,
-      tablePileCount: 0,
-      roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
-    })),
+    set((state) => {
+      const seq = resolution.sequenceNumber ?? null;
+      // The accuser gets the same resolution twice (broadcast + invoke response): reveal once.
+      const alreadyRevealed =
+        (seq !== null && seq === state.lastRevealedTraceSequence) ||
+        (seq === null && state.traceReveal !== null);
+      return {
+        lastTraceResolution: resolution,
+        tablePileCount: 0,
+        turnDeadlineUtc: null,
+        roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
+        ...(alreadyRevealed
+          ? {}
+          : {
+              traceReveal: {
+                resolution,
+                startedAtMs: Date.now(),
+                seatsAtReveal: state.players,
+              },
+              lastRevealedTraceSequence: seq,
+            }),
+      };
+    }),
 
   setTurnStarted: (event) => {
     let diffSeconds = 15;
@@ -109,6 +139,8 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,
+      traceReveal: null,
+      roundIntro: null,
     })),
 });
 

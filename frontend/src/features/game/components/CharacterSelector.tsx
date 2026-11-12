@@ -3,7 +3,7 @@ import React from 'react';
 
 import { useI18n } from '../../../shared/i18n';
 import type { CharacterId, CharacterProfile } from '../utils/characterCatalog';
-import { CHARACTER_CATALOG } from '../utils/characterCatalog';
+import { CHARACTER_CATALOG, getCharacterText } from '../utils/characterCatalog';
 
 export interface CharacterSelectorProps {
   selectedId: CharacterId;
@@ -88,25 +88,23 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
   onSelect,
   compact = false,
 }) => {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
 
   return (
     <div data-testid="character-selector" className="space-y-2.5 font-mono">
       <div className="flex items-center justify-between">
         <span className="text-xs font-extrabold tracking-wider text-zinc-200 uppercase">
-          {language === 'pl' ? 'WYBIERZ POSTAĆ OPERATORA (CYBER-RIG 3D):' : 'SELECT 3D OPERATOR RIG:'}
+          {t.home.characterPickerTitle}
         </span>
         <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/80">
-          3D AVATAR READY
+          {t.home.avatarReady}
         </span>
       </div>
 
       <div className={clsx('grid gap-2.5', compact ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2')}>
         {CHARACTER_CATALOG.map((char) => {
           const isSelected = char.id === selectedId;
-          const role = language === 'pl' ? char.rolePl : char.roleEn;
-          const bio = language === 'pl' ? char.bioPl : char.bioEn;
-          const perk = language === 'pl' ? char.perkLabelPl : char.perkLabelEn;
+          const { role, bio, perk } = getCharacterText(char, language);
 
           return (
             <button
@@ -136,7 +134,7 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
                         char.accentBadgeClass
                       )}
                     >
-                      {language === 'pl' ? 'WYBRANY' : 'ACTIVE'}
+                      {t.home.characterActive}
                     </span>
                   )}
                 </div>

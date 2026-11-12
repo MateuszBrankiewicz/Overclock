@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import React, { useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 
+import { useI18n } from '../../../../shared/i18n';
 import type {
   CardProtocol,
   ExploitModule,
@@ -9,6 +10,7 @@ import type {
   PlayerCard,
 } from '../../schemas/gameEvents';
 import type { CharacterProfile } from '../../utils/characterCatalog';
+import { classifyCard, MARK_COLOR } from './hud/cardMarks';
 import { createPcbCardBackTexture, createPcbCardTexture } from './pcbCardTexture';
 
 export interface PovHandAndControls3DProps {
@@ -25,7 +27,7 @@ export interface PovHandAndControls3DProps {
   onToggleCard: (cardId: string) => void;
   onPlayCards: () => void;
   onCallTrace: () => void;
-  onActivateExploit: (exploit: ExploitType, newTargetProtocol?: CardProtocol) => void;
+  onUseChip: (exploit: ExploitType) => void;
 }
 
 interface Card3DItemProps {
@@ -47,24 +49,25 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
   currentTargetProtocol,
   onToggle,
 }) => {
+  const { t } = useI18n();
   const groupRef = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
 
-  const badge = useMemo<'match' | 'wild' | 'bluff'>(() => {
-    if (currentTargetProtocol && card.protocol === currentTargetProtocol) {
-      return 'match';
-    }
-    if (card.protocol === 'Glitch') {
-      return 'wild';
-    }
-    return 'bluff';
-  }, [card.protocol, currentTargetProtocol]);
+  const badge = useMemo(
+    () => classifyCard(card.protocol, currentTargetProtocol),
+    [card.protocol, currentTargetProtocol]
+  );
+  const markColor = MARK_COLOR[badge];
 
   const frontTexture = useMemo(
-    () => createPcbCardTexture(card.protocol, card.visualSeed ?? index, badge, isSelected),
-    [card.protocol, card.visualSeed, index, badge, isSelected]
+    () =>
+      createPcbCardTexture(card.protocol, card.visualSeed ?? index, badge, isSelected, {
+        ready: t.arena.cardReady,
+        selectHint: t.arena.cardSelectHint,
+      }),
+    [card.protocol, card.visualSeed, index, badge, isSelected, t]
   );
-  const backTexture = useMemo(() => createPcbCardBackTexture(), []);
+  const backTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
   const centerOffset = index - (total - 1) / 2;
   // Scale card spread dynamically by viewport aspect ratio so cards NEVER go off-screen
@@ -124,6 +127,12 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
         />
       </mesh>
 
+      {/* Edge glow frame: match / wild / bluff mark */}
+      <mesh position={[0, 0, -0.002]}>
+        <planeGeometry args={[0.335, 0.465]} />
+        <meshBasicMaterial color={markColor} transparent opacity={isSelected ? 0.85 : 0.5} />
+      </mesh>
+
       <mesh position={[0, 0, 0.007]}>
         <planeGeometry args={[0.31, 0.44]} />
         <meshStandardMaterial
@@ -157,7 +166,7 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
   onToggleCard,
   onPlayCards,
   onCallTrace,
-  onActivateExploit,
+  onUseChip,
 }) => {
   const size = useThree((s) => s.size);
   const aspect = size.width / Math.max(1, size.height);
@@ -171,15 +180,15 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
   const canUseChip = Boolean(canActivateExploit && exploit && !exploit.isBurned);
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
+    const elapsed = clock.getElapsedTime();
     if (transmitBtnRef.current) {
       transmitBtnRef.current.position.y = canTransmit
-        ? 0.8 + Math.sin(t * 6) * 0.01
+        ? 0.8 + Math.sin(elapsed * 6) * 0.01
         : 0.775;
     }
     if (traceBtnRef.current) {
       traceBtnRef.current.position.y = canTrace
-        ? 0.8 + Math.sin(t * 8) * 0.012
+        ? 0.8 + Math.sin(elapsed * 8) * 0.012
         : 0.775;
     }
   });
@@ -262,7 +271,7 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
           onClick={(e) => {
             e.stopPropagation();
             if (canUseChip) {
-              onActivateExploit(exploit.type, currentTargetProtocol ?? 'Alpha');
+              onUseChip(exploit.type);
             }
           }}
         >

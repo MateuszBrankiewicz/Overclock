@@ -64,17 +64,23 @@ const PROTOCOL_STYLE: Record<
 
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
+export interface PcbCardFrontLabels {
+  ready: string;
+  selectHint: string;
+}
+
 export function createPcbCardTexture(
   protocol: CardProtocol,
   visualSeed = 0,
   badge: 'match' | 'wild' | 'bluff' | null = null,
-  selected = false
+  selected = false,
+  labels: PcbCardFrontLabels
 ): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') {
     return null;
   }
 
-  const cacheKey = `${protocol}:${visualSeed}:${badge ?? 'none'}:${selected ? '1' : '0'}`;
+  const cacheKey = `${protocol}:${visualSeed}:${badge ?? 'none'}:${selected ? '1' : '0'}:${labels.ready}:${labels.selectHint}`;
   const cached = textureCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -202,7 +208,7 @@ export function createPcbCardTexture(
   ctx.fillRect(28, 595, 456, 68);
   ctx.fillStyle = style.text;
   ctx.font = 'bold 30px monospace';
-  ctx.fillText(selected ? '▲ GOTOWA DO ZAGRANIA ▲' : 'KLIKNIJ ABY WYBRAĆ', 256, 631);
+  ctx.fillText(selected ? labels.ready : labels.selectHint, 256, 631);
   ctx.textAlign = 'left';
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -211,14 +217,15 @@ export function createPcbCardTexture(
   return texture;
 }
 
-let backTextureCache: THREE.CanvasTexture | null = null;
+const backTextureCache = new Map<string, THREE.CanvasTexture>();
 
-export function createPcbCardBackTexture(): THREE.CanvasTexture | null {
+export function createPcbCardBackTexture(caption: string): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') {
     return null;
   }
-  if (backTextureCache) {
-    return backTextureCache;
+  const cachedBack = backTextureCache.get(caption);
+  if (cachedBack) {
+    return cachedBack;
   }
 
   const canvas = document.createElement('canvas');
@@ -248,9 +255,10 @@ export function createPcbCardBackTexture(): THREE.CanvasTexture | null {
   ctx.fillText('DEAD CIRCUIT', 256, 345);
   ctx.fillStyle = '#71717a';
   ctx.font = 'bold 26px monospace';
-  ctx.fillText('ENCRYPTED PACKET', 256, 395);
+  ctx.fillText(caption, 256, 395);
 
-  backTextureCache = new THREE.CanvasTexture(canvas);
-  backTextureCache.needsUpdate = true;
-  return backTextureCache;
+  const backTexture = new THREE.CanvasTexture(canvas);
+  backTexture.needsUpdate = true;
+  backTextureCache.set(caption, backTexture);
+  return backTexture;
 }

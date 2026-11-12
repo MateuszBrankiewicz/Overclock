@@ -17,6 +17,22 @@ export interface CharacterProfile {
   visorStyle: 'matrix' | 'tesla' | 'dome' | 'crt';
 }
 
+export interface LocalizedCharacterText {
+  role: string;
+  bio: string;
+  perk: string;
+}
+
+/** Picks the localized copy of a character profile (the catalog is data, not UI strings). */
+export function getCharacterText(
+  profile: CharacterProfile,
+  language: 'pl' | 'en'
+): LocalizedCharacterText {
+  return language === 'pl'
+    ? { role: profile.rolePl, bio: profile.bioPl, perk: profile.perkLabelPl }
+    : { role: profile.roleEn, bio: profile.bioEn, perk: profile.perkLabelEn };
+}
+
 export const CHARACTER_CATALOG: readonly CharacterProfile[] = [
   {
     id: 'ghost',

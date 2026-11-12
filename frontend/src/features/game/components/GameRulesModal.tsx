@@ -32,7 +32,7 @@ export const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose 
             type="button"
             onClick={onClose}
             className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-            aria-label="Close"
+            aria-label={t.common.close}
           >
             <X className="w-5 h-5" />
           </button>
@@ -105,7 +105,7 @@ export const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose 
                     {t.rules.glitchCardTitle}
                   </span>
                   <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-fuchsia-500 text-black">
-                    WILD
+                    {t.rules.wildTag}
                   </span>
                 </div>
                 <p className="text-zinc-300 text-[11px] leading-relaxed">
@@ -121,7 +121,7 @@ export const GameRulesModal: React.FC<GameRulesModalProps> = ({ isOpen, onClose 
                     {t.rules.corruptedCardTitle}
                   </span>
                   <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-red-600 text-black">
-                    BLUFF ONLY
+                    {t.rules.bluffOnlyTag}
                   </span>
                 </div>
                 <p className="text-zinc-300 text-[11px] leading-relaxed">

@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import React, { useEffect, useMemo, useRef } from 'react';
 import type { Group, Mesh } from 'three';
 
+import { useI18n } from '../../../../shared/i18n';
 import type { PlayerSeat } from '../../schemas/gameEvents';
 import type { CharacterProfile } from '../../utils/characterCatalog';
 import { computeDeathPose, computeShockPose } from './deathPose';
@@ -35,6 +36,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
   isOverloaded = false,
   cinematicStartTimeMs = null,
 }) => {
+  const { t } = useI18n();
   const rootRef = useRef<Group>(null);
   const bodyRef = useRef<Group>(null);
   const chairRef = useRef<Group>(null);
@@ -71,26 +73,33 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
         character,
         isEliminated,
         isPendingVoltage || isBeingShocked,
-        isActiveTurn
+        isActiveTurn,
+        {
+          blackout: t.arena.visorBlackout,
+          transmitting: t.arena.visorTransmitting,
+          locked: t.arena.visorLocked,
+          highVoltage: t.arena.visorHighVoltage,
+          synthesis: t.arena.visorSynthesis,
+        }
       ),
-    [character, isEliminated, isPendingVoltage, isBeingShocked, isActiveTurn]
+    [character, isEliminated, isPendingVoltage, isBeingShocked, isActiveTurn, t]
   );
-  const cardBackTexture = useMemo(() => createPcbCardBackTexture(), []);
+  const cardBackTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
+    const elapsed = clock.getElapsedTime();
 
     // 1. Elimination / Death Slam Animation (Flys onto the table desk and falls off!)
     if (isEliminated) {
-      let elapsed = 5.0; // Default: settled if loaded while already eliminated
+      let deathElapsed = 5.0; // Default: settled if loaded while already eliminated
       if (!initialEliminatedRef.current) {
         const startMs = cinematicStartTimeMs ?? liveStartTimeRef.current;
         if (startMs) {
-          elapsed = Math.max(0, (Date.now() - startMs) / 1000);
+          deathElapsed = Math.max(0, (Date.now() - startMs) / 1000);
         }
       }
 
-      const pose = computeDeathPose(elapsed, seed);
+      const pose = computeDeathPose(deathElapsed, seed);
       if (bodyRef.current) {
         bodyRef.current.position.set(...pose.bodyPosition);
         bodyRef.current.rotation.set(...pose.bodyRotation);
@@ -103,12 +112,12 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
         headRef.current.rotation.x = pose.headRotationX;
       }
       if (handFanRef.current) {
-        handFanRef.current.visible = elapsed < 1.1;
+        handFanRef.current.visible = deathElapsed < 1.1;
       }
       if (sparkFlashRef.current) {
         sparkFlashRef.current.visible = pose.isShockActive;
         if (pose.isShockActive) {
-          sparkFlashRef.current.scale.setScalar(1 + Math.sin(t * 50) * 0.4);
+          sparkFlashRef.current.scale.setScalar(1 + Math.sin(elapsed * 50) * 0.4);
         }
       }
       return;
@@ -132,7 +141,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
       if (sparkFlashRef.current) {
         sparkFlashRef.current.visible = pose.isShockActive;
         if (pose.isShockActive) {
-          sparkFlashRef.current.scale.setScalar(1 + Math.sin(t * 50) * 0.4);
+          sparkFlashRef.current.scale.setScalar(1 + Math.sin(elapsed * 50) * 0.4);
         }
       }
       return;
@@ -145,34 +154,34 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
     if (handFanRef.current) {
       handFanRef.current.visible = true;
       handFanRef.current.position.y =
-        0.92 + Math.sin(t * (isActiveTurn ? 3.8 : 1.8)) * (isActiveTurn ? 0.035 : 0.012);
+        0.92 + Math.sin(elapsed * (isActiveTurn ? 3.8 : 1.8)) * (isActiveTurn ? 0.035 : 0.012);
     }
     if (bodyRef.current) {
       if (isPendingVoltage) {
-        bodyRef.current.position.x = Math.sin(t * 48) * 0.04;
-        bodyRef.current.position.y = Math.cos(t * 36) * 0.025;
-        bodyRef.current.rotation.x = -0.15 + Math.sin(t * 35) * 0.06;
+        bodyRef.current.position.x = Math.sin(elapsed * 48) * 0.04;
+        bodyRef.current.position.y = Math.cos(elapsed * 36) * 0.025;
+        bodyRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.06;
       } else {
-        bodyRef.current.position.set(0, Math.sin(t * 2.1 + position[0]) * 0.025, 0);
+        bodyRef.current.position.set(0, Math.sin(elapsed * 2.1 + position[0]) * 0.025, 0);
         bodyRef.current.rotation.set(0, 0, 0);
       }
     }
 
     if (headRef.current) {
       if (isPendingVoltage) {
-        headRef.current.rotation.x = -0.15 + Math.sin(t * 35) * 0.08;
-        headRef.current.rotation.z = Math.cos(t * 28) * 0.08;
+        headRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.08;
+        headRef.current.rotation.z = Math.cos(elapsed * 28) * 0.08;
       } else {
-        headRef.current.rotation.x = isActiveTurn ? -0.05 : Math.sin(t * 1.4) * 0.035;
+        headRef.current.rotation.x = isActiveTurn ? -0.05 : Math.sin(elapsed * 1.4) * 0.035;
         headRef.current.rotation.y =
-          lookTargetAngle * 0.25 + Math.sin(t * (isActiveTurn ? 2.6 : 0.9)) * 0.09;
+          lookTargetAngle * 0.25 + Math.sin(elapsed * (isActiveTurn ? 2.6 : 0.9)) * 0.09;
         headRef.current.rotation.z = 0;
       }
     }
 
     if (coreRef.current) {
-      coreRef.current.rotation.y = t * (1.4 + risk * 0.65);
-      coreRef.current.rotation.x = t * 0.9;
+      coreRef.current.rotation.y = elapsed * (1.4 + risk * 0.65);
+      coreRef.current.rotation.x = elapsed * 0.9;
     }
   });
 

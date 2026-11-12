@@ -3,12 +3,17 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
 import type { CapacitorDischargedEvent, PlayerSeat } from '../schemas/gameEvents';
+import { getIntermissionFallback, HOST_GRACE_SECONDS } from '../utils/intermissionFallback';
+import { IntermissionFallbackNotice } from './IntermissionFallbackNotice';
 
 export interface RoundIntermissionBannerProps {
   roundNumber: number;
   players: PlayerSeat[];
   lastDischargeOutcome: CapacitorDischargedEvent | null;
   isHost: boolean;
+  hostId?: string | null;
+  myPlayerId?: string | null;
+  onLeave?: () => void;
   isDischargeCinematicActive: boolean;
   onStartNextRound: () => void;
   className?: string;
@@ -19,12 +24,16 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
   players,
   lastDischargeOutcome,
   isHost,
+  hostId = null,
+  myPlayerId = null,
+  onLeave,
   isDischargeCinematicActive,
   onStartNextRound,
   className,
 }) => {
   const { t } = useI18n();
   const [countdown, setCountdown] = useState<number>(3);
+  const [graceElapsed, setGraceElapsed] = useState(false);
   const autoStartedRoundRef = useRef<number>(-1);
 
   const activeCount = players.filter((p) => p.status === 'Active').length;
@@ -33,7 +42,7 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
   const testedSeat = lastDischargeOutcome
     ? players.find((p) => p.playerId === lastDischargeOutcome.playerId)
     : null;
-  const testedNick = testedSeat?.nickname ?? 'Operator';
+  const testedNick = testedSeat?.nickname ?? t.common.operator;
 
   useEffect(() => {
     // Only begin the countdown when the 3D discharge/death animation has completed
@@ -63,6 +72,22 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
       }
     }
   }, [countdown, isDischargeCinematicActive, isHost, roundNumber, onStartNextRound]);
+
+  useEffect(() => {
+    // Non-hosts: after the countdown ends, give the host a grace period before declaring them gone
+    if (countdown !== 0 || isDischargeCinematicActive || isHost) return;
+    const timer = setTimeout(() => setGraceElapsed(true), HOST_GRACE_SECONDS * 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, isDischargeCinematicActive, isHost, roundNumber]);
+
+  const fallback = getIntermissionFallback({
+    countdown: isDischargeCinematicActive ? 1 : countdown,
+    graceElapsed,
+    isHost,
+    hostId,
+    myPlayerId,
+    players,
+  });
 
   const isOverloaded = Boolean(lastDischargeOutcome?.overloaded);
   const resultingRisk = lastDischargeOutcome?.resultingRiskLevel ?? 1;
@@ -96,7 +121,7 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
                 ⚡ [{testedNick}] {t.intermission.operatorEliminated}
               </span>
               <span className="text-[11px] text-zinc-400">
-                Dielectric breakdown occurred. Circuit opened.
+                {t.intermission.breakdownDesc}
               </span>
             </div>
           ) : (
@@ -118,15 +143,26 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
 
       <div className="mt-4 pt-3 border-t border-zinc-800/80 w-full flex flex-col items-center gap-2">
         {!isDischargeCinematicActive ? (
-          <div className="flex items-center gap-2 text-xs font-bold text-cyan-300 animate-pulse">
-            <span>⚡ {t.intermission.nextCycleAuto}</span>
-            <span className="px-2 py-0.5 rounded bg-cyan-950 border border-cyan-400 font-black text-white text-sm">
-              {countdown}s
+          <div
+            data-testid="intermission-countdown"
+            className="flex flex-col items-center gap-1 text-cyan-300"
+          >
+            <span className="text-xs font-bold tracking-widest">⚡ {t.intermission.nextCycleAuto}</span>
+            <span
+              key={countdown}
+              className="text-5xl sm:text-6xl font-black text-white tabular-nums drop-shadow-[0_0_18px_rgba(34,211,238,0.9)] animate-pulse"
+            >
+              {countdown}
             </span>
           </div>
         ) : (
-          <span className="text-xs text-zinc-500 italic">Discharge sequence resolving...</span>
+          <span className="text-xs text-zinc-500 italic">{t.intermission.dischargeResolving}</span>
         )}
+
+        <IntermissionFallbackNotice
+          fallback={fallback}
+          onLeave={onLeave}
+        />
 
         {isHost && countdown === 0 && (
           <button

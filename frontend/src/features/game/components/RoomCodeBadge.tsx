@@ -1,10 +1,12 @@
-import { Check, Copy, Link as LinkIcon } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { InviteButton } from './InviteButton';
 
 export interface RoomCodeBadgeProps {
   roomCode: string;
+  /** Shows the single "Invite" button (Web Share API, or copy link as a fallback). */
   showInviteLink?: boolean;
   className?: string;
 }
@@ -15,36 +17,16 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
   className = '',
 }) => {
   const { t } = useI18n();
-  const [copiedType, setCopiedType] = useState<'code' | 'link' | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const copyToClipboard = async (text: string, type: 'code' | 'link') => {
+  const copyCode = async () => {
     try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else if (typeof document !== 'undefined') {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-      setCopiedType(type);
-      setTimeout(() => setCopiedType(null), 2000);
+      await navigator.clipboard.writeText(roomCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       // Ignore clipboard write failures gracefully
     }
-  };
-
-  const getInviteUrl = () => {
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', roomCode);
-      return url.toString();
-    }
-    return `?room=${roomCode}`;
   };
 
   return (
@@ -61,11 +43,13 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
 
       <button
         type="button"
-        onClick={() => { void copyToClipboard(roomCode, 'code'); }}
+        onClick={() => {
+          void copyCode();
+        }}
         className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-800 hover:bg-emerald-600 hover:text-black text-emerald-400 border border-zinc-700 hover:border-emerald-500 rounded text-xs font-bold transition-colors cursor-pointer"
         title={t.common.copyCode}
       >
-        {copiedType === 'code' ? (
+        {copied ? (
           <>
             <Check className="w-3.5 h-3.5 text-emerald-300" />
             <span className="text-emerald-300">{t.common.copied}</span>
@@ -78,26 +62,7 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
         )}
       </button>
 
-      {showInviteLink && (
-        <button
-          type="button"
-          onClick={() => { void copyToClipboard(getInviteUrl(), 'link'); }}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-800 hover:bg-cyan-600 hover:text-black text-cyan-400 border border-zinc-700 hover:border-cyan-500 rounded text-xs font-bold transition-colors cursor-pointer"
-          title={t.common.copyLink}
-        >
-          {copiedType === 'link' ? (
-            <>
-              <Check className="w-3.5 h-3.5 text-cyan-300" />
-              <span className="text-cyan-300">{t.common.copied}</span>
-            </>
-          ) : (
-            <>
-              <LinkIcon className="w-3.5 h-3.5" />
-              <span>{t.common.copyLink}</span>
-            </>
-          )}
-        </button>
-      )}
+      {showInviteLink && <InviteButton roomCode={roomCode} />}
     </div>
   );
 };
