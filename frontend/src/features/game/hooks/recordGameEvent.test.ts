@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { playSfx } from '../../../shared/lib/audio';
 import { useGameStore } from '../stores/useGameStore';
 import { useUiStore } from '../stores/useUiStore';
 import { recordGameEvent } from './useDebugTerminal';
+
+vi.mock('../../../shared/lib/audio', () => ({
+  playSfx: vi.fn(),
+  setGameAudioHum: vi.fn(),
+}));
 
 const ID = '123e4567-e89b-12d3-a456-426614174001';
 const OTHER = '123e4567-e89b-12d3-a456-426614174002';
@@ -12,6 +18,7 @@ describe('recordGameEvent', () => {
 
   beforeEach(() => {
     vibrateMock.mockClear();
+    vi.mocked(playSfx).mockClear();
     vi.stubGlobal('navigator', { vibrate: vibrateMock });
     useUiStore.setState({ feed: [] });
     useGameStore.setState({
@@ -79,5 +86,58 @@ describe('recordGameEvent', () => {
     const texts = useUiStore.getState().feed.map((f) => f.text);
     expect(texts).not.toContain('old');
     expect(texts).toHaveLength(1);
+  });
+
+  it('triggers audio sfx for game events (ADR 0014)', () => {
+    vi.useFakeTimers();
+
+    recordGameEvent({
+      kind: 'CardsPlayed',
+      event: { playerId: OTHER, cardCount: 2, declaredProtocol: 'Alpha' },
+    });
+    vi.runAllTimers();
+    expect(playSfx).toHaveBeenCalledWith('cardClick');
+
+    recordGameEvent({
+      kind: 'TraceCalled',
+      event: {
+        sequenceNumber: 1,
+        accuserPlayerId: ID,
+        accusedPlayerId: OTHER,
+        loserPlayerId: OTHER,
+        declaredProtocol: 'Alpha',
+        bluffDetected: true,
+        revealedCards: [],
+      },
+    });
+    expect(playSfx).toHaveBeenCalledWith('traceSiren');
+
+    recordGameEvent({
+      kind: 'CapacitorDischarged',
+      event: {
+        type: 'CapacitorDischarged',
+        roomCode: 'R',
+        playerId: ID,
+        roll: 3,
+        riskLevel: 2,
+        resultingRiskLevel: 3,
+        overloaded: false,
+      },
+    });
+    expect(playSfx).toHaveBeenCalledWith('discharge');
+
+    recordGameEvent({
+      kind: 'RoundStarted',
+      event: { roomCode: 'R', roundNumber: 2 },
+    });
+    expect(playSfx).toHaveBeenCalledWith('roundStart');
+
+    recordGameEvent({
+      kind: 'PlayerEliminated',
+      event: { type: 'PlayerEliminated', roomCode: 'R', playerId: OTHER, placement: 2 },
+    });
+    expect(playSfx).toHaveBeenCalledWith('eliminated');
+
+    vi.useRealTimers();
   });
 });

@@ -13,6 +13,7 @@ import {
 } from '../utils/cinematicTiming';
 import { resolveOutcomePhase } from '../utils/outcomePhase';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
+import { AudioMuteButton } from './AudioMuteButton';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
 import { EventFeed } from './EventFeed';
 import { LeaveTableButton } from './LeaveTableButton';
@@ -189,6 +190,7 @@ export const OperatingTable: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 bg-black/80 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl text-xs">
             <RoomCodeBadge roomCode={roomCode} showInviteLink={roomState !== 'Lobby'} />
             <ConnectionStatusPill />
+            <AudioMuteButton />
             <button
               type="button"
               onClick={openRules}
