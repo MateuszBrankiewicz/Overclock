@@ -203,3 +203,81 @@ export function startHum(
     },
   };
 }
+
+export function playVoiceBlip(
+  ctx: AudioContext,
+  destination: AudioNode,
+  params?: AudioEffectParams
+): void {
+  const blip = params?.blip ?? 'zap';
+  const now = ctx.currentTime;
+
+  try {
+    switch (blip) {
+      case 'lowSweep': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(70, now + 0.04);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(destination);
+        osc.start(now);
+        osc.stop(now + 0.045);
+        break;
+      }
+      case 'zap': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1600, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.03);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        osc.connect(gain);
+        gain.connect(destination);
+        osc.start(now);
+        osc.stop(now + 0.035);
+        break;
+      }
+      case 'modem': {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = 'triangle';
+        osc2.type = 'triangle';
+        osc1.frequency.setValueAtTime(940, now);
+        osc2.frequency.setValueAtTime(1330, now);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(destination);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.04);
+        osc2.stop(now + 0.04);
+        break;
+      }
+      case 'glitch': {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.setValueAtTime(850, now + 0.015);
+        osc.frequency.setValueAtTime(220, now + 0.03);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(destination);
+        osc.start(now);
+        osc.stop(now + 0.045);
+        break;
+      }
+    }
+  } catch {
+    // Safe degradation
+  }
+}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
-import { playSfx, setGameAudioHum } from '../../../shared/lib/audio';
+import { playSfx, setGameAudioHum, speakRobotVoice } from '../../../shared/lib/audio';
 import { vibrate } from '../../../shared/lib/haptics';
 import {
   clearGameSession,
@@ -27,7 +27,7 @@ import {
 import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
-import type { CharacterId } from '../utils/characterCatalog';
+import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
 
 let sharedConnection: GameConnectionManager | null = null;
@@ -72,20 +72,43 @@ export function recordGameEvent(source: FeedSource): void {
       for (let i = 0; i < count; i++) {
         setTimeout(() => playSfx('cardClick'), i * 60);
       }
+      const player = players.find((p) => p.playerId === source.event.playerId);
+      const character = resolveSeatCharacter(player?.characterId).id;
+      const t = useI18n.getState().t;
+      speakRobotVoice(
+        character,
+        t.voice.playCards(source.event.cardCount, source.event.declaredProtocol),
+        { sequenceNumber: source.event.sequenceNumber }
+      );
       break;
     }
-    case 'TraceCalled':
+    case 'TraceCalled': {
       playSfx('traceSiren');
+      const accuser = players.find((p) => p.playerId === source.event.accuserPlayerId);
+      const character = resolveSeatCharacter(accuser?.characterId).id;
+      const t = useI18n.getState().t;
+      speakRobotVoice(character, t.voice.liar, {
+        priority: 'high',
+        sequenceNumber: source.event.sequenceNumber,
+      });
       break;
+    }
     case 'CapacitorDischarged':
       playSfx('discharge');
       break;
     case 'RoundStarted':
       playSfx('roundStart');
       break;
-    case 'PlayerEliminated':
+    case 'PlayerEliminated': {
       playSfx('eliminated');
+      const eliminatedPlayer = players.find((p) => p.playerId === source.event.playerId);
+      const character = resolveSeatCharacter(eliminatedPlayer?.characterId).id;
+      const t = useI18n.getState().t;
+      speakRobotVoice(character, t.voice.eliminated, {
+        sequenceNumber: source.event.sequenceNumber,
+      });
       break;
+    }
   }
 }
 

@@ -23,6 +23,7 @@ import { MatchSummary } from './MatchSummary';
 import { RoomCodeBadge } from './RoomCodeBadge';
 import { RoundIntermissionBanner } from './RoundIntermissionBanner';
 import { RoundIntroBanner } from './RoundIntroBanner';
+import { VoiceToggleButton } from './VoiceToggleButton';
 
 export const OperatingTable: React.FC = () => {
   const session = useGameSession();
@@ -191,6 +192,7 @@ export const OperatingTable: React.FC = () => {
             <RoomCodeBadge roomCode={roomCode} showInviteLink={roomState !== 'Lobby'} />
             <ConnectionStatusPill />
             <AudioMuteButton />
+            <VoiceToggleButton />
             <button
               type="button"
               onClick={openRules}

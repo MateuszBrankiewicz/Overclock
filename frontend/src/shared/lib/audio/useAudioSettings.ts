@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 const STORAGE_KEY_MUTED = 'overclock_audio_muted';
 const STORAGE_KEY_VOLUME = 'overclock_audio_volume';
+const STORAGE_KEY_VOICE_ENABLED = 'overclock_voice_enabled';
 
 function getInitialMuted(): boolean {
   try {
@@ -30,17 +31,33 @@ function getInitialVolume(): number {
   return 0.6;
 }
 
+function getInitialVoiceEnabled(): boolean {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_VOICE_ENABLED);
+      if (saved !== null) return saved === 'true';
+    }
+  } catch {
+    // LocalStorage blocked
+  }
+  return true;
+}
+
 export interface AudioSettingsState {
   muted: boolean;
   volume: number;
+  voiceEnabled: boolean;
   toggleMute: () => void;
+  toggleVoice: () => void;
   setMuted: (muted: boolean) => void;
   setVolume: (volume: number) => void;
+  setVoiceEnabled: (enabled: boolean) => void;
 }
 
 export const useAudioSettings = create<AudioSettingsState>((set) => ({
   muted: getInitialMuted(),
   volume: getInitialVolume(),
+  voiceEnabled: getInitialVoiceEnabled(),
 
   toggleMute: () => {
     set((state) => {
@@ -59,7 +76,34 @@ export const useAudioSettings = create<AudioSettingsState>((set) => ({
         })
         .catch(() => {});
 
+      if (nextMuted) {
+        void import('./robotVoice')
+          .then(({ cancelAllSpeech }) => cancelAllSpeech())
+          .catch(() => {});
+      }
+
       return { muted: nextMuted };
+    });
+  },
+
+  toggleVoice: () => {
+    set((state) => {
+      const nextEnabled = !state.voiceEnabled;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(STORAGE_KEY_VOICE_ENABLED, String(nextEnabled));
+        }
+      } catch {
+        // Storage access blocked
+      }
+
+      if (!nextEnabled) {
+        void import('./robotVoice')
+          .then(({ cancelAllSpeech }) => cancelAllSpeech())
+          .catch(() => {});
+      }
+
+      return { voiceEnabled: nextEnabled };
     });
   },
 
@@ -77,6 +121,12 @@ export const useAudioSettings = create<AudioSettingsState>((set) => ({
         audioEngine.setMuted(muted);
       })
       .catch(() => {});
+
+    if (muted) {
+      void import('./robotVoice')
+        .then(({ cancelAllSpeech }) => cancelAllSpeech())
+        .catch(() => {});
+    }
 
     set({ muted });
   },
@@ -98,5 +148,23 @@ export const useAudioSettings = create<AudioSettingsState>((set) => ({
       .catch(() => {});
 
     set({ volume: clamped });
+  },
+
+  setVoiceEnabled: (enabled) => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY_VOICE_ENABLED, String(enabled));
+      }
+    } catch {
+      // Storage access blocked
+    }
+
+    if (!enabled) {
+      void import('./robotVoice')
+        .then(({ cancelAllSpeech }) => cancelAllSpeech())
+        .catch(() => {});
+    }
+
+    set({ voiceEnabled: enabled });
   },
 }));
