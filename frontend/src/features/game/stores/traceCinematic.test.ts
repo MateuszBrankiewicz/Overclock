@@ -7,7 +7,6 @@ import type {
   RoomStateSnapshot,
   TraceResolution,
 } from '../schemas/gameEvents';
-import { TURN_DURATION_SECONDS } from '../utils/cinematicTiming';
 import { useGameStore } from './useGameStore';
 
 const ME = '11111111-1111-4111-8111-111111111111';
@@ -161,18 +160,12 @@ describe('snapshots during a round', () => {
     expect(useGameStore.getState().lastPlayedCards).toBeNull();
   });
 
-  it('estimates a turn deadline when a turn starts and keeps it for the same turn', () => {
-    const before = Date.now();
-    useGameStore.getState().applyRoomSnapshot(snapshot());
-    const deadline = useGameStore.getState().turnDeadlineUtc;
-    expect(deadline).not.toBeNull();
-    const deadlineMs = new Date(deadline ?? '').getTime();
-    expect(deadlineMs).toBeGreaterThanOrEqual(before + TURN_DURATION_SECONDS * 1000);
+  it('applies authoritative turn deadline from snapshot, null outside TurnActive', () => {
+    const authoritativeDeadline = new Date(Date.now() + 10000).toISOString();
+    useGameStore.getState().applyRoomSnapshot(snapshot({ turnDeadlineUtc: authoritativeDeadline }));
+    expect(useGameStore.getState().turnDeadlineUtc).toBe(authoritativeDeadline);
 
-    useGameStore.getState().applyRoomSnapshot(snapshot({ tablePileCount: 1 }));
-    expect(useGameStore.getState().turnDeadlineUtc).toBe(deadline);
-
-    useGameStore.getState().applyRoomSnapshot(snapshot({ state: 'RoundOver' }));
+    useGameStore.getState().applyRoomSnapshot(snapshot({ state: 'RoundOver', turnDeadlineUtc: null }));
     expect(useGameStore.getState().turnDeadlineUtc).toBeNull();
   });
 

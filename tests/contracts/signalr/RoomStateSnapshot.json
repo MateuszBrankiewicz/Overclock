@@ -58,6 +58,7 @@
   "winnerId": null,
   "pendingDischargePlayerId": null,
   "dischargeDeadlineUtc": null,
+  "turnDeadlineUtc": "2026-10-16T12:00:15Z",
   "canActivateExploit": true,
   "sequenceNumber": 1
 }

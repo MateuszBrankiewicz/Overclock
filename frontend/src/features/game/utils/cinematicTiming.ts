@@ -29,14 +29,3 @@ export function dischargeCinematicDurationMs(overloaded: boolean): number {
 
 /** How long the "round N - protocol X" announcement stays up. */
 export const ROUND_INTRO_MS = 2200;
-
-/**
- * Turn length used to estimate the turn deadline locally. Mirrors
- * `TurnTimerEngine.DefaultTurnDuration` on the server, which does not yet send the
- * deadline itself (see ADR 0015).
- */
-export const TURN_DURATION_SECONDS = 15;
-
-export function estimateTurnDeadlineUtc(nowMs: number = Date.now()): string {
-  return new Date(nowMs + TURN_DURATION_SECONDS * 1000).toISOString();
-}

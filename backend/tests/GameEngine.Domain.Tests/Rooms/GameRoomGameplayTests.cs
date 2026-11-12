@@ -245,4 +245,56 @@ public class GameRoomGameplayTests
         Assert.Equal(5, room.Seats[1].Hand.Count);
         Assert.Empty(room.TablePile);
     }
+
+    [Fact]
+    public void MarkTurnDeadline_SetsCurrentTurnDeadlineUtc_WhenInTurnActive()
+    {
+        var (room, hostId, _) = CreateReadyRoom();
+        room.StartRound(hostId, new ConstantRandomSource(0));
+        Assert.Equal(RoomState.TurnActive, room.State);
+        Assert.Null(room.CurrentTurnDeadlineUtc);
+
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        var result = room.MarkTurnDeadline(deadline);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(deadline, room.CurrentTurnDeadlineUtc);
+    }
+
+    [Fact]
+    public void MarkTurnDeadline_ReturnsInvalid_WhenNotInTurnActive()
+    {
+        var (room, _, _) = CreateReadyRoom();
+        Assert.Equal(RoomState.Lobby, room.State);
+
+        var result = room.MarkTurnDeadline(DateTime.UtcNow.AddSeconds(15));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ResultStatus.Invalid, result.Status);
+        Assert.Contains(result.ValidationErrors, e => e.Identifier == "Room.NotInTurnActive");
+        Assert.Null(room.CurrentTurnDeadlineUtc);
+    }
+
+    [Fact]
+    public void StateTransitions_AwayFromTurnActive_ClearsCurrentTurnDeadlineUtc()
+    {
+        var (room, hostId, p2Id) = CreateReadyRoom();
+        room.StartRound(hostId, new ConstantRandomSource(0));
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        room.MarkTurnDeadline(deadline);
+        Assert.Equal(deadline, room.CurrentTurnDeadlineUtc);
+
+        // Host plays cards -> rotates turn to P2 -> deadline is cleared until rescheduled
+        room.PlayCards(hostId, [room.Seats[0].Hand[0].Id], CardProtocol.Alpha);
+        Assert.Null(room.CurrentTurnDeadlineUtc);
+
+        // Set deadline again for P2's turn
+        room.MarkTurnDeadline(deadline);
+        Assert.Equal(deadline, room.CurrentTurnDeadlineUtc);
+
+        // P2 calls trace -> BluffCheck state -> deadline is cleared
+        room.CallTrace(p2Id);
+        Assert.Equal(RoomState.BluffCheck, room.State);
+        Assert.Null(room.CurrentTurnDeadlineUtc);
+    }
 }

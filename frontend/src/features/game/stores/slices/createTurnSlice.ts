@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand';
 
-import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
 import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState, TurnSlice } from '../types';
 
@@ -27,7 +26,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
         protocol: event.leadProtocol ?? null,
         startedAtMs: Date.now(),
       },
-      turnDeadlineUtc: estimateTurnDeadlineUtc(),
+      turnDeadlineUtc: null,
       roundNumber: event.roundNumber,
       roomState: 'TurnActive',
       currentTargetProtocol: event.leadProtocol ?? null,
@@ -89,23 +88,6 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
         roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
       };
     }),
-
-  setTurnStarted: (event) => {
-    let diffSeconds = 15;
-    if (event.turnDeadlineUtc) {
-      const deadline = new Date(event.turnDeadlineUtc).getTime();
-      if (Number.isFinite(deadline)) {
-        diffSeconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-      }
-    }
-
-    set({
-      activePlayerId: event.activePlayerId,
-      turnDeadlineUtc: event.turnDeadlineUtc,
-      remainingTimeSeconds: diffSeconds,
-      roomState: 'TurnActive',
-    });
-  },
 
   applyTraceCalled: (event) =>
     set({

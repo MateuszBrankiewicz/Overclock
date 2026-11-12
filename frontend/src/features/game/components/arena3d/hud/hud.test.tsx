@@ -1,6 +1,7 @@
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
+import { computeCountdown } from '../../../hooks/useCountdown';
 import { becameMyTurn } from '../../../hooks/useYourTurnBanner';
 import { getCharacterById } from '../../../utils/characterCatalog';
 import { ActionStrip } from './ActionStrip';
@@ -138,5 +139,17 @@ describe('turn urgency countdown', () => {
       <TurnUrgencyCountdownView countdown={{ ...base, secondsLeft: 9, isCritical: false }} isMyTurn />
     );
     expect(html).toBe('');
+  });
+
+  it('computes countdown state from authoritative server deadline and renders critical urgency', () => {
+    const nowMs = 1_000_000;
+    const serverDeadlineMs = nowMs + 4_200; // 4.2s remaining from server
+    const countdown = computeCountdown(serverDeadlineMs, nowMs, 15);
+    expect(countdown.isCritical).toBe(true);
+    expect(countdown.secondsLeft).toBe(5);
+
+    const html = renderToString(<TurnUrgencyCountdownView countdown={countdown} isMyTurn />);
+    expect(html).toContain('turn-urgency-countdown');
+    expect(html).toContain('>5<');
   });
 });

@@ -1,7 +1,0 @@
-{
-  "type": "TurnStarted",
-  "roomCode": "CYBER-7X9",
-  "activePlayerId": "a0000000-0000-4000-8000-000000000001",
-  "turnDeadlineUtc": "2026-10-16T12:00:00Z",
-  "sequenceNumber": 1
-}

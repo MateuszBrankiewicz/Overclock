@@ -2,7 +2,6 @@ import type { StateCreator } from 'zustand';
 
 import type { CapacitorDischargedEvent, PlayerSeat } from '../../schemas/gameEvents';
 import type { CharacterId } from '../../utils/characterCatalog';
-import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
 import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState, RoomSlice } from '../types';
 
@@ -132,18 +131,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         snapshot.state === 'VoltageTest';
 
       const isSameRound = snapshot.roundNumber === state.roundNumber;
-      const isSameTurn =
-        state.roomState === 'TurnActive' &&
-        snapshot.state === 'TurnActive' &&
-        isSameRound &&
-        snapshot.currentTurnPlayerId === state.activePlayerId;
-      // The server does not send the turn deadline yet (ADR 0015): estimate it when a turn starts.
-      const turnDeadlineUtc =
-        snapshot.state !== 'TurnActive'
-          ? null
-          : isSameTurn && state.turnDeadlineUtc
-            ? state.turnDeadlineUtc
-            : estimateTurnDeadlineUtc();
+      const turnDeadlineUtc = snapshot.turnDeadlineUtc ?? null;
 
       const snapshotTrace = snapshot.lastTraceResolution;
       const snapshotSeq = snapshotTrace?.sequenceNumber ?? null;

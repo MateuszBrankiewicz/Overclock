@@ -500,5 +500,107 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
         Assert.NotNull(pushedSnapshot);
         Assert.Equal(roomCode, pushedSnapshot.RoomCode);
     }
+
+    [Fact]
+    public async Task Snapshot_carries_turn_deadline_while_turn_active()
+    {
+        var roomCode = $"CYBER-T{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode));
+        Assert.True(hostResponse.IsSuccess);
+        Assert.Null(hostResponse.Data!.GameState.TurnDeadlineUtc);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer"));
+        Assert.True(guestResponse.IsSuccess);
+        Assert.Null(guestResponse.Data!.GameState.TurnDeadlineUtc);
+
+        var hostTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var guestTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        hostConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                hostTcs.TrySetResult(s);
+            }
+        });
+
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.State == "TurnActive")
+            {
+                guestTcs.TrySetResult(s);
+            }
+        });
+
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+
+        var beforeStart = DateTime.UtcNow;
+        var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResponse.IsSuccess);
+
+        var hostState1 = await hostTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var guestState1 = await guestTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("TurnActive", hostState1.State);
+        Assert.NotNull(hostState1.TurnDeadlineUtc);
+        Assert.InRange(hostState1.TurnDeadlineUtc.Value, beforeStart.AddSeconds(13), beforeStart.AddSeconds(16));
+
+        Assert.Equal("TurnActive", guestState1.State);
+        Assert.NotNull(guestState1.TurnDeadlineUtc);
+        Assert.InRange(guestState1.TurnDeadlineUtc.Value, beforeStart.AddSeconds(13), beforeStart.AddSeconds(16));
+
+        // Now have the current turn player play cards
+        var activePlayerId = hostState1.CurrentTurnPlayerId;
+        var activeConnection = activePlayerId == hostResponse.Data.PlayerId ? hostConnection : guestConnection;
+        var activeState = activePlayerId == hostResponse.Data.PlayerId ? hostState1 : guestState1;
+        var cardToPlay = activeState.MyHand[0].Id;
+        var activeTargetProtocol = Enum.Parse<CardProtocol>(hostState1.CurrentTargetProtocol!);
+
+        var hostTurn2Tcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var guestTurn2Tcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        hostConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.SequenceNumber > hostState1.SequenceNumber)
+            {
+                hostTurn2Tcs.TrySetResult(s);
+            }
+        });
+
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            if (s.SequenceNumber > guestState1.SequenceNumber)
+            {
+                guestTurn2Tcs.TrySetResult(s);
+            }
+        });
+
+        var beforePlay = DateTime.UtcNow;
+        var playResponse = await activeConnection.InvokeAsync<HubResponse>(
+            "PlayCards",
+            new PlayCardsRequest(roomCode, [cardToPlay], activeTargetProtocol));
+        Assert.True(playResponse.IsSuccess, playResponse.Error);
+
+        var hostState2 = await hostTurn2Tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var guestState2 = await guestTurn2Tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("TurnActive", hostState2.State);
+        Assert.NotNull(hostState2.TurnDeadlineUtc);
+        Assert.InRange(hostState2.TurnDeadlineUtc.Value, beforePlay.AddSeconds(13), beforePlay.AddSeconds(16));
+
+        Assert.Equal("TurnActive", guestState2.State);
+        Assert.NotNull(guestState2.TurnDeadlineUtc);
+        Assert.InRange(guestState2.TurnDeadlineUtc.Value, beforePlay.AddSeconds(13), beforePlay.AddSeconds(16));
+    }
 }
 

@@ -17,9 +17,11 @@ internal sealed class DisconnectPlayerCommandHandler(
     IGameNotifier notifier,
     IDisconnectGraceManager graceManager,
     ITurnTimerEngine turnTimer,
-    IGameStateProjector projector)
+    IGameStateProjector projector,
+    TimeProvider? timeProvider = null)
     : IRequestHandler<DisconnectPlayerCommand, Result>
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private static readonly TimeSpan DefaultGracePeriod = TimeSpan.FromSeconds(30);
 
     public async ValueTask<Result> Handle(DisconnectPlayerCommand request, CancellationToken ct)
@@ -111,6 +113,8 @@ internal sealed class DisconnectPlayerCommandHandler(
                             }
                             else if (wasCurrentTurnPlayer && activeRoom.State == RoomState.TurnActive && activeRoom.CurrentTurnPlayerId is { } nextPlayerId)
                             {
+                                var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(TurnTimerEngine.DefaultTurnDuration);
+                                activeRoom.MarkTurnDeadline(deadlineUtc);
                                 turnTimer.Start(activeSession, nextPlayerId, activeRoom.TurnSequenceId);
                             }
 

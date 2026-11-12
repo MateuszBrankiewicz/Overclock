@@ -15,7 +15,6 @@ import type {
   RoundStartedEvent,
   TraceCalledEvent,
   TraceResolution,
-  TurnStartedEvent,
   VoltageTestStartedEvent,
 } from '../schemas/gameEvents';
 import type { CharacterId } from '../utils/characterCatalog';
@@ -116,7 +115,6 @@ export interface TurnSlice {
   applyRoundStarted: (event: RoundStartedEvent) => void;
   applyCardsPlayed: (event: CardsPlayedEvent) => void;
   applyTraceResolution: (resolution: TraceResolution) => void;
-  setTurnStarted: (event: TurnStartedEvent) => void;
   applyTraceCalled: (event: TraceCalledEvent) => void;
   setRemainingTime: (seconds: number) => void;
   tickRemainingTime: () => void;
