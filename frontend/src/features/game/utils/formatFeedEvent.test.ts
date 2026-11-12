@@ -26,22 +26,40 @@ describe('formatFeedEvent', () => {
     ).toEqual({ text: 'Volt played 2× ALPHA', tone: 'neutral' });
   });
 
-  it('formats trace using the accuser', () => {
-    const res = formatFeedEvent(
-      {
-        kind: 'TraceCalled',
-        event: {
-          accuserPlayerId: B,
-          accusedPlayerId: A,
-          loserPlayerId: A,
-          revealedCards: [],
-          declaredProtocol: 'Beta',
-          bluffDetected: true,
-        },
-      },
-      ctx()
-    );
-    expect(res).toEqual({ text: 'Ghost calls TRACE!', tone: 'danger' });
+  it('formats trace with bluff verdict in EN and PL', () => {
+    const bluffEvent = {
+      accuserPlayerId: B,
+      accusedPlayerId: A,
+      loserPlayerId: A,
+      revealedCards: [],
+      declaredProtocol: 'Beta' as const,
+      bluffDetected: true,
+    };
+    expect(
+      formatFeedEvent({ kind: 'TraceCalled', event: bluffEvent }, ctx(null, 'en'))
+    ).toEqual({ text: 'Ghost traces Volt — BLUFF!', tone: 'danger' });
+
+    expect(
+      formatFeedEvent({ kind: 'TraceCalled', event: bluffEvent }, ctx(null, 'pl'))
+    ).toEqual({ text: 'Ghost sprawdza Volt — BLEF!', tone: 'danger' });
+  });
+
+  it('formats trace with clean verdict in EN and PL', () => {
+    const cleanEvent = {
+      accuserPlayerId: B,
+      accusedPlayerId: A,
+      loserPlayerId: B,
+      revealedCards: [],
+      declaredProtocol: 'Beta' as const,
+      bluffDetected: false,
+    };
+    expect(
+      formatFeedEvent({ kind: 'TraceCalled', event: cleanEvent }, ctx(null, 'en'))
+    ).toEqual({ text: 'Ghost traces Volt — clean', tone: 'danger' });
+
+    expect(
+      formatFeedEvent({ kind: 'TraceCalled', event: cleanEvent }, ctx(null, 'pl'))
+    ).toEqual({ text: 'Ghost sprawdza Volt — czysto', tone: 'danger' });
   });
 
   it('formats exploit usage', () => {

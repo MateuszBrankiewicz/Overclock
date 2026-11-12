@@ -125,5 +125,19 @@ describe('OperatingTable Component (TASK-2.6 & ADR 0010 3D POV Bunker Arena)', (
       expect(html).not.toContain('arena-overlay-modal');
       expect(html).toContain('pointer-events-none');
     });
+
+    it('does not render card-reveal-sequence during BluffCheck reveal', () => {
+      const html = renderToString(
+        React.createElement(BunkerArenaCanvas, {
+          ...baseProps,
+          roomState: 'BluffCheck',
+          revealedCards: [{ id: 'c1', protocol: 'Alpha', visualSeed: 1 }],
+          revealDeclaredProtocol: 'Alpha',
+          revealStartedAtMs: 1000,
+          overlayMode: 'passive',
+        })
+      );
+      expect(html).not.toContain('card-reveal-sequence');
+    });
   });
 });

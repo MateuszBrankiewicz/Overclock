@@ -5,9 +5,9 @@ import { useI18n } from '../../../shared/i18n';
 import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
+import { resolveCenterOverlay } from '../utils/centerOverlay';
 import { DISCHARGE_CINEMATIC_MS, traceRevealDurationMs } from '../utils/cinematicTiming';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
-import { CardRevealSequence } from './CardRevealSequence';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
 import { EventFeed } from './EventFeed';
 import { LeaveTableButton } from './LeaveTableButton';
@@ -87,10 +87,13 @@ export const OperatingTable: React.FC = () => {
   const isHost = Boolean(hostId && playerId && hostId === playerId);
 
   const revealResolution = traceReveal?.resolution ?? null;
-  const accuserNickname =
-    players.find((p) => p.playerId === revealResolution?.accuserPlayerId)?.nickname ?? t.common.player;
-  const accusedNickname =
-    players.find((p) => p.playerId === revealResolution?.accusedPlayerId)?.nickname ?? t.common.opponent;
+  const isRevealing = Boolean(traceReveal);
+  const isDischarging = Boolean(dischargeCinematic);
+  const centerOverlay = resolveCenterOverlay({
+    roomState,
+    isRevealing,
+    isDischarging,
+  });
   if (!roomCode) {
     return <LobbyScreen />;
   }
@@ -133,6 +136,14 @@ export const OperatingTable: React.FC = () => {
         revealedCards={revealResolution?.revealedCards ?? null}
         revealDeclaredProtocol={revealResolution?.declaredProtocol ?? null}
         revealStartedAtMs={traceReveal?.startedAtMs ?? null}
+        bluffDetected={revealResolution?.bluffDetected ?? false}
+        revealLoserPlayerId={
+          revealResolution
+            ? revealResolution.bluffDetected
+              ? revealResolution.accusedPlayerId
+              : revealResolution.accuserPlayerId
+            : null
+        }
         lastPlayedCards={lastPlayedCards}
         cameraFocus={cameraFocus}
         onCameraFocusChange={setCameraFocus}
@@ -148,11 +159,7 @@ export const OperatingTable: React.FC = () => {
         onCallTrace={() => void session.callTrace()}
         onActivateExploit={(exp, newTarget) => void session.activateExploit(exp, newTarget)}
         isVoltageTestActive={roomState === 'VoltageTest'}
-        overlayMode={
-          roomState === 'Lobby' || (!isPresentingOutcome && (roomState === 'GameOver' || roomState === 'RoundOver'))
-            ? 'modal'
-            : 'passive'
-        }
+        overlayMode={centerOverlay !== null ? 'modal' : 'passive'}
         dischargeCinematic={dischargeCinematic}
         pendingPlayerNickname={pendingPlayer?.nickname ?? t.common.operator}
         isLocalPlayerPending={isLocalPlayerPending}
@@ -176,7 +183,7 @@ export const OperatingTable: React.FC = () => {
           </div>
         }
       >
-        {roomState === 'Lobby' ? (
+        {centerOverlay === 'lobby' ? (
           <LobbyPlayerList
             players={players}
             myPlayerId={playerId}
@@ -189,19 +196,7 @@ export const OperatingTable: React.FC = () => {
             onSetReady={(ready) => void session.setReady(ready)}
             onStartRound={() => void session.startRound()}
           />
-        ) : revealResolution ? (
-          // Verdict panel at the top; the cards themselves flip face-up on the 3D table.
-          <div className="fixed top-14 sm:top-16 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg px-3 pointer-events-none">
-            <CardRevealSequence
-              key={traceReveal?.startedAtMs}
-              revealedCards={revealResolution.revealedCards}
-              declaredProtocol={revealResolution.declaredProtocol}
-              bluffDetected={revealResolution.bluffDetected}
-              accuserNickname={accuserNickname}
-              accusedNickname={accusedNickname}
-            />
-          </div>
-        ) : dischargeCinematic ? null : roomState === 'GameOver' ? (
+        ) : centerOverlay === 'summary' ? (
           <MatchSummary
             players={players}
             placementByPlayerId={placementByPlayerId}
@@ -212,7 +207,7 @@ export const OperatingTable: React.FC = () => {
             onPlayAgain={() => void session.startRound()}
             onLeave={() => session.leaveRoom()}
           />
-        ) : roomState === 'RoundOver' ? (
+        ) : centerOverlay === 'intermission' ? (
           <RoundIntermissionBanner
             key={roundNumber}
             roundNumber={roundNumber}

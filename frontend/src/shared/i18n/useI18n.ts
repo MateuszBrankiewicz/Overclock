@@ -153,14 +153,6 @@ export interface Translations {
     breakdownDesc: string;
     dischargeResolving: string;
   };
-  reveal: {
-    scanTitle: string;
-    declared: string;
-    bluffVerdict: string;
-    honestVerdict: string;
-    bluffDetail: (nickname: string) => string;
-    honestDetail: (nickname: string) => string;
-  };
   arena: {
     hologramProtocol: string;
     hologramPile: string;
@@ -265,7 +257,7 @@ export interface Translations {
     unknownPlayer: string;
     exploits: Record<'PacketSniffer' | 'GroundWire' | 'OverclockInjector' | 'EmpFlare', string>;
     played: (who: string, count: number, protocol: string) => string;
-    traceCalled: (who: string) => string;
+    traceCalled: (who: string, target: string, bluff: boolean) => string;
     exploitUsed: (who: string, exploit: string) => string;
     survived: (who: string, roll: number) => string;
     overloaded: (who: string, roll: number) => string;
@@ -426,16 +418,6 @@ export const translations: Record<Language, Translations> = {
       breakdownDesc: 'Przebicie dielektryka. Obwód otwarty.',
       dischargeResolving: 'Trwa rozładowanie...',
     },
-    reveal: {
-      scanTitle: '[SKAN DIAGNOSTYCZNY TRACE]',
-      declared: 'DEKLAROWANO',
-      bluffVerdict: '⚡ PRZECIĄŻENIE WYSOKIM NAPIĘCIEM // BLEF WYKRYTY!',
-      honestVerdict: '🛡 INTEGRALNOŚĆ POTWIERDZONA // AUTENTYCZNY SPRZĘT!',
-      bluffDetail: (nickname) =>
-        `Operator [${nickname}] przesłał uszkodzone pakiety i nie przeszedł kontroli integralności!`,
-      honestDetail: (nickname) =>
-        `Oskarżyciel [${nickname}] wywołał fałszywy alarm i przyjmuje wyładowanie wysokiego napięcia!`,
-    },
     arena: {
       hologramProtocol: 'PROTOKÓŁ',
       hologramPile: 'STOS',
@@ -541,7 +523,7 @@ export const translations: Record<Language, Translations> = {
       unknownPlayer: 'Nieznany',
       exploits: { PacketSniffer: 'SNIFFER', GroundWire: 'UZIEMIENIE', OverclockInjector: 'OVERCLOCK', EmpFlare: 'EMP FLARE' },
       played: (who, count, protocol) => `${who} zagrywa ${count}× ${protocol}`,
-      traceCalled: (who) => `${who} wywołuje TRACE!`,
+      traceCalled: (who, target, bluff) => `${who} sprawdza ${target} — ${bluff ? 'BLEF!' : 'czysto'}`,
       exploitUsed: (who, exploit) => `${who} używa ${exploit}`,
       survived: (who, roll) => `${who} przeżywa wyładowanie (rzut ${roll})`,
       overloaded: (who, roll) => `${who} przeciążony! (rzut ${roll})`,
@@ -701,16 +683,6 @@ export const translations: Record<Language, Translations> = {
       breakdownDesc: 'Dielectric breakdown occurred. Circuit opened.',
       dischargeResolving: 'Discharge sequence resolving...',
     },
-    reveal: {
-      scanTitle: '[DIAGNOSTIC TRACE SCAN]',
-      declared: 'DECLARED',
-      bluffVerdict: '⚡ HIGH VOLTAGE OVERLOAD // BLUFF DETECTED!',
-      honestVerdict: '🛡 INTEGRITY VERIFIED // AUTHENTIC HARDWARE!',
-      bluffDetail: (nickname) =>
-        `Operator [${nickname}] transmitted corrupt packets and failed integrity check!`,
-      honestDetail: (nickname) =>
-        `Accuser [${nickname}] triggered false alarm and absorbs high voltage discharge!`,
-    },
     arena: {
       hologramProtocol: 'PROTOCOL',
       hologramPile: 'PILE',
@@ -816,7 +788,7 @@ export const translations: Record<Language, Translations> = {
       unknownPlayer: 'Unknown',
       exploits: { PacketSniffer: 'SNIFFER', GroundWire: 'GROUND WIRE', OverclockInjector: 'OVERCLOCK', EmpFlare: 'EMP FLARE' },
       played: (who, count, protocol) => `${who} played ${count}× ${protocol}`,
-      traceCalled: (who) => `${who} calls TRACE!`,
+      traceCalled: (who, target, bluff) => `${who} traces ${target} — ${bluff ? 'BLUFF!' : 'clean'}`,
       exploitUsed: (who, exploit) => `${who} used ${exploit}`,
       survived: (who, roll) => `${who} survived the discharge (roll ${roll})`,
       overloaded: (who, roll) => `${who} overloaded! (roll ${roll})`,

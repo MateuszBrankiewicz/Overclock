@@ -48,8 +48,13 @@ export function formatFeedEvent(source: FeedSource, ctx: FeedContext): Omit<Feed
         tone: 'neutral',
       };
     }
-    case 'TraceCalled':
-      return { text: t.traceCalled(name(source.event.accuserPlayerId)), tone: 'danger' };
+    case 'TraceCalled': {
+      const e = source.event;
+      return {
+        text: t.traceCalled(name(e.accuserPlayerId), name(e.accusedPlayerId), e.bluffDetected),
+        tone: 'danger',
+      };
+    }
     case 'ExploitTriggered': {
       const e = source.event;
       return { text: t.exploitUsed(name(e.playerId), t.exploits[e.exploit]), tone: 'info' };
