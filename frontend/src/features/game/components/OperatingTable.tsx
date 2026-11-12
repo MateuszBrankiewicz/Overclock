@@ -6,7 +6,12 @@ import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
 import { resolveCenterOverlay } from '../utils/centerOverlay';
-import { DISCHARGE_CINEMATIC_MS, traceRevealDurationMs } from '../utils/cinematicTiming';
+import {
+  AWAIT_DISCHARGE_TIMEOUT_MS,
+  dischargeCinematicDurationMs,
+  traceRevealDurationMs,
+} from '../utils/cinematicTiming';
+import { resolveOutcomePhase } from '../utils/outcomePhase';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
 import { EventFeed } from './EventFeed';
@@ -48,6 +53,9 @@ export const OperatingTable: React.FC = () => {
   const lastDischargeOutcome = useGameStore((s) => s.lastDischargeOutcome);
   const dischargeCinematic = useGameStore((s) => s.dischargeCinematic);
   const clearDischargeCinematic = useGameStore((s) => s.clearDischargeCinematic);
+  const queuedDischarge = useGameStore((s) => s.queuedDischarge);
+  const awaitingDischargeForSequence = useGameStore((s) => s.awaitingDischargeForSequence);
+  const clearAwaitingDischarge = useGameStore((s) => s.clearAwaitingDischarge);
   const sniffedCard = useGameStore((s) => s.sniffedCard);
   const selectedCharacterId = useGameStore((s) => s.selectedCharacterId);
   const characterByPlayerId = useGameStore((s) => s.characterByPlayerId);
@@ -65,16 +73,24 @@ export const OperatingTable: React.FC = () => {
     return () => clearTimeout(timer);
   }, [traceReveal, finishTraceReveal]);
 
+  // Auto-dismiss discharge cinematic using exact duration (including death kinematic)
   useEffect(() => {
     if (!dischargeCinematic) return;
-    const remaining = DISCHARGE_CINEMATIC_MS - (Date.now() - dischargeCinematic.startedAtMs);
+    const duration = dischargeCinematicDurationMs(dischargeCinematic.event.overloaded);
+    const remaining = duration - (Date.now() - dischargeCinematic.startedAtMs);
     const timer = setTimeout(clearDischargeCinematic, Math.max(0, remaining));
     return () => clearTimeout(timer);
   }, [dischargeCinematic, clearDischargeCinematic]);
 
+  // Safety watchdog: clear awaitingDischarge if network or server drops discharge event
+  useEffect(() => {
+    if (awaitingDischargeForSequence === null) return;
+    const timer = setTimeout(clearAwaitingDischarge, AWAIT_DISCHARGE_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [awaitingDischargeForSequence, clearAwaitingDischarge]);
+
   // While the cards are being revealed, show the table as it was when the trace was called.
   const players = traceReveal?.seatsAtReveal ?? livePlayers;
-  const isPresentingOutcome = Boolean(traceReveal || dischargeCinematic);
 
   const me = players.find((p) => p.playerId === playerId);
   const pendingPlayer = players.find((p) => p.playerId === pendingDischargePlayerId);
@@ -87,12 +103,16 @@ export const OperatingTable: React.FC = () => {
   const isHost = Boolean(hostId && playerId && hostId === playerId);
 
   const revealResolution = traceReveal?.resolution ?? null;
-  const isRevealing = Boolean(traceReveal);
-  const isDischarging = Boolean(dischargeCinematic);
+  const phase = resolveOutcomePhase({
+    roomState,
+    hasTraceReveal: Boolean(traceReveal),
+    hasQueuedDischarge: Boolean(queuedDischarge),
+    hasDischargeCinematic: Boolean(dischargeCinematic),
+    awaitingDischarge: Boolean(awaitingDischargeForSequence !== null),
+  });
   const centerOverlay = resolveCenterOverlay({
     roomState,
-    isRevealing,
-    isDischarging,
+    phase,
   });
   if (!roomCode) {
     return <LobbyScreen />;
@@ -113,7 +133,7 @@ export const OperatingTable: React.FC = () => {
 
       {roomState !== 'Lobby' && <EventFeed />}
 
-      {roundIntro && !isPresentingOutcome && (
+      {roundIntro && phase === null && (
         <RoundIntroBanner
           key={`${roundIntro.roundNumber}:${roundIntro.startedAtMs}`}
           roundNumber={roundIntro.roundNumber}
@@ -132,7 +152,7 @@ export const OperatingTable: React.FC = () => {
         characterByPlayerId={characterByPlayerId}
         tablePileCount={tablePileCount}
         currentTargetProtocol={currentTargetProtocol}
-        roomState={traceReveal ? 'BluffCheck' : roomState}
+        roomState={phase === 'reveal' ? 'BluffCheck' : roomState}
         revealedCards={revealResolution?.revealedCards ?? null}
         revealDeclaredProtocol={revealResolution?.declaredProtocol ?? null}
         revealStartedAtMs={traceReveal?.startedAtMs ?? null}
@@ -158,7 +178,7 @@ export const OperatingTable: React.FC = () => {
         onPlayCards={() => void session.playCards()}
         onCallTrace={() => void session.callTrace()}
         onActivateExploit={(exp, newTarget) => void session.activateExploit(exp, newTarget)}
-        isVoltageTestActive={roomState === 'VoltageTest'}
+        isVoltageTestActive={phase === 'decision'}
         overlayMode={centerOverlay !== null ? 'modal' : 'passive'}
         dischargeCinematic={dischargeCinematic}
         pendingPlayerNickname={pendingPlayer?.nickname ?? t.common.operator}

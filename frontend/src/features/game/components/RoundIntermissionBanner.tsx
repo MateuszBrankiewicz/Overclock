@@ -45,7 +45,8 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
   const testedNick = testedSeat?.nickname ?? t.common.operator;
 
   useEffect(() => {
-    // Only begin the countdown when the 3D discharge/death animation has completed
+    // Only begin the countdown when the 3D discharge/death animation has completed.
+    // Note: After T-0013 (ADR 0013), this countdown will be driven by server-sent intermissionDeadlineUtc.
     if (isDischargeCinematicActive) {
       return;
     }

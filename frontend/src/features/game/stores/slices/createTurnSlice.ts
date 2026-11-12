@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand';
 
 import { estimateTurnDeadlineUtc } from '../../utils/cinematicTiming';
+import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState, TurnSlice } from '../types';
 
 export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set) => ({
@@ -36,6 +37,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,
+      awaitingDischargeForSequence: null,
       remainingTimeSeconds: 15,
     }),
 
@@ -70,23 +72,21 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       const seq = resolution.sequenceNumber ?? null;
       // The accuser gets the same resolution twice (broadcast + invoke response): reveal once.
       const alreadyRevealed =
-        (seq !== null && seq === state.lastRevealedTraceSequence) ||
+        (seq !== null && state.lastRevealedTraceSequence !== null && seq <= state.lastRevealedTraceSequence) ||
         (seq === null && state.traceReveal !== null);
+
+      if (alreadyRevealed) {
+        return {
+          lastTraceResolution: resolution,
+          tablePileCount: 0,
+          turnDeadlineUtc: null,
+          roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
+        };
+      }
+
       return {
-        lastTraceResolution: resolution,
-        tablePileCount: 0,
-        turnDeadlineUtc: null,
+        ...startTraceReveal(state, resolution),
         roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
-        ...(alreadyRevealed
-          ? {}
-          : {
-              traceReveal: {
-                resolution,
-                startedAtMs: Date.now(),
-                seatsAtReveal: state.players,
-              },
-              lastRevealedTraceSequence: seq,
-            }),
       };
     }),
 
@@ -140,6 +140,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastTraceResolution: null,
       lastTrace: null,
       traceReveal: null,
+      awaitingDischargeForSequence: null,
       roundIntro: null,
     })),
 });
