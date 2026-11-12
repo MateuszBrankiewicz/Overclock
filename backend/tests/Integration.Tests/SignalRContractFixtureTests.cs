@@ -44,13 +44,6 @@ public class SignalRContractFixtureTests
             BluffDetected: true,
             SequenceNumber: 1);
 
-        var turnStarted = new TurnStartedEvent(
-            Type: "TurnStarted",
-            RoomCode: "CYBER-7X9",
-            ActivePlayerId: player1Id,
-            TurnDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 0, DateTimeKind.Utc),
-            SequenceNumber: 1);
-
         var capacitorDischarged = new CapacitorDischargedEvent(
             Type: "CapacitorDischarged",
             RoomCode: "CYBER-7X9",
@@ -119,6 +112,7 @@ public class SignalRContractFixtureTests
             WinnerId: null,
             PendingDischargePlayerId: null,
             DischargeDeadlineUtc: null,
+            TurnDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 15, DateTimeKind.Utc),
             CanActivateExploit: true,
             SequenceNumber: 1);
 
@@ -143,6 +137,7 @@ public class SignalRContractFixtureTests
             WinnerId: null,
             PendingDischargePlayerId: null,
             DischargeDeadlineUtc: null,
+            TurnDeadlineUtc: new DateTime(2026, 10, 16, 12, 0, 15, DateTimeKind.Utc),
             CanActivateExploit: true,
             SequenceNumber: 1);
 
@@ -153,7 +148,6 @@ public class SignalRContractFixtureTests
         var triggerDischargeContract = new TriggerDischargeContractDto("CYBER-7X9", player2Id);
 
         await AssertFixtureAsync(fixtureDir, "TraceCalled.json", traceCalled);
-        await AssertFixtureAsync(fixtureDir, "TurnStarted.json", turnStarted);
         await AssertFixtureAsync(fixtureDir, "CapacitorDischarged.json", capacitorDischarged);
         await AssertFixtureAsync(fixtureDir, "PlayerEliminated.json", playerEliminated);
         await AssertFixtureAsync(fixtureDir, "ExploitTriggered.json", exploitTriggered);

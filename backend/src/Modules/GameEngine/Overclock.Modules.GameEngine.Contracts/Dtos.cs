@@ -45,6 +45,7 @@ public sealed record PlayerGameStateDto(
     Guid? WinnerId,
     Guid? PendingDischargePlayerId = null,
     DateTime? DischargeDeadlineUtc = null,
+    DateTime? TurnDeadlineUtc = null,
     bool CanActivateExploit = false,
     long SequenceNumber = 1);
 
@@ -87,6 +88,7 @@ public sealed record GameStateSnapshotDto(
     Guid? WinnerId,
     Guid? PendingDischargePlayerId = null,
     DateTime? DischargeDeadlineUtc = null,
+    DateTime? TurnDeadlineUtc = null,
     bool CanActivateExploit = false,
     long SequenceNumber = 1);
 

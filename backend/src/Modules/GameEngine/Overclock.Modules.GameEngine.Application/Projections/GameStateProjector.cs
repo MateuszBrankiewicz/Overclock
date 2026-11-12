@@ -75,6 +75,7 @@ public sealed class GameStateProjector : IGameStateProjector
             room.WinnerId?.Value,
             room.PendingDischargePlayerId?.Value,
             DischargeDeadlineUtc: null,
+            TurnDeadlineUtc: room.CurrentTurnDeadlineUtc,
             CanActivateExploit: room.CanActivateExploit(recipientId),
             SequenceNumber: room.EventSequenceNumber);
     }

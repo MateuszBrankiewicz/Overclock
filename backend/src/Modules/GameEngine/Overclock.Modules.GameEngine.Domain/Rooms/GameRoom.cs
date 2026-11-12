@@ -27,6 +27,7 @@ public sealed class GameRoom
     public Deck? CurrentDeck { get; private set; }
     public CardProtocol? CurrentTargetProtocol { get; private set; }
     public PlayerId? CurrentTurnPlayerId { get; private set; }
+    public DateTime? CurrentTurnDeadlineUtc { get; private set; }
     public long TurnSequenceId { get; private set; }
     public long DischargeSequenceId { get; private set; } = 1;
     public PlayedTurn? LastPlay { get; private set; }
@@ -250,6 +251,7 @@ public sealed class GameRoom
         LastTraceResolution = null;
         LastDischargeOutcome = null;
         PendingDischargePlayerId = null;
+        CurrentTurnDeadlineUtc = null;
         RoundNumber++;
         TurnSequenceId++;
 
@@ -330,6 +332,7 @@ public sealed class GameRoom
             // All players have successfully played all their cards without any challenge.
             State = RoomState.RoundOver;
             CurrentTurnPlayerId = null;
+            CurrentTurnDeadlineUtc = null;
             return Result.Success();
         }
 
@@ -339,13 +342,26 @@ public sealed class GameRoom
         {
             State = RoomState.RoundOver;
             CurrentTurnPlayerId = null;
+            CurrentTurnDeadlineUtc = null;
         }
         else
         {
             CurrentTurnPlayerId = nextPlayerId.Value;
+            CurrentTurnDeadlineUtc = null;
             TurnSequenceId++;
         }
 
+        return Result.Success();
+    }
+
+    public Result MarkTurnDeadline(DateTime deadlineUtc)
+    {
+        if (State != RoomState.TurnActive)
+        {
+            return Result.Invalid(new ValidationError("Room.NotInTurnActive", $"Cannot set turn deadline in state '{State}'."));
+        }
+
+        CurrentTurnDeadlineUtc = deadlineUtc;
         return Result.Success();
     }
 
@@ -386,6 +402,7 @@ public sealed class GameRoom
         State = RoomState.VoltageTest;
         PendingDischargePlayerId = playerId;
         CurrentTurnPlayerId = null;
+        CurrentTurnDeadlineUtc = null;
         DischargeSequenceId++;
 
         return Result<TurnExpiredOutcome>.Success(new TurnExpiredOutcome.LeadForfeit(playerId));
@@ -444,6 +461,7 @@ public sealed class GameRoom
         LastTraceResolution = resolution;
         PendingDischargePlayerId = loserId;
         CurrentTurnPlayerId = null;
+        CurrentTurnDeadlineUtc = null;
 
         return Result<TraceResolution>.Success(resolution);
     }
@@ -456,6 +474,7 @@ public sealed class GameRoom
         }
 
         State = RoomState.VoltageTest;
+        CurrentTurnDeadlineUtc = null;
         DischargeSequenceId++;
         return Result.Success();
     }
@@ -503,6 +522,7 @@ public sealed class GameRoom
             CurrentTurnPlayerId = null;
         }
 
+        CurrentTurnDeadlineUtc = null;
         return Result<DischargeOutcome>.Success(outcome);
     }
 
@@ -771,6 +791,7 @@ public sealed class GameRoom
         {
             State = RoomState.GameOver;
             CurrentTurnPlayerId = null;
+            CurrentTurnDeadlineUtc = null;
             return Result.Success();
         }
 
@@ -781,10 +802,12 @@ public sealed class GameRoom
             {
                 State = RoomState.RoundOver;
                 CurrentTurnPlayerId = null;
+                CurrentTurnDeadlineUtc = null;
             }
             else
             {
                 CurrentTurnPlayerId = nextPlayer.Value;
+                CurrentTurnDeadlineUtc = null;
             }
         }
 

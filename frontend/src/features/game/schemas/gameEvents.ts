@@ -95,6 +95,7 @@ export const RoomStateSnapshotSchema = z.object({
   winnerId: z.string().uuid().nullable().optional(),
   pendingDischargePlayerId: z.string().uuid().nullable().optional(),
   dischargeDeadlineUtc: z.string().datetime().nullable().optional(),
+  turnDeadlineUtc: z.string().datetime({ offset: true }).nullable().optional(),
   canActivateExploit: z.boolean().default(false),
   sequenceNumber: z.number().int().nonnegative().optional(),
 });
@@ -113,6 +114,7 @@ export type RoomStateSnapshot = {
   winnerId?: string | null;
   pendingDischargePlayerId?: string | null;
   dischargeDeadlineUtc?: string | null;
+  turnDeadlineUtc?: string | null;
   canActivateExploit?: boolean;
   sequenceNumber?: number;
 };
@@ -246,21 +248,6 @@ export type TraceCalledEvent = {
   accusedPlayerId: string;
   revealedCards: Card[];
   bluffDetected: boolean;
-  sequenceNumber?: number;
-};
-
-export const TurnStartedEventSchema = z.object({
-  type: z.literal('TurnStarted'),
-  roomCode: z.string(),
-  activePlayerId: z.string().uuid(),
-  turnDeadlineUtc: z.string().datetime(),
-  sequenceNumber: z.number().int().nonnegative().optional(),
-});
-export type TurnStartedEvent = {
-  type: 'TurnStarted';
-  roomCode: string;
-  activePlayerId: string;
-  turnDeadlineUtc: string;
   sequenceNumber?: number;
 };
 

@@ -21,9 +21,12 @@ internal sealed class PlayCardsCommandHandler(
     IGameRoomRegistry registry,
     IGameNotifier notifier,
     ITurnTimerEngine turnTimer,
-    IGameStateProjector projector)
+    IGameStateProjector projector,
+    TimeProvider? timeProvider = null)
     : IRequestHandler<PlayCardsCommand, Result>
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     public async ValueTask<Result> Handle(PlayCardsCommand request, CancellationToken ct)
     {
         if (!registry.TryGet(request.RoomCode, out var session))
@@ -45,6 +48,8 @@ internal sealed class PlayCardsCommandHandler(
 
             if (room.State == RoomState.TurnActive && room.CurrentTurnPlayerId is { } nextPlayerId)
             {
+                var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(TurnTimerEngine.DefaultTurnDuration);
+                room.MarkTurnDeadline(deadlineUtc);
                 turnTimer.Start(session, nextPlayerId, room.TurnSequenceId);
             }
             else

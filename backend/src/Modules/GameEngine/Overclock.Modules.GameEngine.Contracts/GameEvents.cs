@@ -19,13 +19,6 @@ public sealed record TraceCalledEvent(
     bool BluffDetected,
     long SequenceNumber = 1);
 
-public sealed record TurnStartedEvent(
-    string Type,
-    string RoomCode,
-    Guid ActivePlayerId,
-    DateTime TurnDeadlineUtc,
-    long SequenceNumber = 1);
-
 public sealed record CapacitorDischargedEvent(
     string Type,
     string RoomCode,

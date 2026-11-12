@@ -17,9 +17,12 @@ internal sealed class StartRoundCommandHandler(
     IGameNotifier notifier,
     ITurnTimerEngine turnTimer,
     IGameStateProjector projector,
-    IRandomSource? randomSource = null)
+    IRandomSource? randomSource = null,
+    TimeProvider? timeProvider = null)
     : IRequestHandler<StartRoundCommand, Result>
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     public async ValueTask<Result> Handle(StartRoundCommand request, CancellationToken ct)
     {
         if (!registry.TryGet(request.RoomCode, out var session))
@@ -35,6 +38,8 @@ internal sealed class StartRoundCommandHandler(
                 return result.ToResult<StartRoundOutcome>();
             }
 
+            var deadlineUtc = _timeProvider.GetUtcNow().UtcDateTime.Add(TurnTimerEngine.DefaultTurnDuration);
+            room.MarkTurnDeadline(deadlineUtc);
             turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
             var sequenceNumber = room.NextEventSequence();
             var snapshots = projector.ProjectForActiveConnections(room);
