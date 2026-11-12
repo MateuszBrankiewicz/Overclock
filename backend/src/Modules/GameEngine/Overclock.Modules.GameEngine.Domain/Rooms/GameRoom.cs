@@ -45,6 +45,8 @@ public sealed class GameRoom
         ? _seats.FirstOrDefault(s => s.Status != PlayerStatus.Eliminated)?.Id
         : null;
 
+    public bool IsEmpty => _seats.Count == 0 || _seats.All(s => s.HasLeft);
+
     private GameRoom(RoomId id, PlayerId hostId, PlayerSeat hostSeat)
     {
         Id = id;
@@ -141,10 +143,54 @@ public sealed class GameRoom
 
         if (HostId == playerId)
         {
-            HostId = _seats.Count > 0 ? _seats[0].Id : default;
+            var nextHost = HostSuccession.NextHost(_seats, playerId);
+            HostId = nextHost ?? default;
         }
 
         return Result.Success();
+    }
+
+    public Result<LeaveOutcome> Leave(PlayerId playerId)
+    {
+        var seat = _seats.Find(s => s.Id == playerId);
+        if (seat is null || seat.HasLeft)
+        {
+            return Result<LeaveOutcome>.Success(new LeaveOutcome(IsEmpty, null, false));
+        }
+
+        if (State == RoomState.Lobby || State == RoomState.GameOver)
+        {
+            var wasHost = HostId == playerId;
+            _seats.Remove(seat);
+            PlayerId? nextHost = null;
+            if (wasHost)
+            {
+                nextHost = HostSuccession.NextHost(_seats, playerId);
+                HostId = nextHost ?? default;
+            }
+
+            return Result<LeaveOutcome>.Success(new LeaveOutcome(IsEmpty, wasHost ? nextHost : null, false));
+        }
+
+        var oldHostId = HostId;
+        var wasPendingDischarge = PendingDischargePlayerId == playerId;
+
+        seat.MarkLeft();
+        EliminatePlayer(playerId);
+
+        if (wasPendingDischarge)
+        {
+            PendingDischargePlayerId = null;
+            DischargeSequenceId++;
+            var remainingActive = _seats.Count(s => s.Status != PlayerStatus.Eliminated);
+            if (remainingActive > 1 && State != RoomState.GameOver)
+            {
+                State = RoomState.RoundOver;
+            }
+        }
+
+        var hostChangedTo = HostId != oldHostId ? (PlayerId?)HostId : null;
+        return Result<LeaveOutcome>.Success(new LeaveOutcome(IsEmpty, hostChangedTo, true));
     }
 
     public Result SetReady(PlayerId playerId, bool isReady)
@@ -181,10 +227,15 @@ public sealed class GameRoom
         var isNewMatch = State == RoomState.Lobby || State == RoomState.GameOver;
         var rng = randomSource ?? CryptoRandomSource.Instance;
 
+        if (isNewMatch)
+        {
+            _seats.RemoveAll(s => s.HasLeft);
+        }
+
         // Determine prospective active seats without mutating state before validation
         var prospectiveActiveSeats = isNewMatch
-            ? _seats.Where(s => s.Status != PlayerStatus.Eliminated || State == RoomState.GameOver).ToList()
-            : _seats.Where(s => s.Status != PlayerStatus.Eliminated).ToList();
+            ? _seats.Where(s => !s.HasLeft && (s.Status != PlayerStatus.Eliminated || State == RoomState.GameOver)).ToList()
+            : _seats.Where(s => !s.HasLeft && s.Status != PlayerStatus.Eliminated).ToList();
 
         if (prospectiveActiveSeats.Count < Deck.MinPlayers)
         {
@@ -756,6 +807,11 @@ public sealed class GameRoom
                 "No player seat found matching the provided session token.");
         }
 
+        if (seat.HasLeft)
+        {
+            return Result<PlayerSeat>.Forbidden("Seat.Left");
+        }
+
         if (seat.Status == PlayerStatus.Eliminated)
         {
             return Result<PlayerSeat>.Invalid(new ValidationError(
@@ -763,7 +819,12 @@ public sealed class GameRoom
                 "Cannot reconnect as an active player because this seat has been eliminated."));
         }
 
-        seat.Reconnect(newConnectionId);
+        var reconnectResult = seat.Reconnect(newConnectionId);
+        if (!reconnectResult.IsSuccess)
+        {
+            return reconnectResult.ToResult<PlayerSeat>();
+        }
+
         return Result<PlayerSeat>.Success(seat);
     }
 
@@ -779,10 +840,10 @@ public sealed class GameRoom
 
         if (HostId == playerId)
         {
-            var nextHost = _seats.FirstOrDefault(s => s.Status != PlayerStatus.Eliminated);
+            var nextHost = HostSuccession.NextHost(_seats, playerId);
             if (nextHost is not null)
             {
-                HostId = nextHost.Id;
+                HostId = nextHost.Value;
             }
         }
 
@@ -808,6 +869,7 @@ public sealed class GameRoom
             {
                 CurrentTurnPlayerId = nextPlayer.Value;
                 CurrentTurnDeadlineUtc = null;
+                TurnSequenceId++;
             }
         }
 

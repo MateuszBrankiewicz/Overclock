@@ -168,7 +168,25 @@ export function useGameSession() {
     [logMessage]
   );
 
-  const leaveRoom = useCallback(() => {
+  const leaveRoom = useCallback(async () => {
+    const activeRoomCode = useGameStore.getState().roomCode;
+    if (activeRoomCode && sharedConnection?.isConnected) {
+      try {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const invokePromise = sharedConnection.invokeHubCommand('LeaveRoom', { roomCode: activeRoomCode });
+        const timeoutPromise = new Promise<{ isSuccess: boolean }>((resolve) => {
+          timer = setTimeout(() => resolve({ isSuccess: false }), 2000);
+        });
+        try {
+          await Promise.race([invokePromise, timeoutPromise]);
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      } catch (err) {
+        logMessage(`LeaveRoom invoke warning: ${errText(err)}`);
+      }
+    }
+
     if (sharedConnection) {
       sharedConnection.clearSession();
     } else {
@@ -176,7 +194,7 @@ export function useGameSession() {
     }
     leaveRoomLocal();
     useUiStore.getState().clearFeed();
-  }, [leaveRoomLocal]);
+  }, [leaveRoomLocal, logMessage]);
 
   useEffect(() => {
     const conn = getSharedConnection(logMessage);

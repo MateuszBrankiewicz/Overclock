@@ -25,3 +25,6 @@ public sealed record ActivateExploitRequest(
     CardProtocol? NewTargetProtocol = null);
 
 public sealed record TriggerDischargeRequest(string RoomCode);
+
+public sealed record LeaveRoomRequest(string RoomCode);
+

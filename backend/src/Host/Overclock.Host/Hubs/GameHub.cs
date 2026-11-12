@@ -153,6 +153,31 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
         return HubResponse.From(result);
     }
 
+    public async Task<HubResponse> LeaveRoom(LeaveRoomRequest request)
+    {
+        if (!connectionTracker.TryGet(Context.ConnectionId, out var info))
+        {
+            return HubResponse.From(Result.Success());
+        }
+
+        if (!string.Equals(info.RoomCode, request.RoomCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return HubResponse.From(Result.Forbidden("Connection.RoomMismatch"));
+        }
+
+        var command = new LeaveRoomCommand(request.RoomCode, info.PlayerId);
+        var result = await sender.Send(command, Context.ConnectionAborted);
+
+        if (result.IsSuccess)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, info.RoomCode);
+            connectionTracker.Remove(Context.ConnectionId);
+        }
+
+        return HubResponse.From(result);
+    }
+
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         if (connectionTracker.TryGet(Context.ConnectionId, out var info))
