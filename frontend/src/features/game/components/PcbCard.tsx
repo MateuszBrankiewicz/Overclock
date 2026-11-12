@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import React, { useMemo } from 'react';
 
+import { useI18n } from '../../../shared/i18n';
 import type { CardProtocol } from '../schemas/gameEvents';
 import { generatePcbTraces } from '../utils/pcbTraceGenerator';
 
@@ -82,6 +83,7 @@ export const PcbCard: React.FC<PcbCardProps> = ({
   onClick,
   className,
 }) => {
+  const { t } = useI18n();
   const traces = useMemo(() => generatePcbTraces(visualSeed), [visualSeed]);
   const config = PROTOCOL_CONFIG[protocol];
 
@@ -118,7 +120,7 @@ export const PcbCard: React.FC<PcbCardProps> = ({
           <line x1="10" y1="120" x2="90" y2="120" stroke="#52525b" strokeWidth="1" strokeDasharray="3 3" />
         </svg>
         <div className="text-[7px] text-center tracking-widest text-emerald-500/80 font-bold z-10 bg-black/80 py-0.5 rounded border border-zinc-800">
-          BUS ENCRYPTED
+          {t.table.busEncrypted}
         </div>
       </div>
     );

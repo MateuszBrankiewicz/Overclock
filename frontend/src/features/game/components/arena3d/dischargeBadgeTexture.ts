@@ -2,17 +2,27 @@ import * as THREE from 'three';
 
 const badgeCache = new Map<string, THREE.CanvasTexture>();
 
+export interface DischargeBadgeLabels {
+  overload: string;
+  stabilized: string;
+  roll: string;
+  risk: string;
+  verdictOverload: (roll: number, risk: number) => string;
+  verdictSurvived: (roll: number, risk: number, resulting: number) => string;
+}
+
 export function createDischargeBadgeTexture(
   roll: number,
   riskLevel: number,
   overloaded: boolean,
-  resultingRiskLevel: number
+  resultingRiskLevel: number,
+  labels: DischargeBadgeLabels
 ): THREE.CanvasTexture | null {
   if (typeof document === 'undefined') {
     return null;
   }
 
-  const cacheKey = `${roll}:${riskLevel}:${overloaded ? '1' : '0'}:${resultingRiskLevel}`;
+  const cacheKey = `${roll}:${riskLevel}:${overloaded ? '1' : '0'}:${resultingRiskLevel}:${labels.overload}`;
   const cached = badgeCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -70,7 +80,7 @@ export function createDischargeBadgeTexture(
   ctx.fillStyle = mainColor;
   ctx.textAlign = 'center';
   ctx.fillText(
-    overloaded ? '⚡ DIELECTRIC OVERLOAD DETECTED' : '🛡️ DIELECTRIC DISCHARGE STABILIZED',
+    overloaded ? labels.overload : labels.stabilized,
     256,
     44
   );
@@ -87,7 +97,7 @@ export function createDischargeBadgeTexture(
   ctx.fillStyle = '#a1a1aa';
   ctx.font = '16px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('D6 ROLL', 140, 92);
+  ctx.fillText(labels.roll, 140, 92);
 
   ctx.fillStyle = mainColor;
   ctx.font = 'bold 54px monospace';
@@ -102,7 +112,7 @@ export function createDischargeBadgeTexture(
   ctx.fillStyle = '#a1a1aa';
   ctx.font = '16px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(`RISK: ${riskLevel}/6`, 372, 92);
+  ctx.fillText(`${labels.risk}: ${riskLevel}/6`, 372, 92);
 
   ctx.fillStyle = '#f4f4f5';
   ctx.font = 'bold 54px monospace';
@@ -119,8 +129,8 @@ export function createDischargeBadgeTexture(
   ctx.textAlign = 'center';
   ctx.fillText(
     overloaded
-      ? `RZUT ${roll} ≤ ${riskLevel} // ZWARCIE // WYELIMINOWANY`
-      : `RZUT ${roll} > ${riskLevel} // PRZETRWAŁ // RYZYKO: ${resultingRiskLevel}/6`,
+      ? labels.verdictOverload(roll, riskLevel)
+      : labels.verdictSurvived(roll, riskLevel, resultingRiskLevel),
     256,
     215
   );

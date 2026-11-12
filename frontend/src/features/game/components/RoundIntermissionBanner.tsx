@@ -42,7 +42,7 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
   const testedSeat = lastDischargeOutcome
     ? players.find((p) => p.playerId === lastDischargeOutcome.playerId)
     : null;
-  const testedNick = testedSeat?.nickname ?? 'Operator';
+  const testedNick = testedSeat?.nickname ?? t.common.operator;
 
   useEffect(() => {
     // Only begin the countdown when the 3D discharge/death animation has completed
@@ -121,7 +121,7 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
                 ⚡ [{testedNick}] {t.intermission.operatorEliminated}
               </span>
               <span className="text-[11px] text-zinc-400">
-                Dielectric breakdown occurred. Circuit opened.
+                {t.intermission.breakdownDesc}
               </span>
             </div>
           ) : (
@@ -150,7 +150,7 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
             </span>
           </div>
         ) : (
-          <span className="text-xs text-zinc-500 italic">Discharge sequence resolving...</span>
+          <span className="text-xs text-zinc-500 italic">{t.intermission.dischargeResolving}</span>
         )}
 
         <IntermissionFallbackNotice

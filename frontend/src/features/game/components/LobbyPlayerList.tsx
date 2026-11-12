@@ -5,7 +5,7 @@ import React from 'react';
 import { useI18n } from '../../../shared/i18n';
 import type { PlayerSeat } from '../schemas/gameEvents';
 import type { CharacterId } from '../utils/characterCatalog';
-import { resolveSeatCharacter } from '../utils/characterCatalog';
+import { getCharacterText, resolveSeatCharacter } from '../utils/characterCatalog';
 import { CharacterSelector } from './CharacterSelector';
 import { InviteButton } from './InviteButton';
 
@@ -97,7 +97,7 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
               <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">
                 <div className="flex items-center gap-1.5 truncate">
                   {isThisPlayerHost && (
-                    <span title="Host">
+                    <span title={t.common.host}>
                       <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     </span>
                   )}
@@ -107,7 +107,7 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
                 </div>
                 {isThisPlayerHost && (
                   <span className="text-[9px] font-black uppercase text-amber-400 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-800">
-                    HOST
+                    {t.common.host}
                   </span>
                 )}
               </div>
@@ -122,7 +122,7 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
                   [{character.codename}]
                 </span>
                 <span className="text-zinc-400 truncate ml-2">
-                  {language === 'pl' ? character.rolePl : character.roleEn}
+                  {getCharacterText(character, language).role}
                 </span>
               </div>
 

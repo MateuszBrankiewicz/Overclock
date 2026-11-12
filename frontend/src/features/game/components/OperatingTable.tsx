@@ -70,9 +70,9 @@ export const OperatingTable: React.FC = () => {
   const isHost = Boolean(hostId && playerId && hostId === playerId);
 
   const accuserNickname =
-    players.find((p) => p.playerId === lastTraceResolution?.accuserPlayerId)?.nickname ?? 'Player';
+    players.find((p) => p.playerId === lastTraceResolution?.accuserPlayerId)?.nickname ?? t.common.player;
   const accusedNickname =
-    players.find((p) => p.playerId === lastTraceResolution?.accusedPlayerId)?.nickname ?? 'Opponent';
+    players.find((p) => p.playerId === lastTraceResolution?.accusedPlayerId)?.nickname ?? t.common.opponent;
   if (!roomCode) {
     return <LobbyScreen />;
   }
@@ -118,7 +118,7 @@ export const OperatingTable: React.FC = () => {
         onActivateExploit={(exp, newTarget) => void session.activateExploit(exp, newTarget)}
         isVoltageTestActive={roomState === 'VoltageTest'}
         dischargeCinematic={dischargeCinematic}
-        pendingPlayerNickname={pendingPlayer?.nickname ?? 'Operator'}
+        pendingPlayerNickname={pendingPlayer?.nickname ?? t.common.operator}
         isLocalPlayerPending={isLocalPlayerPending}
         canUseGroundWire={canUseGroundWire}
         onDeployGroundWire={() => void session.activateExploit('GroundWire')}

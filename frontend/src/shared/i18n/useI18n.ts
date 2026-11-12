@@ -5,16 +5,17 @@ export type Language = 'pl' | 'en';
 export interface Translations {
   common: {
     appTitle: string;
-    operatingTable: string;
-    debugTerminal: string;
     gameRules: string;
     copied: string;
     copyCode: string;
-    copyLink: string;
     room: string;
-    netOnline: string;
-    netOffline: string;
     status: string;
+    close: string;
+    host: string;
+    you: string;
+    player: string;
+    opponent: string;
+    operator: string;
   };
   lobby: {
     title: string;
@@ -57,6 +58,9 @@ export interface Translations {
     inviteCopied: string;
     inviteFailed: string;
     leaveTable: string;
+    characterPickerTitle: string;
+    characterActive: string;
+    avatarReady: string;
     leaveConfirm: string;
     leaveYes: string;
     leaveNo: string;
@@ -106,6 +110,7 @@ export interface Translations {
     waitYourTurn: string;
     noCardsOnTable: string;
     confidential: string;
+    busEncrypted: string;
   };
   chips: {
     packetSniffer: string;
@@ -145,6 +150,38 @@ export interface Translations {
     nextCycleAuto: string;
     spectatorModeNotice: string;
     fallbackStart: string;
+    breakdownDesc: string;
+    dischargeResolving: string;
+  };
+  reveal: {
+    scanTitle: string;
+    declared: string;
+    bluffVerdict: string;
+    honestVerdict: string;
+    bluffDetail: (nickname: string) => string;
+    honestDetail: (nickname: string) => string;
+  };
+  arena: {
+    hologramProtocol: string;
+    hologramPile: string;
+    hologramYourTurn: string;
+    hologramTurnOf: string;
+    overloadTitle: string;
+    overloadSub: string;
+    visorBlackout: string;
+    visorTransmitting: string;
+    visorLocked: string;
+    visorHighVoltage: string;
+    visorSynthesis: string;
+    badgeOverload: string;
+    badgeStabilized: string;
+    badgeRoll: string;
+    badgeRisk: string;
+    badgeVerdictOverload: (roll: number, risk: number) => string;
+    badgeVerdictSurvived: (roll: number, risk: number, resulting: number) => string;
+    cardReady: string;
+    cardSelectHint: string;
+    cardBack: string;
   };
   hud: {
     turnTimer: string;
@@ -205,6 +242,8 @@ export interface Translations {
     overclockChipDesc: string;
     groundChipDesc: string;
     close: string;
+    wildTag: string;
+    bluffOnlyTag: string;
   };
   network: {
     connecting: string;
@@ -236,15 +275,16 @@ export const translations: Record<Language, Translations> = {
   pl: {
     common: {
       appTitle: 'PROJECT: OVERCLOCK // DEAD CIRCUIT',
-      operatingTable: 'STÓŁ ROZGRYWKI',
-      debugTerminal: 'KONSOLA DIAGNOSTYCZNA',
       gameRules: 'Zasady gry',
       copied: 'Skopiowano!',
       copyCode: 'Kopiuj kod',
-      copyLink: 'Kopiuj link do pokoju',
       room: 'POKÓJ',
-      netOnline: 'SIEĆ: ONLINE',
-      netOffline: 'SIEĆ: ROZŁĄCZONO',
+      close: 'Zamknij',
+      host: 'HOST',
+      you: 'TY',
+      player: 'Gracz',
+      opponent: 'Przeciwnik',
+      operator: 'Operator',
       status: 'STATUS',
     },
     lobby: {
@@ -288,6 +328,9 @@ export const translations: Record<Language, Translations> = {
       inviteCopied: 'Link do stołu skopiowany.',
       inviteFailed: 'Nie udało się skopiować linku.',
       leaveTable: 'Opuść stół',
+      characterPickerTitle: 'WYBIERZ POSTAĆ OPERATORA (CYBER-RIG 3D):',
+      characterActive: 'WYBRANY',
+      avatarReady: 'AWATAR 3D GOTOWY',
       leaveConfirm: 'Opuścić stół?',
       leaveYes: 'Tak',
       leaveNo: 'Nie',
@@ -337,6 +380,7 @@ export const translations: Record<Language, Translations> = {
       waitYourTurn: 'Poczekaj na swoją kolej',
       noCardsOnTable: 'Brak kart na stole do sprawdzenia',
       confidential: '[POUFNE // TYLKO TWÓJ EKRAN]',
+      busEncrypted: 'MAGISTRALA ZASZYFROWANA',
     },
     chips: {
       packetSniffer: 'SNIFFER PAKIETÓW',
@@ -376,6 +420,41 @@ export const translations: Record<Language, Translations> = {
       nextCycleAuto: 'START KOLEJNEGO CYKLU ZA',
       spectatorModeNotice: 'ZOSTAŁEŚ WYELIMINOWANY // TRYB OBSERWATORA',
       fallbackStart: 'WYMUŚ START RUNDY',
+      breakdownDesc: 'Przebicie dielektryka. Obwód otwarty.',
+      dischargeResolving: 'Trwa rozładowanie...',
+    },
+    reveal: {
+      scanTitle: '[SKAN DIAGNOSTYCZNY TRACE]',
+      declared: 'DEKLAROWANO',
+      bluffVerdict: '⚡ PRZECIĄŻENIE WYSOKIM NAPIĘCIEM // BLEF WYKRYTY!',
+      honestVerdict: '🛡 INTEGRALNOŚĆ POTWIERDZONA // AUTENTYCZNY SPRZĘT!',
+      bluffDetail: (nickname) =>
+        `Operator [${nickname}] przesłał uszkodzone pakiety i nie przeszedł kontroli integralności!`,
+      honestDetail: (nickname) =>
+        `Oskarżyciel [${nickname}] wywołał fałszywy alarm i przyjmuje wyładowanie wysokiego napięcia!`,
+    },
+    arena: {
+      hologramProtocol: 'PROTOKÓŁ',
+      hologramPile: 'STOS',
+      hologramYourTurn: 'TWÓJ RUCH',
+      hologramTurnOf: 'RUCH',
+      overloadTitle: '⚡ KRYTYCZNE PRZECIĄŻENIE // UTRATA SYGNAŁU',
+      overloadSub: 'OBRAZ PRZEKIEROWANY NA DRONA OBSERWATORA',
+      visorBlackout: 'UTRATA SYGNAŁU // BLACKOUT',
+      visorTransmitting: '>>> NADAJE <<<',
+      visorLocked: 'ZABLOKOWANY',
+      visorHighVoltage: '⚡ RDZEŃ WYSOKIEGO NAPIĘCIA ⚡',
+      visorSynthesis: 'SYNTEZA // ŁĄCZE NEURONOWE',
+      badgeOverload: '⚡ WYKRYTO PRZECIĄŻENIE DIELEKTRYKA',
+      badgeStabilized: '🛡️ WYŁADOWANIE DIELEKTRYKA ZSTABILIZOWANE',
+      badgeRoll: 'RZUT K6',
+      badgeRisk: 'RYZYKO',
+      badgeVerdictOverload: (roll, risk) => `RZUT ${roll} ≤ ${risk} // ZWARCIE // WYELIMINOWANY`,
+      badgeVerdictSurvived: (roll, risk, resulting) =>
+        `RZUT ${roll} > ${risk} // PRZETRWAŁ // RYZYKO: ${resulting}/6`,
+      cardReady: '▲ GOTOWA DO ZAGRANIA ▲',
+      cardSelectHint: 'KLIKNIJ ABY WYBRAĆ',
+      cardBack: 'ZASZYFROWANY PAKIET',
     },
     hud: {
       turnTimer: 'CZAS TURY',
@@ -436,6 +515,8 @@ export const translations: Record<Language, Translations> = {
       overclockChipDesc: 'SN74-INJ // INJEKTOR: Przerywa turę przeciwnika i skraca jego limit czasu do zaledwie 5 sekund, wymuszając błąd pod presją.',
       groundChipDesc: 'SN74-GND // UZIEMIENIE: Aktywowane przed wyładowaniem kondensatora. Obniża poziom ryzyka awarii o 50% przed rzutem kością.',
       close: 'ZAMKNIJ PRZEWODNIK',
+      wildTag: 'DOWOLNA',
+      bluffOnlyTag: 'TYLKO BLEF',
     },
     network: {
       connecting: 'Łączenie…',
@@ -465,15 +546,16 @@ export const translations: Record<Language, Translations> = {
   en: {
     common: {
       appTitle: 'PROJECT: OVERCLOCK // DEAD CIRCUIT',
-      operatingTable: 'OPERATING TABLE',
-      debugTerminal: 'DEBUG TERMINAL',
       gameRules: 'Game Rules',
       copied: 'Copied!',
       copyCode: 'Copy Code',
-      copyLink: 'Copy Room Link',
       room: 'ROOM',
-      netOnline: 'NET: ONLINE',
-      netOffline: 'NET: OFFLINE',
+      close: 'Close',
+      host: 'HOST',
+      you: 'YOU',
+      player: 'Player',
+      opponent: 'Opponent',
+      operator: 'Operator',
       status: 'STATUS',
     },
     lobby: {
@@ -517,6 +599,9 @@ export const translations: Record<Language, Translations> = {
       inviteCopied: 'Table link copied.',
       inviteFailed: 'Could not copy the link.',
       leaveTable: 'Leave table',
+      characterPickerTitle: 'SELECT 3D OPERATOR RIG:',
+      characterActive: 'ACTIVE',
+      avatarReady: '3D AVATAR READY',
       leaveConfirm: 'Leave table?',
       leaveYes: 'Yes',
       leaveNo: 'No',
@@ -566,6 +651,7 @@ export const translations: Record<Language, Translations> = {
       waitYourTurn: 'Wait for your turn',
       noCardsOnTable: 'No packets on table to challenge',
       confidential: '[CONFIDENTIAL // LOCAL OPERATOR ONLY]',
+      busEncrypted: 'BUS ENCRYPTED',
     },
     chips: {
       packetSniffer: 'PACKET SNIFFER',
@@ -605,6 +691,41 @@ export const translations: Record<Language, Translations> = {
       nextCycleAuto: 'NEXT CYCLE STARTING IN',
       spectatorModeNotice: 'YOU WERE ELIMINATED // SPECTATOR MODE',
       fallbackStart: 'FORCE START ROUND',
+      breakdownDesc: 'Dielectric breakdown occurred. Circuit opened.',
+      dischargeResolving: 'Discharge sequence resolving...',
+    },
+    reveal: {
+      scanTitle: '[DIAGNOSTIC TRACE SCAN]',
+      declared: 'DECLARED',
+      bluffVerdict: '⚡ HIGH VOLTAGE OVERLOAD // BLUFF DETECTED!',
+      honestVerdict: '🛡 INTEGRITY VERIFIED // AUTHENTIC HARDWARE!',
+      bluffDetail: (nickname) =>
+        `Operator [${nickname}] transmitted corrupt packets and failed integrity check!`,
+      honestDetail: (nickname) =>
+        `Accuser [${nickname}] triggered false alarm and absorbs high voltage discharge!`,
+    },
+    arena: {
+      hologramProtocol: 'PROTOCOL',
+      hologramPile: 'PILE',
+      hologramYourTurn: 'YOUR TURN',
+      hologramTurnOf: 'TURN',
+      overloadTitle: '⚡ CRITICAL OVERLOAD // SIGNAL LOST',
+      overloadSub: 'FEED REDIRECTED TO SPECTATOR DRONE',
+      visorBlackout: 'SIGNAL LOST // BLACKOUT',
+      visorTransmitting: '>>> TRANSMITTING <<<',
+      visorLocked: 'LOCKED',
+      visorHighVoltage: '⚡ HIGH VOLTAGE CORE ⚡',
+      visorSynthesis: 'SYNTHESIS // NEURAL LINK',
+      badgeOverload: '⚡ DIELECTRIC OVERLOAD DETECTED',
+      badgeStabilized: '🛡️ DIELECTRIC DISCHARGE STABILIZED',
+      badgeRoll: 'D6 ROLL',
+      badgeRisk: 'RISK',
+      badgeVerdictOverload: (roll, risk) => `ROLL ${roll} ≤ ${risk} // SHORT CIRCUIT // ELIMINATED`,
+      badgeVerdictSurvived: (roll, risk, resulting) =>
+        `ROLL ${roll} > ${risk} // SURVIVED // RISK: ${resulting}/6`,
+      cardReady: '▲ READY TO PLAY ▲',
+      cardSelectHint: 'CLICK TO SELECT',
+      cardBack: 'ENCRYPTED PACKET',
     },
     hud: {
       turnTimer: 'TURN TIMER',
@@ -665,6 +786,8 @@ export const translations: Record<Language, Translations> = {
       overclockChipDesc: 'SN74-INJ // OVERCLOCK INJECTOR: Interrupt opponent active turn and collapse their timer to 5 seconds to induce panic.',
       groundChipDesc: 'SN74-GND // GROUND WIRE: Deployed before dielectric testing. Halves capacitor breakdown risk (-50%) before the D6 roll.',
       close: 'CLOSE MANUAL',
+      wildTag: 'WILD',
+      bluffOnlyTag: 'BLUFF ONLY',
     },
     network: {
       connecting: 'Connecting…',

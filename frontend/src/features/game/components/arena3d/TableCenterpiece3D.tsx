@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 
+import { useI18n } from '../../../../shared/i18n';
 import type { CardProtocol, RoomState } from '../../schemas/gameEvents';
 import { prefersReducedMotion } from './hud/motion';
 import { LightningArc3D } from './LightningArc3D';
@@ -45,6 +46,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   isOverloadedShock = false,
   testedRiskLevel = 1,
 }) => {
+  const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
   const capacitorDrumRef = useRef<Group>(null);
   const laserScannerRef = useRef<Mesh>(null);
@@ -53,7 +55,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   const [isFlying, setIsFlying] = useState(false);
   const flightProgressRef = useRef(1);
   const prevFlightTokenRef = useRef<object | null>(flightToken);
-  const backTexture = useMemo(() => createPcbCardBackTexture(), []);
+  const backTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
   useEffect(() => {
     if (flightToken && flightToken !== prevFlightTokenRef.current && !prefersReducedMotion()) {
@@ -84,11 +86,11 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   }, [tablePileCount]);
 
   useFrame(({ clock }, delta) => {
-    const t = clock.getElapsedTime();
+    const elapsed = clock.getElapsedTime();
 
     if (lampGroupRef.current) {
-      lampGroupRef.current.rotation.z = Math.sin(t * 0.9) * 0.035;
-      lampGroupRef.current.rotation.x = Math.cos(t * 0.7) * 0.025;
+      lampGroupRef.current.rotation.z = Math.sin(elapsed * 0.9) * 0.035;
+      lampGroupRef.current.rotation.x = Math.cos(elapsed * 0.7) * 0.025;
     }
 
     if (capacitorDrumRef.current && isVoltageTest) {
@@ -99,12 +101,12 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
         capacitorDrumRef.current.position.y = 1.35;
       } else {
         capacitorDrumRef.current.rotation.y += delta * 7.5;
-        capacitorDrumRef.current.position.y = 1.25 + Math.sin(t * 6) * 0.05;
+        capacitorDrumRef.current.position.y = 1.25 + Math.sin(elapsed * 6) * 0.05;
       }
     }
 
     if (laserScannerRef.current && isBluffCheck) {
-      laserScannerRef.current.position.z = Math.sin(t * 5) * 0.65;
+      laserScannerRef.current.position.z = Math.sin(elapsed * 5) * 0.65;
     }
 
     if (flightProgressRef.current < 1) {
@@ -227,16 +229,18 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
               className="font-black px-2 py-0.5 rounded text-black"
               style={{ backgroundColor: protocolColor }}
             >
-              PROTOKÓŁ: {currentTargetProtocol ?? 'ALPHA'}
+              {t.arena.hologramProtocol}: {currentTargetProtocol ?? 'ALPHA'}
             </span>
-            <span className="text-zinc-300 font-bold">STOS: {tablePileCount}</span>
+            <span className="text-zinc-300 font-bold">{t.arena.hologramPile}: {tablePileCount}</span>
             <span
               className={clsx(
                 'font-extrabold',
                 isMyTurn ? 'text-emerald-400 animate-pulse' : 'text-amber-400'
               )}
             >
-              {isMyTurn ? '● TWÓJ RUCH' : `○ RUCH: ${activePlayerNickname ?? '...'}`}
+              {isMyTurn
+                ? `● ${t.arena.hologramYourTurn}`
+                : `○ ${t.arena.hologramTurnOf}: ${activePlayerNickname ?? '...'}`}
             </span>
           </div>
         </Html>

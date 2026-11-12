@@ -22,7 +22,7 @@ describe('useI18n Hook & Store', () => {
     useI18n.getState().setLanguage('pl');
     const { language, t } = useI18n.getState();
     expect(language).toBe('pl');
-    expect(t.common.operatingTable).toBe('STÓŁ ROZGRYWKI');
+    expect(t.common.gameRules).toBe('Zasady gry');
   });
 
   it('has identical keys for both language dictionaries', () => {
@@ -35,5 +35,33 @@ describe('useI18n Hook & Store', () => {
       const enSectionKeys = Object.keys(translations.en[section]).sort();
       expect(plSectionKeys).toEqual(enSectionKeys);
     }
+  });
+
+  it('has identical nested key paths and value types in both dictionaries', () => {
+    const paths = (value: unknown, prefix = ''): string[] => {
+      if (value !== null && typeof value === 'object') {
+        return Object.entries(value).flatMap(([key, child]) =>
+          paths(child, prefix ? `${prefix}.${key}` : key)
+        );
+      }
+      return [`${prefix}:${typeof value}`];
+    };
+
+    expect(paths(translations.en).sort()).toEqual(paths(translations.pl).sort());
+  });
+
+  it('has no empty strings in either dictionary', () => {
+    const empties = (value: unknown, prefix = ''): string[] => {
+      if (typeof value === 'string') return value.trim() === '' ? [prefix] : [];
+      if (value !== null && typeof value === 'object') {
+        return Object.entries(value).flatMap(([key, child]) =>
+          empties(child, prefix ? `${prefix}.${key}` : key)
+        );
+      }
+      return [];
+    };
+
+    expect(empties(translations.pl)).toEqual([]);
+    expect(empties(translations.en)).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import React, { useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 
+import { useI18n } from '../../../../shared/i18n';
 import type {
   CardProtocol,
   ExploitModule,
@@ -48,6 +49,7 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
   currentTargetProtocol,
   onToggle,
 }) => {
+  const { t } = useI18n();
   const groupRef = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -58,10 +60,14 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
   const markColor = MARK_COLOR[badge];
 
   const frontTexture = useMemo(
-    () => createPcbCardTexture(card.protocol, card.visualSeed ?? index, badge, isSelected),
-    [card.protocol, card.visualSeed, index, badge, isSelected]
+    () =>
+      createPcbCardTexture(card.protocol, card.visualSeed ?? index, badge, isSelected, {
+        ready: t.arena.cardReady,
+        selectHint: t.arena.cardSelectHint,
+      }),
+    [card.protocol, card.visualSeed, index, badge, isSelected, t]
   );
-  const backTexture = useMemo(() => createPcbCardBackTexture(), []);
+  const backTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
   const centerOffset = index - (total - 1) / 2;
   // Scale card spread dynamically by viewport aspect ratio so cards NEVER go off-screen
@@ -174,15 +180,15 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
   const canUseChip = Boolean(canActivateExploit && exploit && !exploit.isBurned);
 
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
+    const elapsed = clock.getElapsedTime();
     if (transmitBtnRef.current) {
       transmitBtnRef.current.position.y = canTransmit
-        ? 0.8 + Math.sin(t * 6) * 0.01
+        ? 0.8 + Math.sin(elapsed * 6) * 0.01
         : 0.775;
     }
     if (traceBtnRef.current) {
       traceBtnRef.current.position.y = canTrace
-        ? 0.8 + Math.sin(t * 8) * 0.012
+        ? 0.8 + Math.sin(elapsed * 8) * 0.012
         : 0.775;
     }
   });

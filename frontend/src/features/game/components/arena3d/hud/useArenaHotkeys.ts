@@ -11,6 +11,7 @@ export interface ArenaHotkeysOptions extends Omit<HotkeyContext, 'handSize'> {
   exploit: ExploitModule | null;
   picker: ExploitPicker;
   onToggleCard: (cardId: string) => void;
+  onClearSelection: () => void;
   onPlayCards: () => void;
   onCallTrace: () => void;
 }
@@ -71,7 +72,7 @@ export function useArenaHotkeys(options: ArenaHotkeysOptions): {
         case 'escape':
           if (helpRef.current) setHelpOpen(false);
           else if (o.picker.isOpen) o.picker.close();
-          else o.selectedCardIds.forEach((id) => o.onToggleCard(id));
+          else o.onClearSelection();
           break;
       }
     };

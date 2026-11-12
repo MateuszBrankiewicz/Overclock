@@ -12,20 +12,20 @@ import type {
   RoomState,
 } from '../../schemas/gameEvents';
 import type { ArenaCameraFocus, DischargeCinematic } from '../../stores/types';
+import { useGameStore } from '../../stores/useGameStore';
 import type { CharacterId } from '../../utils/characterCatalog';
 import { getCharacterById, resolveSeatCharacter } from '../../utils/characterCatalog';
-import { PcbCard } from '../PcbCard';
+import { ArenaFallback } from './ArenaFallback';
 import { CameraController } from './CameraController';
 import { createDischargeBadgeTexture } from './dischargeBadgeTexture';
 import { ActionStrip } from './hud/ActionStrip';
 import { CameraPresetBar } from './hud/CameraPresetBar';
 import { CardMarkLegend } from './hud/CardMarkLegend';
-import { classifyCard } from './hud/cardMarks';
 import { DiceRoll } from './hud/DiceRoll';
 import { FirstTurnHint } from './hud/FirstTurnHint';
 import { useFirstTurnHint } from './hud/firstTurnHint';
 import { HotkeyCheatSheet } from './hud/HotkeyCheatSheet';
-import { prefersReducedMotion, useFinePointer } from './hud/motion';
+import { useFinePointer } from './hud/motion';
 import { OverloadVignette } from './hud/OverloadVignette';
 import { PhaseTimers } from './hud/PhaseTimers';
 import { ActiveTurnLabel, YourTurnBanner } from './hud/TurnStatusHud';
@@ -35,6 +35,7 @@ import { VoltageControls } from './hud/VoltageControls';
 import { OperatorRig3D } from './OperatorRig3D';
 import { PovHandAndControls3D } from './PovHandAndControls3D';
 import { TableCenterpiece3D } from './TableCenterpiece3D';
+import { useArenaFrameloop } from './useArenaFrameloop';
 import { useCameraDrag } from './useCameraDrag';
 
 export interface BunkerArenaCanvasProps {
@@ -148,6 +149,24 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   const { t } = useI18n();
   const [webGLSupported] = useState<boolean>(() => checkWebGLAvailable());
   const cameraDrag = useCameraDrag();
+  const { frameloop, wake } = useArenaFrameloop(roomState);
+  useEffect(() => {
+    wake();
+  }, [cameraFocus, wake]);
+  const dragHandlers = useMemo(
+    () => ({
+      ...cameraDrag.handlers,
+      onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+        wake();
+        cameraDrag.handlers.onPointerDown(e);
+      },
+      onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
+        cameraDrag.handlers.onPointerMove(e);
+        if (e.buttons !== 0) wake();
+      },
+    }),
+    [cameraDrag.handlers, wake]
+  );
   const exploitPicker = useExploitPicker(onActivateExploit);
 
   const myCharacter = useMemo(
@@ -197,9 +216,17 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       dischargeCinematic.event.roll,
       dischargeCinematic.event.riskLevel,
       dischargeCinematic.event.overloaded,
-      dischargeCinematic.event.resultingRiskLevel
+      dischargeCinematic.event.resultingRiskLevel,
+      {
+        overload: t.arena.badgeOverload,
+        stabilized: t.arena.badgeStabilized,
+        roll: t.arena.badgeRoll,
+        risk: t.arena.badgeRisk,
+        verdictOverload: t.arena.badgeVerdictOverload,
+        verdictSurvived: t.arena.badgeVerdictSurvived,
+      }
     );
-  }, [dischargeCinematic]);
+  }, [dischargeCinematic, t]);
 
   useEffect(() => {
     return () => {
@@ -234,6 +261,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
 
   const showKeyHints = useFinePointer();
   const firstTurnHint = useFirstTurnHint(isMyTurn && !isEliminated, roomState);
+  const clearSelection = useGameStore((s) => s.clearSelection);
   const hotkeys = useArenaHotkeys({
     enabled: roomState !== 'Lobby' && roomState !== 'GameOver' && !isEliminated,
     canTransmit,
@@ -244,6 +272,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     exploit,
     picker: exploitPicker,
     onToggleCard,
+    onClearSelection: clearSelection,
     onPlayCards,
     onCallTrace,
   });
@@ -251,7 +280,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   return (
     <div
       data-testid="bunker-arena-stage"
-      {...cameraDrag.handlers}
+      {...dragHandlers}
       className="relative w-full h-full min-h-[100dvh] bg-black overflow-hidden select-none touch-none font-mono"
     >
       {/* Top In-Bounds Visor Bar */}
@@ -268,6 +297,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
           onDismissDischarge={onDismissDischarge}
           onSelect={(focus, yaw, pitch) => {
             cameraDrag.reset(yaw, pitch);
+            wake();
             onCameraFocusChange(focus);
           }}
         />
@@ -278,7 +308,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       {/* Fullscreen WebGL 3D First-Person POV Scene */}
       {webGLSupported ? (
         <div className="absolute inset-0 w-full h-full">
-          <Canvas shadows dpr={[1, 1.5]} camera={{ position: [0, 1.94, 3.15], fov: 50 }}>
+          <Canvas frameloop={frameloop} shadows dpr={[1, 1.5]} camera={{ position: [0, 1.94, 3.15], fov: 50 }}>
             <color attach="background" args={['#040406']} />
             <fog attach="fog" args={['#040406', 5.2, 12.5]} />
 
@@ -393,68 +423,19 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
           </Canvas>
         </div>
       ) : (
-        /* Deterministic Non-WebGL / Test Fallback */
-        <div
-          data-testid="bunker-arena-fallback"
-          className="relative z-10 flex flex-col justify-between p-4 pt-16 pb-20 min-h-[100dvh] table-grid"
-        >
-          <div className="flex flex-wrap justify-center gap-3">
-            {opponents.map((opp, idx) => {
-              const char = resolveSeatCharacter(
-                opp.playerId,
-                myPlayerId,
-                selectedCharacterId,
-                idx + 1,
-                characterByPlayerId
-              );
-              return (
-                <div
-                  key={opp.playerId}
-                  data-testid={`seat-avatar-${opp.playerId}`}
-                  className="px-3 py-2 rounded-xl border border-zinc-800 bg-zinc-950/90 text-xs"
-                >
-                  <span style={{ color: char.primaryColor }}>{`[${char.codename}]`}</span>{' '}
-                  <span>{opp.nickname}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div data-testid="pov-hand-fallback" className="flex flex-col items-center gap-3">
-            <span className="text-xs font-bold">{`[${myCharacter.codename}]`}</span>
-            {lastPlayedCards && (
-              <div
-                key={`${lastPlayedCards.playerId}-${lastPlayedCards.sequenceNumber ?? tablePileCount}`}
-                data-testid="fallback-card-flight"
-                className="flex gap-1"
-                style={
-                  prefersReducedMotion()
-                    ? undefined
-                    : { animation: 'cardFlight 400ms ease-out both' }
-                }
-              >
-                {Array.from({ length: Math.max(1, Math.min(3, lastPlayedCards.cardCount)) }).map(
-                  (_, i) => (
-                    <div key={i} className="w-6 h-9 rounded border border-emerald-500 bg-emerald-950" />
-                  )
-                )}
-              </div>
-            )}
-            <div className="flex gap-2">
-              {myCards.map((c) => (
-                <PcbCard
-                  key={c.id}
-                  id={c.id}
-                  protocol={c.protocol}
-                  visualSeed={c.visualSeed}
-                  selected={selectedCardIds.includes(c.id)}
-                  badge={classifyCard(c.protocol, currentTargetProtocol)}
-                  onClick={() => onToggleCard(c.id)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+        <ArenaFallback
+          opponents={opponents}
+          myPlayerId={myPlayerId}
+          myCharacter={myCharacter}
+          selectedCharacterId={selectedCharacterId}
+          characterByPlayerId={characterByPlayerId}
+          tablePileCount={tablePileCount}
+          currentTargetProtocol={currentTargetProtocol}
+          lastPlayedCards={lastPlayedCards}
+          myCards={myCards}
+          selectedCardIds={selectedCardIds}
+          onToggleCard={onToggleCard}
+        />
       )}
 
       {roomState !== 'Lobby' && (

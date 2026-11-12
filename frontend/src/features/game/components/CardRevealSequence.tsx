@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { AnimatePresence, motion } from 'motion/react';
 import React, { useEffect, useState } from 'react';
 
+import { useI18n } from '../../../shared/i18n';
 import type { PlayerCard } from '../schemas/gameEvents';
 import { useActionQueue } from '../stores/useActionQueue';
 import { PcbCard } from './PcbCard';
@@ -23,6 +24,7 @@ export const CardRevealSequence: React.FC<CardRevealSequenceProps> = ({
   accusedNickname,
   onSequenceComplete,
 }) => {
+  const { t } = useI18n();
   const [flippedCount, setFlippedCount] = useState<number>(0);
   const [showVerdict, setShowVerdict] = useState<boolean>(false);
 
@@ -78,10 +80,10 @@ export const CardRevealSequence: React.FC<CardRevealSequenceProps> = ({
             bluffDetected && showVerdict ? 'bg-red-500 text-black' : 'bg-emerald-400 text-black'
           )}
         >
-          [DIAGNOSTIC TRACE SCAN]
+          {t.reveal.scanTitle}
         </span>
         <span className="text-zinc-300 text-xs">
-          DECLARED:{' '}
+          {t.reveal.declared}:{' '}
           <strong className="text-amber-400 font-bold px-1.5 py-0.5 bg-amber-950/80 rounded border border-amber-800">
             {declaredProtocol}
           </strong>
@@ -159,12 +161,12 @@ export const CardRevealSequence: React.FC<CardRevealSequenceProps> = ({
             )}
           >
             <div className="font-black text-base tracking-widest flex items-center justify-center gap-2">
-              <span>{bluffDetected ? '⚡ HIGH VOLTAGE OVERLOAD // BLUFF DETECTED!' : '🛡 INTEGRITY VERIFIED // AUTHENTIC HARDWARE!'}</span>
+              <span>{bluffDetected ? t.reveal.bluffVerdict : t.reveal.honestVerdict}</span>
             </div>
             <div className="text-xs text-zinc-300 mt-1.5 font-medium">
               {bluffDetected
-                ? `Operator [${accusedNickname}] transmitted corrupt packets and failed integrity check!`
-                : `Accuser [${accuserNickname}] triggered false alarm and absorbs high voltage discharge!`}
+                ? t.reveal.bluffDetail(accusedNickname)
+                : t.reveal.honestDetail(accuserNickname)}
             </div>
           </motion.div>
         )}
