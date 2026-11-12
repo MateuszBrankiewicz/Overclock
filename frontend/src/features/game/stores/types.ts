@@ -18,6 +18,14 @@ import type {
   TurnStartedEvent,
   VoltageTestStartedEvent,
 } from '../schemas/gameEvents';
+import type { CharacterId } from '../utils/characterCatalog';
+
+export type ArenaCameraFocus = 'overview' | 'table' | 'opponents';
+
+export interface DischargeCinematic {
+  event: CapacitorDischargedEvent;
+  startedAtMs: number;
+}
 
 export interface RoomSlice {
   roomCode: string | null;
@@ -31,8 +39,16 @@ export interface RoomSlice {
   dischargeDeadlineUtc: string | null;
   canActivateExploit: boolean;
   lastDischargeOutcome: CapacitorDischargedEvent | null;
+  dischargeCinematic: DischargeCinematic | null;
   sniffedCard: PlayerCard | null;
+  selectedCharacterId: CharacterId;
+  characterByPlayerId: Record<string, CharacterId>;
+  cameraFocus: ArenaCameraFocus;
+  setSelectedCharacter: (characterId: CharacterId) => void;
+  setPlayerCharacter: (playerId: string, characterId: CharacterId) => void;
+  setCameraFocus: (focus: ArenaCameraFocus) => void;
   setRoom: (roomCode: string, playerId: string) => void;
+  clearDischargeCinematic: () => void;
   applyRoomSnapshot: (snapshot: RoomStateSnapshot) => void;
   applyPlayerJoined: (event: PlayerJoinedEvent) => void;
   applyPlayerStatusChanged: (event: PlayerStatusChangedEvent) => void;
