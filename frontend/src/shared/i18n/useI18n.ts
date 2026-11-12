@@ -194,6 +194,14 @@ export interface Translations {
     roundIntroHint: string;
     muteAudio: string;
     unmuteAudio: string;
+    muteVoice: string;
+    unmuteVoice: string;
+  };
+  voice: {
+    playCards: (count: number, protocol: string) => string;
+    liar: string;
+    eliminated: string;
+    win: string;
   };
   controls: {
     hotkeysTitle: string;
@@ -461,6 +469,47 @@ export const translations: Record<Language, Translations> = {
       roundIntroHint: 'Zagrywaj karty tego protokołu — albo blefuj.',
       muteAudio: 'Wycisz dźwięk',
       unmuteAudio: 'Włącz dźwięk',
+      muteVoice: 'Wyłącz głosy robotów',
+      unmuteVoice: 'Włącz głosy robotów',
+    },
+    voice: {
+      playCards: (count: number, protocol: string) => {
+        const p = protocol.toLowerCase();
+        if (p === 'alpha') {
+          if (count === 1) return 'jedna alfa';
+          if (count === 2) return 'dwie alfy';
+          if (count === 3) return 'trzy alfy';
+          return `${count} alfy`;
+        }
+        if (p === 'beta') {
+          if (count === 1) return 'jedna beta';
+          if (count === 2) return 'dwie bety';
+          if (count === 3) return 'trzy bety';
+          return `${count} bety`;
+        }
+        if (p === 'gamma') {
+          if (count === 1) return 'jedna gamma';
+          if (count === 2) return 'dwie gammy';
+          if (count === 3) return 'trzy gammy';
+          return `${count} gammy`;
+        }
+        if (p === 'glitch') {
+          if (count === 1) return 'jeden glitch';
+          if (count === 2) return 'dwa glitche';
+          if (count === 3) return 'trzy glitche';
+          return `${count} glitche`;
+        }
+        if (p === 'corrupted') {
+          if (count === 1) return 'jeden corrupted';
+          if (count === 2) return 'dwa corrupted';
+          if (count === 3) return 'trzy corrupted';
+          return `${count} corrupted`;
+        }
+        return `${count} ${protocol}`;
+      },
+      liar: 'KŁAMCA!',
+      eliminated: 'system... offline',
+      win: 'zwycięstwo protokołu',
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -727,6 +776,18 @@ export const translations: Record<Language, Translations> = {
       roundIntroHint: 'Play cards of this protocol — or bluff.',
       muteAudio: 'Mute audio',
       unmuteAudio: 'Unmute audio',
+      muteVoice: 'Disable robot voices',
+      unmuteVoice: 'Enable robot voices',
+    },
+    voice: {
+      playCards: (count: number, protocol: string) => {
+        const countWord =
+          count === 1 ? 'one' : count === 2 ? 'two' : count === 3 ? 'three' : String(count);
+        return `${countWord} ${protocol.toLowerCase()}`;
+      },
+      liar: 'LIAR!',
+      eliminated: 'system... offline',
+      win: 'protocol victory',
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',

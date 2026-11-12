@@ -4,6 +4,7 @@ import {
   playEliminated,
   playRoundStart,
   playTraceSiren,
+  playVoiceBlip,
   playVoltageBuzz,
   startHum,
 } from './effects';
@@ -231,6 +232,9 @@ export class AudioEngine {
           break;
         case 'eliminated':
           playEliminated(ctx, this.masterGain);
+          break;
+        case 'voiceBlip':
+          playVoiceBlip(ctx, this.masterGain, params);
           break;
       }
     } catch {

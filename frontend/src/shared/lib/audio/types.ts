@@ -4,9 +4,13 @@ export type AudioEffectName =
   | 'voltageBuzz'
   | 'discharge'
   | 'roundStart'
-  | 'eliminated';
+  | 'eliminated'
+  | 'voiceBlip';
+
+export type VoiceBlipType = 'lowSweep' | 'zap' | 'modem' | 'glitch';
 
 export interface AudioEffectParams {
   riskLevel?: number;
+  blip?: VoiceBlipType;
   [key: string]: unknown;
 }

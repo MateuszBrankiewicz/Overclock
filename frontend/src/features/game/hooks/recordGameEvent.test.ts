@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { playSfx } from '../../../shared/lib/audio';
+import { playSfx, speakRobotVoice } from '../../../shared/lib/audio';
 import { useGameStore } from '../stores/useGameStore';
 import { useUiStore } from '../stores/useUiStore';
 import { recordGameEvent } from './useDebugTerminal';
@@ -8,6 +8,7 @@ import { recordGameEvent } from './useDebugTerminal';
 vi.mock('../../../shared/lib/audio', () => ({
   playSfx: vi.fn(),
   setGameAudioHum: vi.fn(),
+  speakRobotVoice: vi.fn(),
 }));
 
 const ID = '123e4567-e89b-12d3-a456-426614174001';
@@ -97,6 +98,7 @@ describe('recordGameEvent', () => {
     });
     vi.runAllTimers();
     expect(playSfx).toHaveBeenCalledWith('cardClick');
+    expect(speakRobotVoice).toHaveBeenCalled();
 
     recordGameEvent({
       kind: 'TraceCalled',
@@ -111,6 +113,11 @@ describe('recordGameEvent', () => {
       },
     });
     expect(playSfx).toHaveBeenCalledWith('traceSiren');
+    expect(speakRobotVoice).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ priority: 'high' })
+    );
 
     recordGameEvent({
       kind: 'CapacitorDischarged',
