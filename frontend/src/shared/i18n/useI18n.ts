@@ -192,6 +192,8 @@ export interface Translations {
     roundIntroTitle: (round: number) => string;
     roundIntroProtocol: string;
     roundIntroHint: string;
+    muteAudio: string;
+    unmuteAudio: string;
   };
   controls: {
     hotkeysTitle: string;
@@ -457,6 +459,8 @@ export const translations: Record<Language, Translations> = {
       roundIntroTitle: (round) => `RUNDA ${round}`,
       roundIntroProtocol: 'PROTOKÓŁ',
       roundIntroHint: 'Zagrywaj karty tego protokołu — albo blefuj.',
+      muteAudio: 'Wycisz dźwięk',
+      unmuteAudio: 'Włącz dźwięk',
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -721,6 +725,8 @@ export const translations: Record<Language, Translations> = {
       roundIntroTitle: (round) => `ROUND ${round}`,
       roundIntroProtocol: 'PROTOCOL',
       roundIntroHint: 'Play cards of this protocol — or bluff.',
+      muteAudio: 'Mute audio',
+      unmuteAudio: 'Unmute audio',
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',

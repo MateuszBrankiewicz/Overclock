@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { playSfx, setGameAudioHum } from '../../../shared/lib/audio';
 import { vibrate } from '../../../shared/lib/haptics';
 import {
   clearGameSession,
@@ -63,6 +64,28 @@ export function recordGameEvent(source: FeedSource): void {
     vibrate(source.event.overloaded ? 'overload' : 'shock');
   } else if (source.kind === 'PlayerEliminated' && source.event.playerId === playerId) {
     vibrate('overload');
+  }
+
+  switch (source.kind) {
+    case 'CardsPlayed': {
+      const count = Math.max(1, source.event.cardCount);
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => playSfx('cardClick'), i * 60);
+      }
+      break;
+    }
+    case 'TraceCalled':
+      playSfx('traceSiren');
+      break;
+    case 'CapacitorDischarged':
+      playSfx('discharge');
+      break;
+    case 'RoundStarted':
+      playSfx('roundStart');
+      break;
+    case 'PlayerEliminated':
+      playSfx('eliminated');
+      break;
   }
 }
 
@@ -134,6 +157,7 @@ export function useGameSession() {
   const [lastLog, setLastLog] = useState<string>('Terminal initialized');
 
   const roomCode = useGameStore((state) => state.roomCode);
+  const roomState = useGameStore((state) => state.roomState);
   const isInRoom = useGameStore((state) => state.isInRoom);
   const currentTargetProtocol = useGameStore((state) => state.currentTargetProtocol);
   const applyRoomSnapshot = useGameStore((state) => state.applyRoomSnapshot);
@@ -155,6 +179,14 @@ export function useGameSession() {
   const setSelectedProtocol = useCallback((protocol: CardProtocol) => {
     setCustomProtocol(protocol);
   }, []);
+
+  useEffect(() => {
+    const isGameActive = roomState !== null && roomState !== 'Lobby' && roomState !== 'GameOver';
+    setGameAudioHum(isGameActive);
+    return () => {
+      setGameAudioHum(false);
+    };
+  }, [roomState]);
 
   const logMessage = useCallback((msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -310,6 +342,10 @@ export function useGameSession() {
           { sequenceNumber: event.sequenceNumber, minDurationMs: 300 }
         );
         applyVoltageTestStarted(event);
+        const riskLevel =
+          useGameStore.getState().players.find((p) => p.playerId === event.pendingPlayerId)
+            ?.riskLevel ?? 1;
+        playSfx('voltageBuzz', { riskLevel });
         logMessage(`VoltageTestStarted: pending=${event.pendingPlayerId}`);
       }),
     ];
