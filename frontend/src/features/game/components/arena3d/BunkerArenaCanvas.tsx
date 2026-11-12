@@ -13,6 +13,7 @@ import type {
 } from '../../schemas/gameEvents';
 import type { ArenaCameraFocus, DischargeCinematic } from '../../stores/types';
 import { useGameStore } from '../../stores/useGameStore';
+import { useRulesModalStore } from '../../stores/useRulesModalStore';
 import type { CharacterId } from '../../utils/characterCatalog';
 import { getCharacterById, resolveSeatCharacter } from '../../utils/characterCatalog';
 import { ArenaFallback } from './ArenaFallback';
@@ -262,8 +263,9 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   const showKeyHints = useFinePointer();
   const firstTurnHint = useFirstTurnHint(isMyTurn && !isEliminated, roomState);
   const clearSelection = useGameStore((s) => s.clearSelection);
+  const rulesOpen = useRulesModalStore((s) => s.isOpen);
   const hotkeys = useArenaHotkeys({
-    enabled: roomState !== 'Lobby' && roomState !== 'GameOver' && !isEliminated,
+    enabled: roomState !== 'Lobby' && roomState !== 'GameOver' && !isEliminated && !rulesOpen,
     canTransmit,
     canTrace,
     canUseChip,

@@ -25,6 +25,8 @@ export interface HotkeyEventLike {
 }
 
 const TEXT_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
+/** Focused controls that already react to Enter/Space themselves. */
+const ACTIVATABLE_TAGS = new Set(['BUTTON', 'A', 'SUMMARY']);
 
 /** Pure key -> action mapping; returns null when the key must be left alone. */
 export function resolveHotkey(e: HotkeyEventLike, ctx: HotkeyContext): HotkeyAction | null {
@@ -38,6 +40,7 @@ export function resolveHotkey(e: HotkeyEventLike, ctx: HotkeyContext): HotkeyAct
   switch (e.key) {
     case 'Enter':
     case ' ':
+      if (e.targetTag && ACTIVATABLE_TAGS.has(e.targetTag.toUpperCase())) return null;
       return ctx.canTransmit && !e.repeat ? { type: 'transmit' } : null;
     case 't':
     case 'T':

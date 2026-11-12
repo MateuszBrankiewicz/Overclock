@@ -16,6 +16,8 @@ describe('resolveHotkey', () => {
     expect(resolveHotkey({ key: '1' }, ctx)).toEqual({ type: 'toggleCard', index: 0 });
     expect(resolveHotkey({ key: '5' }, ctx)).toEqual({ type: 'toggleCard', index: 4 });
     expect(resolveHotkey({ key: '6' }, ctx)).toBeNull();
+    expect(resolveHotkey({ key: 'Enter', targetTag: 'BUTTON' }, { ...ctx, canTransmit: true })).toBeNull();
+    expect(resolveHotkey({ key: ' ', targetTag: 'a' }, { ...ctx, canTransmit: true })).toBeNull();
   });
 
   it('maps action keys when enabled', () => {

@@ -4,7 +4,7 @@ Date: 2026-11-12
 
 ## Status
 
-Proposed
+Accepted
 
 <!--
 Allowed values (validated by scripts/check-docs.sh):

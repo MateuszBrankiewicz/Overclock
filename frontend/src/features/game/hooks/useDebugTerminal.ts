@@ -290,7 +290,8 @@ export function useGameSession() {
       void pendingStart
         .then(async () => {
           pendingStart = null;
-          setConnectionStatus('Connected');
+          // start() is a no-op while SignalR is still reconnecting; onReconnected reports that.
+          if (conn.isConnected) setConnectionStatus('Connected');
           logMessage('Connected to SignalR GameHub');
           if (!startupResumeAttempted) {
             startupResumeAttempted = true;
@@ -333,7 +334,7 @@ export function useGameSession() {
     const conn = sharedConnection;
     if (!conn.isConnected) {
       await conn.start();
-      setConnectionStatus('Connected');
+      if (conn.isConnected) setConnectionStatus('Connected');
     }
     return conn;
   };
@@ -465,7 +466,7 @@ export function useGameSession() {
     }
     try {
       await sharedConnection.start();
-      setConnectionStatus('Connected');
+      if (sharedConnection.isConnected) setConnectionStatus('Connected');
     } catch (err) {
       fail('Reconnect', errText(err));
       return;

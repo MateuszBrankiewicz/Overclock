@@ -1,4 +1,3 @@
-import clsx from 'clsx';
 import { HelpCircle, LogIn, PlusCircle } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -11,7 +10,6 @@ import { readRoomParam } from '../utils/invite';
 import { loadNickname, saveNickname } from '../utils/nickname';
 import { CharacterSelector } from './CharacterSelector';
 
-const ERROR_PATTERN = /error|failed|violation|invalid|rejected/i;
 
 export const LobbyScreen: React.FC = () => {
   const session = useGameSession();
@@ -47,19 +45,6 @@ export const LobbyScreen: React.FC = () => {
       </div>
 
       <div className="p-5 sm:p-7 space-y-5 text-xs">
-        {session.lastLog && (
-          <div
-            className={clsx(
-              'p-2.5 rounded border',
-              ERROR_PATTERN.test(session.lastLog)
-                ? 'bg-red-950/60 border-red-800/80 text-red-300'
-                : 'bg-zinc-900/60 border-zinc-800 text-zinc-400'
-            )}
-          >
-            {session.lastLog}
-          </div>
-        )}
-
         <form
           className="space-y-3 p-4 rounded-xl border border-emerald-500/40 bg-emerald-950/15"
           onSubmit={(e) => {

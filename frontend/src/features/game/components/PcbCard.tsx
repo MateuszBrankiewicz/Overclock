@@ -155,7 +155,11 @@ export const PcbCard: React.FC<PcbCardProps> = ({
               badge === 'bluff' && 'bg-amber-950 text-amber-300 border-amber-600'
             )}
           >
-            {badge === 'match' ? 'MATCH' : badge === 'wild' ? 'WILD' : 'BLUFF'}
+            {badge === 'match'
+              ? t.controls.legendMatch
+              : badge === 'wild'
+                ? t.controls.legendWild
+                : t.controls.legendBluff}
           </span>
         ) : (
           <span className="text-[8px] text-zinc-300 font-bold bg-black/70 px-1 py-0.2 rounded border border-zinc-800">

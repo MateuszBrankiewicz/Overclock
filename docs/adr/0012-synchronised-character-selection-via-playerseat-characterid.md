@@ -4,7 +4,7 @@ Date: 2026-11-12
 
 ## Status
 
-Proposed
+Accepted
 
 Amends [0010](0010-webgl-3d-bunker-arena-character-selection-and-mobile-first-viewport.md).
 

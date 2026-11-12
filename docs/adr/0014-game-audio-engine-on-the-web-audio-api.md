@@ -4,7 +4,7 @@ Date: 2026-11-12
 
 ## Status
 
-Proposed
+Accepted
 
 Amends [0002](0002-technology-stack-and-modular-monolith.md).
 
