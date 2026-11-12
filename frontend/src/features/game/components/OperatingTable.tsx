@@ -1,5 +1,5 @@
 import { HelpCircle } from 'lucide-react';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
 import { useGameSession } from '../hooks/useDebugTerminal';
@@ -13,9 +13,10 @@ import {
 } from '../utils/cinematicTiming';
 import { resolveOutcomePhase } from '../utils/outcomePhase';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
+import { prefersReducedMotion } from './arena3d/hud/motion';
 import { AudioMuteButton } from './AudioMuteButton';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
-import { EventFeed } from './EventFeed';
+import { GfxQualityButton } from './GfxQualityButton';
 import { LeaveTableButton } from './LeaveTableButton';
 import { LobbyPlayerList } from './LobbyPlayerList';
 import { LobbyScreen } from './LobbyScreen';
@@ -23,11 +24,17 @@ import { MatchSummary } from './MatchSummary';
 import { RoomCodeBadge } from './RoomCodeBadge';
 import { RoundIntermissionBanner } from './RoundIntermissionBanner';
 import { RoundIntroBanner } from './RoundIntroBanner';
+import { TraceVerdictBanner } from './TraceVerdictBanner';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
-export const OperatingTable: React.FC = () => {
+export interface OperatingTableProps {
+  onOpenTerminal?: () => void;
+}
+
+export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }) => {
   const session = useGameSession();
   const { t } = useI18n();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const openRules = useRulesModalStore((s) => s.open);
 
@@ -77,7 +84,10 @@ export const OperatingTable: React.FC = () => {
   // Auto-dismiss discharge cinematic using exact duration (including death kinematic)
   useEffect(() => {
     if (!dischargeCinematic) return;
-    const duration = dischargeCinematicDurationMs(dischargeCinematic.event.overloaded);
+    const duration = dischargeCinematicDurationMs(
+      dischargeCinematic.event.overloaded,
+      prefersReducedMotion()
+    );
     const remaining = duration - (Date.now() - dischargeCinematic.startedAtMs);
     const timer = setTimeout(clearDischargeCinematic, Math.max(0, remaining));
     return () => clearTimeout(timer);
@@ -89,6 +99,36 @@ export const OperatingTable: React.FC = () => {
     const timer = setTimeout(clearAwaitingDischarge, AWAIT_DISCHARGE_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [awaitingDischargeForSequence, clearAwaitingDischarge]);
+
+  // Space key skip for trace reveal & discharge cinematics (UX-06)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.key === ' ') {
+        if (
+          document.activeElement instanceof HTMLInputElement ||
+          document.activeElement instanceof HTMLTextAreaElement
+        ) {
+          return;
+        }
+        if (traceReveal) {
+          e.preventDefault();
+          finishTraceReveal();
+        } else if (dischargeCinematic) {
+          e.preventDefault();
+          clearDischargeCinematic();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [traceReveal, finishTraceReveal, dischargeCinematic, clearDischargeCinematic]);
+
+  // For rounds > 1, the upcoming round is announced in RoundIntermissionBanner
+  useEffect(() => {
+    if (roundIntro && roundIntro.roundNumber > 1) {
+      clearRoundIntro();
+    }
+  }, [roundIntro, clearRoundIntro]);
 
   // While the cards are being revealed, show the table as it was when the trace was called.
   const players = traceReveal?.seatsAtReveal ?? livePlayers;
@@ -116,7 +156,7 @@ export const OperatingTable: React.FC = () => {
     phase,
   });
   if (!roomCode) {
-    return <LobbyScreen />;
+    return <LobbyScreen onOpenTerminal={onOpenTerminal} />;
   }
 
   /* Fullscreen First-Person 3D POV Table View (Zero Website Clutter) */
@@ -132,15 +172,37 @@ export const OperatingTable: React.FC = () => {
         </div>
       )}
 
-      {roomState !== 'Lobby' && <EventFeed />}
-
-      {roundIntro && phase === null && (
+      {roundIntro && roundIntro.roundNumber === 1 && phase === null && (
         <RoundIntroBanner
           key={`${roundIntro.roundNumber}:${roundIntro.startedAtMs}`}
           roundNumber={roundIntro.roundNumber}
           protocol={roundIntro.protocol}
           startedAtMs={roundIntro.startedAtMs}
           onDone={clearRoundIntro}
+        />
+      )}
+
+      {traceReveal && revealResolution && (
+        <TraceVerdictBanner
+          key={`verdict:${revealResolution.sequenceNumber}:${traceReveal.startedAtMs}`}
+          bluffDetected={revealResolution.bluffDetected}
+          accuserNickname={
+            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.accuserPlayerId)
+              ?.nickname ?? t.common.operator
+          }
+          accusedNickname={
+            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.accusedPlayerId)
+              ?.nickname ?? t.common.operator
+          }
+          loserNickname={
+            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.loserPlayerId)
+              ?.nickname ?? t.common.operator
+          }
+          isLocalLoser={revealResolution.loserPlayerId === playerId}
+          declaredProtocol={revealResolution.declaredProtocol}
+          startedAtMs={traceReveal.startedAtMs}
+          cardCount={revealResolution.revealedCards.length}
+          onSkip={finishTraceReveal}
         />
       )}
 
@@ -188,20 +250,57 @@ export const OperatingTable: React.FC = () => {
         onTriggerDischarge={() => void session.triggerDischarge()}
         onDismissDischarge={clearDischargeCinematic}
         topBarSlot={
-          <div className="flex flex-wrap items-center gap-2 bg-black/80 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl text-xs">
+          <div className="relative flex items-center gap-2 bg-black/80 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl text-xs">
             <RoomCodeBadge roomCode={roomCode} showInviteLink={roomState !== 'Lobby'} />
             <ConnectionStatusPill />
-            <AudioMuteButton />
-            <VoiceToggleButton />
+            {/* Desktop action icons */}
+            <div className="hidden sm:flex items-center gap-2">
+              <AudioMuteButton />
+              <VoiceToggleButton />
+              <GfxQualityButton />
+              <button
+                type="button"
+                onClick={openRules}
+                className="p-1 text-zinc-400 hover:text-emerald-300 cursor-pointer"
+                title={t.common.gameRules}
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+              <LeaveTableButton onLeave={() => void session.leaveRoom()} />
+            </div>
+            {/* Mobile overflow button */}
             <button
               type="button"
-              onClick={openRules}
-              className="p-1 text-zinc-400 hover:text-emerald-300 cursor-pointer"
-              title={t.common.gameRules}
+              data-testid="top-bar-overflow-btn"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              className="sm:hidden p-1 text-zinc-300 hover:text-white transition-colors cursor-pointer text-base leading-none font-bold"
+              aria-label="More options"
             >
-              <HelpCircle className="w-4 h-4" />
+              ⋯
             </button>
-            <LeaveTableButton onLeave={() => void session.leaveRoom()} />
+            {/* Mobile popover dropdown */}
+            {isMobileMenuOpen && (
+              <div
+                data-testid="top-bar-mobile-menu"
+                className="absolute top-full mt-2 left-0 z-50 flex items-center gap-2 bg-black/95 backdrop-blur-lg border border-zinc-700 p-2 rounded-xl shadow-2xl sm:hidden"
+              >
+                <AudioMuteButton />
+                <VoiceToggleButton />
+                <GfxQualityButton />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    openRules();
+                  }}
+                  className="p-1 text-zinc-400 hover:text-emerald-300 cursor-pointer"
+                  title={t.common.gameRules}
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+                <LeaveTableButton onLeave={() => void session.leaveRoom()} />
+              </div>
+            )}
           </div>
         }
       >

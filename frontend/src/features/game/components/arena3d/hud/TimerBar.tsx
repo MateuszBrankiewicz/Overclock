@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import React from 'react';
 
 import { useI18n } from '../../../../../shared/i18n';
+import { HudPanel } from '../../../../../shared/ui';
 import type { CountdownState } from '../../../hooks/useCountdown';
 import { useCountdown } from '../../../hooks/useCountdown';
 
@@ -17,16 +18,16 @@ export const TimerBar: React.FC<TimerBarProps> = ({ label, countdown, testId }) 
   if (!countdown.isActive) return null;
   const critical = countdown.isCritical;
   return (
-    <div
+    <HudPanel
       data-testid={testId}
       data-critical={critical ? 'true' : 'false'}
       role="timer"
       aria-label={label}
+      tone={critical ? 'danger' : 'accent'}
+      cornerBrackets={false}
       className={clsx(
-        'w-44 sm:w-56 px-2.5 py-1 rounded-lg border bg-black/85 backdrop-blur-md text-[10px] font-bold tracking-wider',
-        critical
-          ? 'border-red-500 text-red-300 animate-pulse shadow-[0_0_18px_rgba(239,68,68,0.7)]'
-          : 'border-zinc-700 text-emerald-300'
+        'w-44 sm:w-56 px-2.5 py-1 text-[11px] sm:text-xs font-bold tracking-wider',
+        critical && 'motion-safe:animate-pulse'
       )}
     >
       <div className="flex items-center justify-between">
@@ -42,7 +43,7 @@ export const TimerBar: React.FC<TimerBarProps> = ({ label, countdown, testId }) 
           style={{ width: `${Math.round(countdown.fraction * 100)}%` }}
         />
       </div>
-    </div>
+    </HudPanel>
   );
 };
 

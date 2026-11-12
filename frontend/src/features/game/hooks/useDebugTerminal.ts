@@ -8,6 +8,7 @@ import {
   createGameConnection,
   GameConnectionManager,
 } from '../../../shared/realtime/gameConnection';
+import { prefersReducedMotion } from '../components/arena3d/hud/motion';
 import {
   CapacitorDischargedEventSchema,
   type CardProtocol,
@@ -28,6 +29,7 @@ import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
 import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
+import { DRUM_SPINDOWN_MS } from '../utils/cinematicTiming';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
 
 let sharedConnection: GameConnectionManager | null = null;
@@ -60,8 +62,15 @@ export function recordGameEvent(source: FeedSource): void {
   ui.pushFeedEntry(
     formatFeedEvent(source, { players, localPlayerId: playerId, t: useI18n.getState().t.feed })
   );
+  const spindownDelayMs = prefersReducedMotion() ? 0 : DRUM_SPINDOWN_MS;
   if (source.kind === 'CapacitorDischarged' && source.event.playerId === playerId) {
-    vibrate(source.event.overloaded ? 'overload' : 'shock');
+    if (spindownDelayMs > 0) {
+      setTimeout(() => {
+        vibrate(source.event.overloaded ? 'overload' : 'shock');
+      }, spindownDelayMs);
+    } else {
+      vibrate(source.event.overloaded ? 'overload' : 'shock');
+    }
   } else if (source.kind === 'PlayerEliminated' && source.event.playerId === playerId) {
     vibrate('overload');
   }
@@ -93,8 +102,25 @@ export function recordGameEvent(source: FeedSource): void {
       });
       break;
     }
-    case 'CapacitorDischarged':
-      playSfx('discharge');
+    case 'CapacitorDischarged': {
+      if (spindownDelayMs > 0) {
+        playSfx('voltageBuzz', { riskLevel: source.event.riskLevel, rising: true });
+        setTimeout(() => {
+          playSfx('discharge');
+          if (!source.event.overloaded) {
+            setTimeout(() => playSfx('survived'), 260);
+          }
+        }, spindownDelayMs);
+      } else {
+        playSfx('discharge');
+        if (!source.event.overloaded) {
+          setTimeout(() => playSfx('survived'), 260);
+        }
+      }
+      break;
+    }
+    case 'ExploitTriggered':
+      playSfx('exploitActivate');
       break;
     case 'RoundStarted':
       playSfx('roundStart');

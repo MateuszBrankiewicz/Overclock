@@ -11,6 +11,7 @@ import type {
 } from '../../schemas/gameEvents';
 import type { CharacterProfile } from '../../utils/characterCatalog';
 import { classifyCard, MARK_COLOR } from './hud/cardMarks';
+import { prefersReducedMotion } from './hud/motion';
 import { createPcbCardBackTexture, createPcbCardTexture } from './pcbCardTexture';
 
 export interface PovHandAndControls3DProps {
@@ -69,6 +70,8 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
   );
   const backTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
+  const mountTimeRef = useRef<number | null>(null);
+
   const centerOffset = index - (total - 1) / 2;
   // Scale card spread dynamically by viewport aspect ratio so cards NEVER go off-screen
   const baseSpacing = total > 6 ? 0.19 : total > 4 ? 0.23 : 0.27;
@@ -77,21 +80,38 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
 
   const targetX = centerOffset * spacing;
   const baseArchY = 1.25 - Math.abs(centerOffset) * 0.026;
-  const targetY = baseArchY + (isSelected ? 0.14 : hovered ? 0.07 : 0);
+  const baseTargetY = baseArchY + (isSelected ? 0.14 : hovered ? 0.07 : 0);
   const targetZ = 2.02 + index * 0.012 + (isSelected ? 0.12 : hovered ? 0.05 : 0);
-  const targetRotZ = isSelected ? 0 : -centerOffset * 0.075;
+  const baseTargetRotZ = isSelected ? 0 : -centerOffset * 0.075;
   const targetRotX = isSelected ? -0.24 : -0.36;
-  const targetScale = baseCardScale * (isSelected ? 1.14 : hovered ? 1.06 : 1);
+  const baseTargetScale = baseCardScale * (isSelected ? 1.14 : hovered ? 1.06 : 1);
 
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
     if (!groupRef.current) return;
+    if (mountTimeRef.current === null) {
+      mountTimeRef.current = clock.getElapsedTime();
+    }
+    const elapsed = clock.getElapsedTime() - mountTimeRef.current;
+    const reducedMotion = prefersReducedMotion();
+    const dealDelaySec = reducedMotion ? 0 : index * 0.06;
+    const isEntering = elapsed < dealDelaySec;
+
+    const isSelectedSway = isSelected && !reducedMotion;
+    const t = clock.getElapsedTime();
+    const swayY = isSelectedSway ? Math.sin(t * 3.5 + index * 0.8) * 0.012 : 0;
+    const swayRotZ = isSelectedSway ? Math.sin(t * 2.5 + index * 0.8) * 0.02 : 0;
+
+    const currentTargetY = isEntering ? baseArchY - 0.45 : baseTargetY + swayY;
+    const currentTargetRotZ = baseTargetRotZ + swayRotZ;
+    const currentTargetScale = isEntering ? 0.5 : baseTargetScale;
+
     const step = Math.min(1, delta * 14);
     groupRef.current.position.x += (targetX - groupRef.current.position.x) * step;
-    groupRef.current.position.y += (targetY - groupRef.current.position.y) * step;
+    groupRef.current.position.y += (currentTargetY - groupRef.current.position.y) * step;
     groupRef.current.position.z += (targetZ - groupRef.current.position.z) * step;
     groupRef.current.rotation.x += (targetRotX - groupRef.current.rotation.x) * step;
-    groupRef.current.rotation.z += (targetRotZ - groupRef.current.rotation.z) * step;
-    const s = groupRef.current.scale.x + (targetScale - groupRef.current.scale.x) * step;
+    groupRef.current.rotation.z += (currentTargetRotZ - groupRef.current.rotation.z) * step;
+    const s = groupRef.current.scale.x + (currentTargetScale - groupRef.current.scale.x) * step;
     groupRef.current.scale.set(s, s, s);
   });
 
@@ -99,7 +119,7 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
     <group
       ref={groupRef}
       position={[targetX, baseArchY, targetZ]}
-      rotation={[targetRotX, 0, targetRotZ]}
+      rotation={[targetRotX, 0, baseTargetRotZ]}
       onClick={(e) => {
         e.stopPropagation();
         onToggle();
@@ -164,8 +184,8 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
   canActivateExploit,
   myCharacter,
   onToggleCard,
-  onPlayCards,
-  onCallTrace,
+  onPlayCards: _onPlayCards,
+  onCallTrace: _onCallTrace,
   onUseChip,
 }) => {
   const size = useThree((s) => s.size);
@@ -286,14 +306,8 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
         </group>
       )}
 
-      {/* Physical 3D [CALL TRACE] Red Button on Table Edge (In-Bounds) */}
-      <group
-        position={[-0.68 * aspectFactor, 0, 1.36]}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (canTrace) onCallTrace();
-        }}
-      >
+      {/* Physical 3D [CALL TRACE] Red Button on Table Edge (Decorative cyber-switchgear) */}
+      <group position={[-0.68 * aspectFactor, 0, 1.36]}>
         <mesh position={[0, 0.76, 0]} castShadow>
           <cylinderGeometry args={[0.16, 0.19, 0.05, 16]} />
           <meshStandardMaterial color="#18181b" metalness={0.85} roughness={0.25} />
@@ -308,14 +322,8 @@ export const PovHandAndControls3D: React.FC<PovHandAndControls3DProps> = ({
         </mesh>
       </group>
 
-      {/* Physical 3D [TRANSMIT] Launch Switch on Table Edge (In-Bounds) */}
-      <group
-        position={[0.68 * aspectFactor, 0, 1.36]}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (canTransmit) onPlayCards();
-        }}
-      >
+      {/* Physical 3D [TRANSMIT] Launch Switch on Table Edge (Decorative cyber-switchgear) */}
+      <group position={[0.68 * aspectFactor, 0, 1.36]}>
         <mesh position={[0, 0.76, 0]} castShadow>
           <boxGeometry args={[0.32, 0.05, 0.22]} />
           <meshStandardMaterial color="#18181b" metalness={0.85} roughness={0.25} />

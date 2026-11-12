@@ -1,6 +1,8 @@
+import { ShieldCheck, Zap } from 'lucide-react';
 import React from 'react';
 
 import { useI18n } from '../../../../../shared/i18n';
+import { HudBadge, HudButton } from '../../../../../shared/ui';
 
 export interface VoltageControlsProps {
   isLocalPlayerPending: boolean;
@@ -22,37 +24,55 @@ export const VoltageControls: React.FC<VoltageControlsProps> = ({
 
   if (!isLocalPlayerPending) {
     return (
-      <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 rounded-full bg-amber-950/90 border border-amber-500/80 text-amber-200 text-xs font-bold tracking-wider animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.6)] text-center pointer-events-none">
-        {pendingPlayerNickname
-          ? `${t.voltage.pendingOpponentAlert} [${pendingPlayerNickname}]`
-          : t.voltage.pendingOpponentAlert}
+      <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+        <HudBadge
+          variant="warning"
+          size="md"
+          className="motion-safe:animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.6)]"
+        >
+          <Zap className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+          <span>
+            {pendingPlayerNickname
+              ? `${t.voltage.pendingOpponentAlert} [${pendingPlayerNickname}]`
+              : t.voltage.pendingOpponentAlert}
+          </span>
+        </HudBadge>
       </div>
     );
   }
 
   return (
     <div className="absolute bottom-16 sm:bottom-20 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 max-w-lg w-full px-4 pointer-events-none">
-      <div className="px-4 py-1.5 rounded-full bg-red-950/90 border border-red-500/80 text-red-200 text-xs font-bold tracking-wider animate-pulse shadow-[0_0_25px_rgba(239,68,68,0.7)] text-center">
-        {t.voltage.pendingSelfAlert}
-      </div>
-      <div className="flex items-center gap-2 pointer-events-auto">
+      <HudBadge
+        variant="danger"
+        size="md"
+        className="motion-safe:animate-pulse shadow-[0_0_25px_rgba(239,68,68,0.7)]"
+      >
+        <Zap className="w-3.5 h-3.5 shrink-0 text-red-400" />
+        <span>{t.voltage.pendingSelfAlert}</span>
+      </HudBadge>
+      <div className="flex items-center gap-2.5 pointer-events-auto">
         {canUseGroundWire && onDeployGroundWire && (
-          <button
-            type="button"
+          <HudButton
+            variant="primary"
+            size="lg"
             onClick={onDeployGroundWire}
-            className="px-4 py-2.5 rounded-xl border border-emerald-300 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.6)] active:scale-95 transition-all cursor-pointer"
+            className="shadow-[0_0_20px_rgba(16,185,129,0.6)]"
           >
-            ⚡ {t.voltage.useGroundWire}
-          </button>
+            <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-300" />
+            <span>{t.voltage.useGroundWire}</span>
+          </HudButton>
         )}
         {onTriggerDischarge && (
-          <button
-            type="button"
+          <HudButton
+            variant="warning"
+            size="lg"
             onClick={onTriggerDischarge}
-            className="px-5 py-2.5 rounded-xl border border-amber-300 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs tracking-wider shadow-[0_0_25px_rgba(245,158,11,0.8)] active:scale-95 transition-all cursor-pointer"
+            className="shadow-[0_0_25px_rgba(245,158,11,0.8)]"
           >
-            ⚡ {t.voltage.triggerDischarge} (D6)
-          </button>
+            <Zap className="w-4 h-4 shrink-0 text-amber-300" />
+            <span>{t.voltage.triggerDischarge} (D6)</span>
+          </HudButton>
         )}
       </div>
     </div>

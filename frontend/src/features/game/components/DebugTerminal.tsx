@@ -29,7 +29,7 @@ export function DebugTerminal() {
     <div className="w-full max-w-5xl mx-auto space-y-4 font-mono text-xs text-emerald-400 p-4 bg-zinc-950 border border-zinc-800 rounded shadow-2xl">
       <div className="flex flex-wrap items-center justify-between border-b border-zinc-800 pb-3 gap-2">
         <div className="flex items-center space-x-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 motion-safe:animate-pulse" />
           <span className="font-bold tracking-wider text-emerald-300">HEADLESS DEBUG TERMINAL</span>
         </div>
         <div className="flex items-center space-x-3 text-zinc-400">

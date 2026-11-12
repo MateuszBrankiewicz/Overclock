@@ -3,7 +3,7 @@ import * as path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AudioEngine,audioEngine } from './audioEngine';
-import { computeVoltageBuzzFrequency } from './effects';
+import { computeTurnTickFrequency, computeVoltageBuzzFrequency } from './effects';
 
 // Fake Web Audio API implementations for JSDOM / Vitest
 class FakeAudioParam {
@@ -216,6 +216,27 @@ describe('Web Audio Engine (ADR 0014)', () => {
     expect(fakeCtx.createGain).toHaveBeenCalled();
   });
 
+  it('resumes suspended context on play after unlock and executes effect once running', async () => {
+    audioEngine.unlock();
+    fakeCtx.state = 'suspended';
+
+    audioEngine.play('cardClick');
+
+    expect(fakeCtx.resume).toHaveBeenCalled();
+    await Promise.resolve();
+    expect(fakeCtx.createOscillator).toHaveBeenCalled();
+  });
+
+  it('does not play audio when tab document is hidden', () => {
+    audioEngine.unlock();
+    fakeCtx.state = 'running';
+    mockDocument.hidden = true;
+
+    audioEngine.play('cardClick');
+
+    expect(fakeCtx.createOscillator).not.toHaveBeenCalled();
+  });
+
   it('voltageBuzz frequency scales monotonically with riskLevel', () => {
     const f1 = computeVoltageBuzzFrequency(1);
     const f3 = computeVoltageBuzzFrequency(3);
@@ -223,6 +244,30 @@ describe('Web Audio Engine (ADR 0014)', () => {
 
     expect(f6).toBeGreaterThan(f3);
     expect(f3).toBeGreaterThan(f1);
+  });
+
+  it('turnTick frequency rises monotonically as secondsLeft decreases (UX-03)', () => {
+    const f5 = computeTurnTickFrequency(5);
+    const f3 = computeTurnTickFrequency(3);
+    const f1 = computeTurnTickFrequency(1);
+
+    expect(f1).toBeGreaterThan(f3);
+    expect(f3).toBeGreaterThan(f5);
+  });
+
+  it('constructs audio graphs for all UX-03 game sfx without throwing', () => {
+    audioEngine.unlock();
+    fakeCtx.state = 'running';
+
+    expect(() => {
+      audioEngine.play('cardSelect', { selected: true });
+      audioEngine.play('cardSelect', { selected: false });
+      audioEngine.play('yourTurn');
+      audioEngine.play('turnTick', { secondsLeft: 3 });
+      audioEngine.play('exploitActivate');
+      audioEngine.play('survived');
+      audioEngine.play('victory');
+    }).not.toThrow();
   });
 
   it('sets muted state, ramps master gain to 0, and persists to localStorage', () => {

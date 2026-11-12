@@ -19,6 +19,15 @@ const queue: QueuedUtterance[] = [];
 const processedSequenceNumbers = new Set<number>();
 let isSpeaking = false;
 let visibilityListenerRegistered = false;
+let activeUtterance: SpeechSynthesisUtterance | null = null;
+let speechSafetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearSafetyTimer(): void {
+  if (speechSafetyTimer !== null) {
+    clearTimeout(speechSafetyTimer);
+    speechSafetyTimer = null;
+  }
+}
 
 function getSpeechSynthesis(): SpeechSynthesis | null {
   if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
@@ -59,6 +68,8 @@ function setupVisibilityListener(): void {
 }
 
 export function cancelAllSpeech(): void {
+  clearSafetyTimer();
+  activeUtterance = null;
   queue.length = 0;
   isSpeaking = false;
   const synth = getSpeechSynthesis();
@@ -158,10 +169,14 @@ function executeSpeech(
       utterance.voice = matchedVoice;
     }
 
+    activeUtterance = utterance;
     let finished = false;
     const onFinish = () => {
       if (finished) return;
       finished = true;
+      if (activeUtterance !== utterance) return;
+      clearSafetyTimer();
+      activeUtterance = null;
       isSpeaking = false;
       processNext();
     };
@@ -169,8 +184,25 @@ function executeSpeech(
     utterance.onend = onFinish;
     utterance.onerror = onFinish;
 
+    clearSafetyTimer();
+    speechSafetyTimer = setTimeout(() => {
+      if (!finished && activeUtterance === utterance) {
+        onFinish();
+      }
+    }, 5000);
+
+    try {
+      if ((synth as unknown as { paused?: boolean }).paused) {
+        (synth as unknown as { resume?: () => void }).resume?.();
+      }
+    } catch {
+      // Safe degradation
+    }
+
     synth.speak(utterance);
   } catch {
+    clearSafetyTimer();
+    activeUtterance = null;
     isSpeaking = false;
     processNext();
   }
@@ -224,8 +256,20 @@ export function speakRobotVoice(
   executeSpeech(characterId, text, options);
 }
 
+/** Pre-warms system speech synthesis voice list on user interaction */
+export function warmupSpeechSynthesis(): void {
+  const synth = getSpeechSynthesis();
+  try {
+    synth?.getVoices?.();
+  } catch {
+    // Safe degradation
+  }
+}
+
 /** Resets all internal robot voice state for Vitest isolated runs. */
 export function __resetRobotVoiceForTests(): void {
+  clearSafetyTimer();
+  activeUtterance = null;
   queue.length = 0;
   processedSequenceNumbers.clear();
   isSpeaking = false;

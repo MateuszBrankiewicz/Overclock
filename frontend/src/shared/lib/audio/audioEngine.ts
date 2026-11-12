@@ -1,11 +1,17 @@
 import {
   playCardClick,
+  playCardSelect,
   playDischarge,
   playEliminated,
+  playExploitActivate,
   playRoundStart,
+  playSurvived,
   playTraceSiren,
+  playTurnTick,
+  playVictory,
   playVoiceBlip,
   playVoltageBuzz,
+  playYourTurn,
   startHum,
 } from './effects';
 import type { AudioEffectName, AudioEffectParams } from './types';
@@ -61,6 +67,8 @@ function persistVolume(volume: number): void {
   }
 }
 
+const GESTURE_EVENTS = ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown'] as const;
+
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -79,6 +87,19 @@ export class AudioEngine {
     this.setupListeners();
   }
 
+  private removeGestureListeners(): void {
+    if (typeof window === 'undefined' || !this.boundGestureHandler) return;
+    for (const evt of GESTURE_EVENTS) {
+      try {
+        window.removeEventListener(evt, this.boundGestureHandler, { capture: true });
+      } catch {
+        // Safe degradation
+      }
+    }
+    this.boundGestureHandler = null;
+    this.gestureListenerRegistered = false;
+  }
+
   private setupListeners(): void {
     if (typeof window === 'undefined') return;
 
@@ -86,8 +107,13 @@ export class AudioEngine {
       this.boundGestureHandler = () => {
         this.unlock();
       };
-      window.addEventListener('pointerdown', this.boundGestureHandler, { capture: true, once: true });
-      window.addEventListener('keydown', this.boundGestureHandler, { capture: true, once: true });
+      for (const evt of GESTURE_EVENTS) {
+        try {
+          window.addEventListener(evt, this.boundGestureHandler, { capture: true, passive: true });
+        } catch {
+          // Safe degradation in non-standard test environments
+        }
+      }
       this.gestureListenerRegistered = true;
     }
 
@@ -113,11 +139,19 @@ export class AudioEngine {
       void ctx
         .resume()
         .then(() => {
+          if (ctx.state === 'running') {
+            this.removeGestureListeners();
+          }
           if (this.humDesired && !this.muted && !this.humHandle) {
             this.startHum();
           }
         })
         .catch(() => {});
+    } else if (ctx && ctx.state === 'running') {
+      this.removeGestureListeners();
+      if (this.humDesired && !this.muted && !this.humHandle) {
+        this.startHum();
+      }
     } else if (this.humDesired && !this.muted && !this.humHandle) {
       this.startHum();
     }
@@ -206,35 +240,51 @@ export class AudioEngine {
     }
   }
 
-  public play(name: AudioEffectName, params?: AudioEffectParams): void {
-    // Autoplay compliance: Drop without throwing or queuing before unlock or when muted
-    if (!this.isUnlocked || this.muted || this.volume <= 0) return;
-
-    const ctx = this.getOrCreateContext();
-    if (!ctx || !this.masterGain || ctx.state !== 'running') return;
+  private executeEffect(name: AudioEffectName, params?: AudioEffectParams): void {
+    const ctx = this.ctx;
+    const gain = this.masterGain;
+    if (!ctx || !gain) return;
 
     try {
       switch (name) {
         case 'cardClick':
-          playCardClick(ctx, this.masterGain);
+          playCardClick(ctx, gain);
           break;
         case 'traceSiren':
-          playTraceSiren(ctx, this.masterGain);
+          playTraceSiren(ctx, gain);
           break;
         case 'voltageBuzz':
-          playVoltageBuzz(ctx, this.masterGain, params);
+          playVoltageBuzz(ctx, gain, params);
           break;
         case 'discharge':
-          playDischarge(ctx, this.masterGain);
+          playDischarge(ctx, gain);
           break;
         case 'roundStart':
-          playRoundStart(ctx, this.masterGain);
+          playRoundStart(ctx, gain);
           break;
         case 'eliminated':
-          playEliminated(ctx, this.masterGain);
+          playEliminated(ctx, gain);
           break;
         case 'voiceBlip':
-          playVoiceBlip(ctx, this.masterGain, params);
+          playVoiceBlip(ctx, gain, params);
+          break;
+        case 'cardSelect':
+          playCardSelect(ctx, gain, params);
+          break;
+        case 'yourTurn':
+          playYourTurn(ctx, gain);
+          break;
+        case 'turnTick':
+          playTurnTick(ctx, gain, params);
+          break;
+        case 'exploitActivate':
+          playExploitActivate(ctx, gain);
+          break;
+        case 'survived':
+          playSurvived(ctx, gain);
+          break;
+        case 'victory':
+          playVictory(ctx, gain);
           break;
       }
     } catch {
@@ -242,16 +292,80 @@ export class AudioEngine {
     }
   }
 
+  public play(name: AudioEffectName, params?: AudioEffectParams): void {
+    // Autoplay compliance: Drop without throwing or queuing before unlock or when muted
+    if (!this.isUnlocked || this.muted || this.volume <= 0) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+
+    const ctx = this.getOrCreateContext();
+    if (!ctx || !this.masterGain || ctx.state === 'closed') return;
+
+    if (ctx.state === 'running') {
+      this.executeEffect(name, params);
+      return;
+    }
+
+    if (ctx.state === 'suspended') {
+      const requestedAt = Date.now();
+      void ctx
+        .resume()
+        .then(() => {
+          if (ctx.state === 'running') {
+            this.removeGestureListeners();
+          }
+          if (
+            Date.now() - requestedAt < 250 &&
+            !this.muted &&
+            this.volume > 0 &&
+            this.ctx === ctx &&
+            ctx.state === 'running'
+          ) {
+            this.executeEffect(name, params);
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
   public startHum(): void {
     this.humDesired = true;
     if (!this.isUnlocked || this.muted || this.humHandle) return;
-    const ctx = this.getOrCreateContext();
-    if (!ctx || !this.masterGain || ctx.state !== 'running') return;
+    if (typeof document !== 'undefined' && document.hidden) return;
 
-    try {
-      this.humHandle = startHum(ctx, this.masterGain);
-    } catch {
-      // Graceful fallback
+    const ctx = this.getOrCreateContext();
+    if (!ctx || !this.masterGain || ctx.state === 'closed') return;
+
+    if (ctx.state === 'running') {
+      try {
+        this.humHandle = startHum(ctx, this.masterGain);
+      } catch {
+        // Graceful fallback
+      }
+      return;
+    }
+
+    if (ctx.state === 'suspended') {
+      void ctx
+        .resume()
+        .then(() => {
+          if (ctx.state === 'running') {
+            this.removeGestureListeners();
+          }
+          if (
+            this.humDesired &&
+            !this.muted &&
+            !this.humHandle &&
+            this.ctx === ctx &&
+            ctx.state === 'running'
+          ) {
+            try {
+              this.humHandle = startHum(ctx, this.masterGain!);
+            } catch {
+              // Graceful fallback
+            }
+          }
+        })
+        .catch(() => {});
     }
   }
 
@@ -272,10 +386,7 @@ export class AudioEngine {
   /** Test helper to tear down listeners and reset state */
   public resetForTests(): void {
     this.stopHum();
-    if (this.boundGestureHandler && typeof window !== 'undefined') {
-      window.removeEventListener('pointerdown', this.boundGestureHandler, { capture: true });
-      window.removeEventListener('keydown', this.boundGestureHandler, { capture: true });
-    }
+    this.removeGestureListeners();
     if (this.boundVisibilityHandler && typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
     }

@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 
+import { playSfx } from '../../../shared/lib/audio';
+import { useGameStore } from '../stores/useGameStore';
+
 export const CRITICAL_THRESHOLD_SECONDS = 5;
 const TICK_INTERVAL_MS = 250;
+
+let lastTickedKey = '';
+
+export function __resetCountdownTickForTests(): void {
+  lastTickedKey = '';
+}
 
 export interface CountdownState {
   /** Whole seconds left, rounded up (0 once expired). */
@@ -78,11 +87,35 @@ export function useCountdown(
         )
   );
 
+  const isMyTurn = useGameStore(
+    (s) =>
+      s.roomState === 'TurnActive' &&
+      Boolean(s.playerId) &&
+      s.activePlayerId === s.playerId
+  );
+
   useEffect(() => {
     if (deadlineMs === null) return;
     const full = fullSeconds ?? Math.max(1, (deadlineMs - Date.now()) / 1000);
     return startCountdown(deadlineMs, full, setState);
   }, [deadlineMs, fullSeconds]);
+
+  useEffect(() => {
+    if (
+      !isMyTurn ||
+      !state.isActive ||
+      !state.isCritical ||
+      state.secondsLeft <= 0 ||
+      deadlineMs === null
+    ) {
+      return;
+    }
+    const tickKey = `${deadlineMs}:${state.secondsLeft}`;
+    if (tickKey !== lastTickedKey) {
+      lastTickedKey = tickKey;
+      playSfx('turnTick', { secondsLeft: state.secondsLeft });
+    }
+  }, [isMyTurn, state.isActive, state.isCritical, state.secondsLeft, deadlineMs]);
 
   return deadlineMs === null ? IDLE_COUNTDOWN : state;
 }

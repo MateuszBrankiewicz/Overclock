@@ -37,25 +37,3 @@ export const YourTurnBanner: React.FC<YourTurnBannerProps> = ({ isMyTurn }) => {
   const visible = useYourTurnBanner(isMyTurn);
   return <YourTurnBannerView visible={visible} />;
 };
-
-export interface ActiveTurnLabelProps {
-  isMyTurn: boolean;
-  activePlayerNickname?: string | null;
-}
-
-/** Names who is acting when it is an opponent's turn. */
-export const ActiveTurnLabel: React.FC<ActiveTurnLabelProps> = ({
-  isMyTurn,
-  activePlayerNickname,
-}) => {
-  const { t } = useI18n();
-  if (isMyTurn || !activePlayerNickname) return null;
-  return (
-    <div
-      data-testid="active-turn-label"
-      className="px-2.5 py-1 rounded-lg border border-amber-500/70 bg-black/85 text-[10px] font-bold tracking-wider text-amber-300"
-    >
-      {t.hud.opponentTurnBanner}: <strong className="text-amber-200">{activePlayerNickname}</strong>
-    </div>
-  );
-};

@@ -2,14 +2,20 @@ import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import clsx from 'clsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Group, Mesh } from 'three';
+import type { Group, Mesh, SpotLight } from 'three';
+import * as THREE from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
+import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
+import { DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
 import { prefersReducedMotion } from './hud/motion';
 import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
 import { RevealedCards3D } from './RevealedCards3D';
+import { ServerRackDiodes3D } from './ServerRackDiodes3D';
+import { ProtocolHologram3D } from './vfx/ProtocolHologram3D';
+import { emitCardLandingSparks, emitCardTrail } from './vfx/vfxEmitter';
 
 export interface TableCenterpiece3DProps {
   tablePileCount: number;
@@ -24,20 +30,14 @@ export interface TableCenterpiece3DProps {
   shockTargetPos?: [number, number, number] | null;
   isOverloadedShock?: boolean;
   testedRiskLevel?: number;
+  dischargeStartedAtMs?: number | null;
+  dischargeRoll?: number | null;
   revealedCards?: PlayerCard[] | null;
   revealDeclaredProtocol?: CardProtocol | null;
   revealStartedAtMs?: number | null;
   bluffDetected?: boolean;
   revealLoserPos?: [number, number, number] | null;
 }
-
-const PROTOCOL_HEX: Record<string, string> = {
-  Alpha: '#10b981',
-  Beta: '#f59e0b',
-  Gamma: '#06b6d4',
-  Glitch: '#e879f9',
-  Corrupted: '#ef4444',
-};
 
 export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   tablePileCount,
@@ -51,6 +51,8 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   shockTargetPos,
   isOverloadedShock = false,
   testedRiskLevel = 1,
+  dischargeStartedAtMs = null,
+  dischargeRoll = null,
   revealedCards = null,
   revealDeclaredProtocol = null,
   revealStartedAtMs = null,
@@ -59,9 +61,13 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
 }) => {
   const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
+  const spotLightRef = useRef<SpotLight>(null);
   const capacitorDrumRef = useRef<Group>(null);
   const laserScannerRef = useRef<Mesh>(null);
   const flyingGroupRef = useRef<Group>(null);
+  const hotChamberMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const stackGroupRef = useRef<Group>(null);
+  const landingBounceRef = useRef<number>(0);
 
   const [isFlying, setIsFlying] = useState(false);
   const flightProgressRef = useRef(1);
@@ -76,15 +82,20 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
     prevFlightTokenRef.current = flightToken;
   }, [flightToken]);
 
+  const isGameOver = roomState === 'GameOver';
   const protocolColor = PROTOCOL_HEX[currentTargetProtocol ?? 'Alpha'] ?? '#10b981';
   const isBluffCheck = roomState === 'BluffCheck';
   const isVoltageTest = roomState === 'VoltageTest' || Boolean(shockTargetPos);
 
-  const stageAccentColor = isBluffCheck
+  const stageAccentColor = isGameOver
+    ? '#f59e0b'
+    : isBluffCheck
     ? '#ef4444'
     : isVoltageTest
     ? '#f59e0b'
     : protocolColor;
+
+  const targetAccentColor = useMemo(() => new THREE.Color(stageAccentColor), [stageAccentColor]);
 
   // The snapshot already counts the cards in flight: hold them back until they land.
   const visiblePileCount = isFlying
@@ -104,10 +115,20 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
 
   useFrame(({ clock }, delta) => {
     const elapsed = clock.getElapsedTime();
+    const reducedMotion = prefersReducedMotion();
 
     if (lampGroupRef.current) {
-      lampGroupRef.current.rotation.z = Math.sin(elapsed * 0.9) * 0.035;
-      lampGroupRef.current.rotation.x = Math.cos(elapsed * 0.7) * 0.025;
+      if (reducedMotion) {
+        lampGroupRef.current.rotation.z = 0;
+        lampGroupRef.current.rotation.x = 0;
+      } else {
+        lampGroupRef.current.rotation.z = Math.sin(elapsed * 0.9) * 0.035;
+        lampGroupRef.current.rotation.x = Math.cos(elapsed * 0.7) * 0.025;
+      }
+    }
+
+    if (spotLightRef.current) {
+      spotLightRef.current.color.lerp(targetAccentColor, delta * 3.5);
     }
 
     if (capacitorDrumRef.current && isVoltageTest) {
@@ -116,21 +137,64 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
         const aimAngle = Math.atan2(shockTargetPos[0], shockTargetPos[2]);
         capacitorDrumRef.current.rotation.y = aimAngle;
         capacitorDrumRef.current.position.y = 1.35;
+      } else if (dischargeStartedAtMs && dischargeRoll !== null && dischargeRoll !== undefined) {
+        // Spin-down deceleration phase ending on roll chamber
+        const spindownDuration = reducedMotion ? 0 : DRUM_SPINDOWN_MS;
+        const elapsedSinceDischarge = Date.now() - dischargeStartedAtMs;
+        const targetAngle = -((dischargeRoll - 1) * Math.PI * 2) / 6;
+
+        if (spindownDuration > 0 && elapsedSinceDischarge < spindownDuration) {
+          const t = Math.max(0, Math.min(1, elapsedSinceDischarge / spindownDuration));
+          // Ease-out cubic deceleration
+          const easeOut = 1 - Math.pow(1 - t, 3);
+          const totalSpins = Math.PI * 2 * 3;
+          capacitorDrumRef.current.rotation.y = totalSpins * (1 - easeOut) + targetAngle;
+          capacitorDrumRef.current.position.y = 1.25 + (1 - easeOut) * Math.sin(elapsed * 28) * 0.04;
+        } else {
+          // Settled on target roll chamber
+          capacitorDrumRef.current.rotation.y = targetAngle;
+          capacitorDrumRef.current.position.y = 1.25;
+        }
       } else {
-        capacitorDrumRef.current.rotation.y += delta * 7.5;
-        capacitorDrumRef.current.position.y = 1.25 + Math.sin(elapsed * 6) * 0.05;
+        if (reducedMotion) {
+          capacitorDrumRef.current.position.y = 1.25;
+        } else {
+          capacitorDrumRef.current.rotation.y += delta * 3.5;
+          capacitorDrumRef.current.position.y = 1.25 + Math.sin(elapsed * 4) * 0.03;
+        }
+      }
+    }
+
+    if (hotChamberMaterialRef.current) {
+      if (reducedMotion) {
+        hotChamberMaterialRef.current.emissiveIntensity = 2.0;
+      } else {
+        let pulseSpeed = 4;
+        if (dischargeStartedAtMs && dischargeRoll !== null) {
+          const elapsedSinceDischarge = Date.now() - dischargeStartedAtMs;
+          const t = Math.max(0, Math.min(1, elapsedSinceDischarge / DRUM_SPINDOWN_MS));
+          pulseSpeed = 6 + t * 24;
+        }
+        const pulse = 1.6 + Math.sin(elapsed * pulseSpeed) * 0.8;
+        hotChamberMaterialRef.current.emissiveIntensity = pulse;
       }
     }
 
     if (laserScannerRef.current && isBluffCheck) {
-      laserScannerRef.current.position.z = Math.sin(elapsed * 5) * 0.65;
+      laserScannerRef.current.position.z = reducedMotion ? 0 : Math.sin(elapsed * 5) * 0.65;
+    }
+
+    if (landingBounceRef.current > 0) {
+      landingBounceRef.current = Math.max(0, landingBounceRef.current - delta * 6);
+    }
+    if (stackGroupRef.current) {
+      stackGroupRef.current.position.y = reducedMotion ? 0 : Math.sin(landingBounceRef.current * Math.PI) * 0.035;
     }
 
     if (flightProgressRef.current < 1) {
       // ~400 ms seat -> pile tween
       const next = Math.min(1, flightProgressRef.current + delta * 2.5);
       flightProgressRef.current = next;
-      if (next >= 1) setIsFlying(false);
 
       if (flyingGroupRef.current) {
         const origin = lastPlaySeatPosition ?? [0, 1.1, 2.2];
@@ -141,39 +205,41 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
           0.82 + (1 - ease) * 0.35 + Math.sin(ease * Math.PI) * 0.75;
         flyingGroupRef.current.rotation.x = (1 - ease) * 1.4;
         flyingGroupRef.current.rotation.y = (1 - ease) * Math.PI;
+
+        emitCardTrail(
+          [
+            flyingGroupRef.current.position.x,
+            flyingGroupRef.current.position.y,
+            flyingGroupRef.current.position.z,
+          ],
+          currentTargetProtocol ?? 'Alpha'
+        );
+      }
+
+      if (next >= 1) {
+        setIsFlying(false);
+        emitCardLandingSparks([0, 0.78, 0]);
+        landingBounceRef.current = 1.0;
       }
     }
   });
 
   return (
     <group>
-      {/* Background Underground Bunker Server Racks */}
+      {/* Background Underground Bunker Server Racks with Instanced Diode Matrix */}
       {[-3.8, -1.9, 1.9, 3.8].map((rx, idx) => (
-        <group key={idx} position={[rx, 1.5, -4.4]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[1.1, 3.0, 0.7]} />
-            <meshStandardMaterial color="#09090b" metalness={0.8} roughness={0.35} />
-          </mesh>
-          <mesh position={[0, 0.4, 0.36]}>
-            <boxGeometry args={[0.85, 0.06, 0.02]} />
-            <meshStandardMaterial
-              color={stageAccentColor}
-              emissive={stageAccentColor}
-              emissiveIntensity={1.6}
-            />
-          </mesh>
-          <mesh position={[0, -0.3, 0.36]}>
-            <boxGeometry args={[0.85, 0.06, 0.02]} />
-            <meshStandardMaterial
-              color="#06b6d4"
-              emissive="#06b6d4"
-              emissiveIntensity={1.2}
-            />
-          </mesh>
-        </group>
+        <mesh key={idx} position={[rx, 1.5, -4.4]} castShadow receiveShadow>
+          <boxGeometry args={[1.1, 3.0, 0.7]} />
+          <meshStandardMaterial color="#09090b" metalness={0.8} roughness={0.35} />
+        </mesh>
       ))}
+      <ServerRackDiodes3D
+        isBluffCheck={isBluffCheck}
+        isVoltageTest={isVoltageTest}
+        stageAccentColor={stageAccentColor}
+      />
 
-      {/* Overhead Swinging Bunker Lamp & Volumetric Cone */}
+      {/* Overhead Swinging Bunker Lamp & Dynamic Key Spotlight */}
       <group ref={lampGroupRef} position={[0, 3.85, 0]}>
         <mesh position={[0, 0.25, 0]}>
           <cylinderGeometry args={[0.03, 0.03, 0.6, 8]} />
@@ -188,18 +254,20 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
           <meshStandardMaterial
             color={stageAccentColor}
             emissive={stageAccentColor}
-            emissiveIntensity={3}
+            emissiveIntensity={2.0}
           />
         </mesh>
-        <mesh position={[0, -1.65, 0]}>
-          <coneGeometry args={[2.55, 3.3, 24, 1, true]} />
-          <meshBasicMaterial
-            color={stageAccentColor}
-            transparent
-            opacity={0.07}
-            depthWrite={false}
-          />
-        </mesh>
+        <spotLight
+          ref={spotLightRef}
+          position={[0, -0.15, 0]}
+          angle={0.78}
+          penumbra={0.65}
+          intensity={5.4}
+          castShadow
+          shadow-mapSize={[1024, 1024]}
+          shadow-bias={-0.0005}
+          color={stageAccentColor}
+        />
       </group>
 
       {/* Main Octagonal Bunker Table Top */}
@@ -238,21 +306,18 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
         <meshStandardMaterial color="#18181b" metalness={0.7} roughness={0.4} />
       </mesh>
 
-      {/* Diegetic Hologram Above Table Center: Active Target Protocol & Pile Counter */}
+      {/* 3D Diegetic Hologram Symbol Above Table Center */}
+      {roomState !== 'Lobby' && <ProtocolHologram3D protocol={currentTargetProtocol} />}
+
+      {/* Pile Counter & Turn Status Info Pill next to Hologram */}
       {roomState !== 'Lobby' && (
-        <Html position={[0, 1.15, -0.35]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
+        <Html position={[0, 0.98, -0.32]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
           <div className="px-3 py-1 rounded-full border border-zinc-700/80 bg-black/85 backdrop-blur-md font-mono text-[10px] flex items-center gap-2.5 shadow-[0_0_25px_rgba(0,0,0,0.9)] select-none pointer-events-none whitespace-nowrap">
-            <span
-              className="font-black px-2 py-0.5 rounded text-black"
-              style={{ backgroundColor: protocolColor }}
-            >
-              {t.arena.hologramProtocol}: {currentTargetProtocol ?? 'ALPHA'}
-            </span>
             <span className="text-zinc-300 font-bold">{t.arena.hologramPile}: {tablePileCount}</span>
             <span
               className={clsx(
                 'font-extrabold',
-                isMyTurn ? 'text-emerald-400 animate-pulse' : 'text-amber-400'
+                isMyTurn ? 'text-emerald-400 motion-safe:animate-pulse' : 'text-amber-400'
               )}
             >
               {isMyTurn
@@ -264,19 +329,21 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
       )}
 
       {/* 3D PCB Packet Stack on Central Bus */}
-      {stackTransforms.map((card, idx) => (
-        <group key={idx} position={[card.x, card.y, card.z]} rotation={[0, card.rotY, 0]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[0.42, 0.018, 0.62]} />
-            <meshStandardMaterial
-              map={backTexture ?? undefined}
-              color="#ffffff"
-              metalness={0.5}
-              roughness={0.3}
-            />
-          </mesh>
-        </group>
-      ))}
+      <group ref={stackGroupRef}>
+        {stackTransforms.map((card, idx) => (
+          <group key={idx} position={[card.x, card.y, card.z]} rotation={[0, card.rotY, 0]}>
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[0.42, 0.018, 0.62]} />
+              <meshStandardMaterial
+                map={backTexture ?? undefined}
+                color="#ffffff"
+                metalness={0.5}
+                roughness={0.3}
+              />
+            </mesh>
+          </group>
+        ))}
+      </group>
 
       {/* Parabolic 3D Card Flight from Active Player Seat */}
       {isFlying && (
@@ -311,7 +378,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
           <meshStandardMaterial
             color="#ef4444"
             emissive="#ef4444"
-            emissiveIntensity={3.5}
+            emissiveIntensity={2.0}
           />
         </mesh>
       )}
@@ -332,9 +399,10 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
               <mesh key={i} position={[cx, 0, cz]}>
                 <cylinderGeometry args={[0.08, 0.08, 0.52, 12]} />
                 <meshStandardMaterial
+                  ref={isHotChamber ? hotChamberMaterialRef : undefined}
                   color={isHotChamber ? '#ef4444' : '#f59e0b'}
                   emissive={isHotChamber ? '#ef4444' : '#f59e0b'}
-                  emissiveIntensity={isHotChamber ? 3.5 : 1.4}
+                  emissiveIntensity={isHotChamber ? 2.2 : 1.2}
                 />
               </mesh>
             );
@@ -344,7 +412,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
             <meshStandardMaterial
               color="#ef4444"
               emissive="#ef4444"
-              emissiveIntensity={2.8}
+              emissiveIntensity={1.8}
             />
           </mesh>
         </group>
@@ -356,7 +424,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
           start={[0, 1.1, 0]}
           end={revealLoserPos}
           color={bluffDetected ? '#ef4444' : '#38bdf8'}
-          intensity={8}
+          intensity={4.5}
         />
       )}
 
@@ -366,7 +434,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
           start={[0, 1.35, 0]}
           end={shockTargetPos}
           color={isOverloadedShock ? '#ef4444' : '#38bdf8'}
-          intensity={isOverloadedShock ? 12 : 7}
+          intensity={isOverloadedShock ? 6 : 4}
         />
       )}
     </group>

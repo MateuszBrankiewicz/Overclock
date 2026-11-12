@@ -5,6 +5,7 @@ export interface PodiumEntry {
   nickname: string;
   placement: number;
   isWinner: boolean;
+  characterId?: string | null;
 }
 
 /**
@@ -28,5 +29,6 @@ export function buildPodium(
     nickname: player.nickname,
     placement: i + 1,
     isWinner: player.playerId === winnerId,
+    characterId: player.characterId,
   }));
 }

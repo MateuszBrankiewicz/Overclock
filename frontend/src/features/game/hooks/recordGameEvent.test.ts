@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { playSfx, speakRobotVoice } from '../../../shared/lib/audio';
 import { useGameStore } from '../stores/useGameStore';
@@ -18,6 +18,7 @@ describe('recordGameEvent', () => {
   const vibrateMock = vi.fn((_pattern: VibratePattern) => true);
 
   beforeEach(() => {
+    vi.useFakeTimers();
     vibrateMock.mockClear();
     vi.mocked(playSfx).mockClear();
     vi.stubGlobal('navigator', { vibrate: vibrateMock });
@@ -29,6 +30,10 @@ describe('recordGameEvent', () => {
         { playerId: OTHER, nickname: 'Ghost', status: 'Active', isReady: true, handCount: 3 },
       ],
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('pushes a feed entry for a played event', () => {
@@ -56,6 +61,8 @@ describe('recordGameEvent', () => {
         overloaded: false,
       },
     });
+    expect(vibrateMock).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1400);
     expect(vibrateMock).toHaveBeenCalledWith(60);
   });
 
@@ -72,6 +79,8 @@ describe('recordGameEvent', () => {
         overloaded: true,
       },
     });
+    expect(vibrateMock).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1400);
     expect(vibrateMock).toHaveBeenCalledWith([200, 80, 200, 80, 400]);
     vibrateMock.mockClear();
     recordGameEvent({
@@ -131,7 +140,23 @@ describe('recordGameEvent', () => {
         overloaded: false,
       },
     });
+    expect(playSfx).toHaveBeenCalledWith('voltageBuzz', { riskLevel: 2, rising: true });
+    expect(playSfx).not.toHaveBeenCalledWith('discharge');
+    vi.advanceTimersByTime(1400);
     expect(playSfx).toHaveBeenCalledWith('discharge');
+    vi.advanceTimersByTime(300);
+    expect(playSfx).toHaveBeenCalledWith('survived');
+
+    recordGameEvent({
+      kind: 'ExploitTriggered',
+      event: {
+        type: 'ExploitTriggered',
+        roomCode: 'R',
+        playerId: ID,
+        exploit: 'GroundWire',
+      },
+    });
+    expect(playSfx).toHaveBeenCalledWith('exploitActivate');
 
     recordGameEvent({
       kind: 'RoundStarted',

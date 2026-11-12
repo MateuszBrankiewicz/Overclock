@@ -1,6 +1,6 @@
 import React from 'react';
 import { renderToString } from 'react-dom/server';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGameStore } from '../stores/useGameStore';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
@@ -8,6 +8,9 @@ import { OperatingTable } from './OperatingTable';
 
 describe('OperatingTable Component (TASK-2.6 & ADR 0010 3D POV Bunker Arena)', () => {
   beforeEach(() => {
+    vi.spyOn(React, 'useSyncExternalStore').mockImplementation(
+      (_subscribe, getSnapshot, _getServerSnapshot) => getSnapshot()
+    );
     useGameStore.getState().leaveRoom();
     useGameStore.getState().setSelectedCharacter('ghost');
   });
@@ -136,6 +139,23 @@ describe('OperatingTable Component (TASK-2.6 & ADR 0010 3D POV Bunker Arena)', (
         })
       );
       expect(html).not.toContain('card-reveal-sequence');
+    });
+
+    it('renders the top-bar overflow button for mobile devices', () => {
+      useGameStore.getState().applyRoomSnapshot({
+        roomCode: 'TEST-ROOM',
+        state: 'TurnActive',
+        hostId: '1',
+        myPlayerId: '1',
+        myHand: [],
+        seats: [],
+        tablePileCount: 0,
+        currentTargetProtocol: 'Alpha',
+        currentTurnPlayerId: '1',
+        roundNumber: 1,
+      });
+      const html = renderToString(React.createElement(OperatingTable));
+      expect(html).toContain('top-bar-overflow-btn');
     });
   });
 });

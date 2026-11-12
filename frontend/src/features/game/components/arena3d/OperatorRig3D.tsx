@@ -2,14 +2,16 @@ import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import clsx from 'clsx';
 import React, { useEffect, useMemo, useRef } from 'react';
-import type { Group, Mesh } from 'three';
+import type { Group, Mesh, MeshStandardMaterial } from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
+import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import type { PlayerSeat } from '../../schemas/gameEvents';
 import type { CharacterProfile } from '../../utils/characterCatalog';
 import { computeDeathPose, computeShockPose } from './deathPose';
 import { createOperatorVisorTexture } from './operatorVisorTexture';
 import { createPcbCardBackTexture } from './pcbCardTexture';
+import { emitOverloadSmoke } from './vfx/vfxEmitter';
 
 export interface OperatorRig3DProps {
   seat: PlayerSeat;
@@ -21,6 +23,7 @@ export interface OperatorRig3DProps {
   lookTargetAngle?: number;
   isBeingShocked?: boolean;
   isOverloaded?: boolean;
+  isWinner?: boolean;
   cinematicStartTimeMs?: number | null;
 }
 
@@ -34,6 +37,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
   lookTargetAngle = 0,
   isBeingShocked = false,
   isOverloaded = false,
+  isWinner = false,
   cinematicStartTimeMs = null,
 }) => {
   const { t } = useI18n();
@@ -44,6 +48,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
   const coreRef = useRef<Mesh>(null);
   const handFanRef = useRef<Group>(null);
   const sparkFlashRef = useRef<Mesh>(null);
+  const visorMatRef = useRef<MeshStandardMaterial>(null);
 
   const isEliminated = seat.status === 'Eliminated' || isOverloaded;
   const risk = seat.riskLevel ?? 1;
@@ -88,11 +93,12 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
 
   useFrame(({ clock }) => {
     const elapsed = clock.getElapsedTime();
+    const reducedMotion = prefersReducedMotion();
 
     // 1. Elimination / Death Slam Animation (Flys onto the table desk and falls off!)
     if (isEliminated) {
       let deathElapsed = 5.0; // Default: settled if loaded while already eliminated
-      if (!initialEliminatedRef.current) {
+      if (!reducedMotion && !initialEliminatedRef.current) {
         const startMs = cinematicStartTimeMs ?? liveStartTimeRef.current;
         if (startMs) {
           deathElapsed = Math.max(0, (Date.now() - startMs) / 1000);
@@ -112,12 +118,25 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
         headRef.current.rotation.x = pose.headRotationX;
       }
       if (handFanRef.current) {
-        handFanRef.current.visible = deathElapsed < 1.1;
+        handFanRef.current.visible = !reducedMotion && deathElapsed < 1.1;
       }
       if (sparkFlashRef.current) {
-        sparkFlashRef.current.visible = pose.isShockActive;
-        if (pose.isShockActive) {
+        sparkFlashRef.current.visible = !reducedMotion && pose.isShockActive;
+        if (!reducedMotion && pose.isShockActive) {
           sparkFlashRef.current.scale.setScalar(1 + Math.sin(elapsed * 50) * 0.4);
+        }
+      }
+      if (visorMatRef.current) {
+        if (!reducedMotion && deathElapsed < 0.8) {
+          visorMatRef.current.emissiveIntensity =
+            Math.sin(deathElapsed * 45) > 0 ? 2.4 : 0.05;
+        } else {
+          visorMatRef.current.emissiveIntensity = 0.05;
+        }
+      }
+      if (!reducedMotion && deathElapsed >= 1.0 && deathElapsed < 3.2) {
+        if (Math.random() < 0.16) {
+          emitOverloadSmoke([position[0], position[1] + 0.85, position[2] + 0.2]);
         }
       }
       return;
@@ -125,12 +144,20 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
 
     // 2. Electro-Spasm Shock (Survived voltage test)
     if (isBeingShocked) {
-      let elapsed = 0.5;
+      if (reducedMotion) {
+        if (sparkFlashRef.current) sparkFlashRef.current.visible = false;
+        if (bodyRef.current) {
+          bodyRef.current.position.set(0, 0, 0);
+          bodyRef.current.rotation.set(0, 0, 0);
+        }
+        return;
+      }
+      let elapsedShock = 0.5;
       const startMs = cinematicStartTimeMs ?? liveStartTimeRef.current;
       if (startMs) {
-        elapsed = Math.max(0, (Date.now() - startMs) / 1000);
+        elapsedShock = Math.max(0, (Date.now() - startMs) / 1000);
       }
-      const pose = computeShockPose(elapsed, seed);
+      const pose = computeShockPose(elapsedShock, seed);
       if (bodyRef.current) {
         bodyRef.current.position.set(...pose.bodyPosition);
         bodyRef.current.rotation.set(...pose.bodyRotation);
@@ -153,35 +180,62 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
     }
     if (handFanRef.current) {
       handFanRef.current.visible = true;
-      handFanRef.current.position.y =
-        0.92 + Math.sin(elapsed * (isActiveTurn ? 3.8 : 1.8)) * (isActiveTurn ? 0.035 : 0.012);
+      handFanRef.current.position.y = reducedMotion
+        ? 0.92
+        : 0.92 + Math.sin(elapsed * (isActiveTurn ? 3.8 : 1.8)) * (isActiveTurn ? 0.035 : 0.012);
     }
     if (bodyRef.current) {
       if (isPendingVoltage) {
-        bodyRef.current.position.x = Math.sin(elapsed * 48) * 0.04;
-        bodyRef.current.position.y = Math.cos(elapsed * 36) * 0.025;
-        bodyRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.06;
+        if (reducedMotion) {
+          bodyRef.current.position.set(0, 0, 0);
+          bodyRef.current.rotation.x = -0.15;
+        } else {
+          bodyRef.current.position.x = Math.sin(elapsed * 48) * 0.04;
+          bodyRef.current.position.y = Math.cos(elapsed * 36) * 0.025;
+          bodyRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.06;
+        }
       } else {
-        bodyRef.current.position.set(0, Math.sin(elapsed * 2.1 + position[0]) * 0.025, 0);
-        bodyRef.current.rotation.set(0, 0, 0);
+        if (reducedMotion) {
+          bodyRef.current.position.set(0, 0, 0);
+          bodyRef.current.rotation.set(0, 0, 0);
+        } else {
+          bodyRef.current.position.set(0, Math.sin(elapsed * 2.1 + position[0]) * 0.025, 0);
+          bodyRef.current.rotation.set(0, 0, 0);
+        }
       }
     }
 
     if (headRef.current) {
       if (isPendingVoltage) {
-        headRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.08;
-        headRef.current.rotation.z = Math.cos(elapsed * 28) * 0.08;
+        if (reducedMotion) {
+          headRef.current.rotation.set(-0.15, 0, 0);
+        } else {
+          headRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.08;
+          headRef.current.rotation.z = Math.cos(elapsed * 28) * 0.08;
+        }
       } else {
-        headRef.current.rotation.x = isActiveTurn ? -0.05 : Math.sin(elapsed * 1.4) * 0.035;
-        headRef.current.rotation.y =
-          lookTargetAngle * 0.25 + Math.sin(elapsed * (isActiveTurn ? 2.6 : 0.9)) * 0.09;
-        headRef.current.rotation.z = 0;
+        if (reducedMotion) {
+          headRef.current.rotation.set(0, lookTargetAngle * 0.25, 0);
+        } else {
+          headRef.current.rotation.x = isActiveTurn ? -0.05 : Math.sin(elapsed * 1.4) * 0.035;
+          headRef.current.rotation.y =
+            lookTargetAngle * 0.25 + Math.sin(elapsed * (isActiveTurn ? 2.6 : 0.9)) * 0.09;
+          headRef.current.rotation.z = 0;
+        }
       }
     }
 
     if (coreRef.current) {
-      coreRef.current.rotation.y = elapsed * (1.4 + risk * 0.65);
-      coreRef.current.rotation.x = elapsed * 0.9;
+      if (reducedMotion) {
+        coreRef.current.rotation.set(0, 0, 0);
+      } else {
+        coreRef.current.rotation.y = elapsed * (1.4 + risk * 0.65);
+        coreRef.current.rotation.x = elapsed * 0.9;
+      }
+    }
+
+    if (isWinner && visorMatRef.current) {
+      visorMatRef.current.emissiveIntensity = 3.2;
     }
   });
 
@@ -241,7 +295,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
               color={activeColor}
               emissive={activeColor}
               emissiveIntensity={
-                isEliminated ? 0.05 : isBeingShocked ? 6 : isActiveTurn ? 2.6 : 1.3
+                isEliminated ? 0.05 : isBeingShocked ? 2.8 : isActiveTurn ? 2.0 : 1.2
               }
             />
           </mesh>
@@ -250,7 +304,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
             <meshStandardMaterial
               color={activeColor}
               emissive={activeColor}
-              emissiveIntensity={isEliminated ? 0 : isBeingShocked ? 4 : 1.1}
+              emissiveIntensity={isEliminated ? 0 : isBeingShocked ? 2.2 : 1.1}
             />
           </mesh>
           <mesh position={[0.22, 0.1, 0.27]} rotation={[0, 0, 0.25]}>
@@ -258,7 +312,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
             <meshStandardMaterial
               color={activeColor}
               emissive={activeColor}
-              emissiveIntensity={isEliminated ? 0 : isBeingShocked ? 4 : 1.1}
+              emissiveIntensity={isEliminated ? 0 : isBeingShocked ? 2.2 : 1.1}
             />
           </mesh>
 
@@ -294,7 +348,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
               <meshStandardMaterial
                 color={risk >= 4 ? '#ef4444' : activeColor}
                 emissive={risk >= 4 ? '#ef4444' : activeColor}
-                emissiveIntensity={isEliminated ? 0 : isBeingShocked ? 6 : 0.45 * risk}
+                emissiveIntensity={isEliminated ? 0 : isBeingShocked ? 2.8 : 0.4 * risk}
               />
             </mesh>
             <mesh position={[side * 0.05, -0.22, 0.16]} rotation={[0.65, 0, side * -0.15]} castShadow>
@@ -354,7 +408,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
                 <meshStandardMaterial
                   color={activeColor}
                   emissive={activeColor}
-                  emissiveIntensity={isEliminated ? 0 : 2.8}
+                  emissiveIntensity={isEliminated ? 0 : 2.0}
                   wireframe
                 />
               </mesh>
@@ -364,10 +418,11 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
           <mesh position={[0, 0.02, 0.236]}>
             <planeGeometry args={[0.42, 0.24]} />
             <meshStandardMaterial
+              ref={visorMatRef}
               map={visorTexture ?? undefined}
               emissiveMap={visorTexture ?? undefined}
               emissive="#ffffff"
-              emissiveIntensity={isEliminated ? 0.35 : isBeingShocked ? 4 : 1.35}
+              emissiveIntensity={isEliminated ? 0.35 : isBeingShocked ? 2.2 : 1.2}
               roughness={0.15}
               metalness={0.2}
             />
@@ -420,7 +475,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
             className={clsx(
               'px-2 py-0.5 rounded-md border font-mono text-[9px] whitespace-nowrap backdrop-blur-md transition-all select-none pointer-events-none shadow-md',
               isPendingVoltage || isBeingShocked
-                ? 'bg-red-950/95 border-red-500 text-red-100 animate-pulse'
+                ? 'bg-red-950/95 border-red-500 text-red-100 motion-safe:animate-pulse'
                 : isActiveTurn
                 ? 'bg-emerald-950/95 border-emerald-400 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.6)]'
                 : 'bg-zinc-950/90 border-zinc-700/80 text-zinc-200'

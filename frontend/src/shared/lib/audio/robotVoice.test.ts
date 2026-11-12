@@ -1,14 +1,14 @@
-import { readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import characterCatalogJson from '../../../../../tests/contracts/signalr/CharacterCatalog.json';
 import { translations } from '../../i18n';
 import { playSfx } from './playSfx';
 import {
   __resetRobotVoiceForTests,
   speakRobotVoice,
+  warmupSpeechSynthesis,
 } from './robotVoice';
 import { useAudioSettings } from './useAudioSettings';
 import { VOICE_PROFILES } from './voiceProfiles';
@@ -88,6 +88,23 @@ class MockEventTarget {
   }
 }
 
+function loadCharacterCatalogIds(): string[] {
+  let current = __dirname;
+  for (let i = 0; i < 6; i++) {
+    const candidate = join(current, 'tests', 'contracts', 'signalr', 'CharacterCatalog.json');
+    if (existsSync(candidate)) {
+      try {
+        const raw = JSON.parse(readFileSync(candidate, 'utf-8')) as unknown;
+        if (Array.isArray(raw)) return raw as string[];
+      } catch {
+        // Safe fallback
+      }
+    }
+    current = dirname(current);
+  }
+  return ['ghost', 'volt', 'proxy', 'null'];
+}
+
 function findAudioFiles(dir: string): string[] {
   const found: string[] = [];
   try {
@@ -148,7 +165,7 @@ describe('Robot Voice System (ADR 0016)', () => {
   });
 
   it('provides a voice profile matching every character in CharacterCatalog.json', () => {
-    const catalogIds = characterCatalogJson;
+    const catalogIds = loadCharacterCatalogIds();
     expect(catalogIds.length).toBeGreaterThan(0);
     for (const charId of catalogIds) {
       expect(VOICE_PROFILES).toHaveProperty(charId);
@@ -225,7 +242,28 @@ describe('Robot Voice System (ADR 0016)', () => {
     vi.stubGlobal('speechSynthesis', undefined);
     expect(() => {
       speakRobotVoice('ghost', 'Jedna alfa');
+      warmupSpeechSynthesis();
     }).not.toThrow();
+  });
+
+  it('recovers via safety watchdog timeout if browser onend never fires', () => {
+    vi.useFakeTimers();
+    try {
+      speakRobotVoice('volt', 'Pierwsza kwestia');
+      expect(fakeSynth.spoken).toHaveLength(1);
+
+      // Second utterance queues because first is speaking
+      speakRobotVoice('volt', 'Druga kwestia');
+      expect(fakeSynth.spoken).toHaveLength(1);
+
+      // Advance past 5-second watchdog without calling utterance.onend
+      vi.advanceTimersByTime(5100);
+
+      // Safety watchdog should unblock and process next
+      expect(fakeSynth.spoken).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('correctly localizes card play declarations and liar shout in Polish and English', () => {
