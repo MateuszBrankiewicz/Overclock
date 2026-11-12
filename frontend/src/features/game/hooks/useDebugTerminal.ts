@@ -26,6 +26,7 @@ import {
 import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
+import type { CharacterId } from '../utils/characterCatalog';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
 
 let sharedConnection: GameConnectionManager | null = null;
@@ -371,10 +372,11 @@ export function useGameSession() {
   const createRoom = async (nickname: string, code?: string) => {
     try {
       const conn = await ensureConnected();
+      const preferredCharacterId = useGameStore.getState().selectedCharacterId;
       const res = await conn.invokeHubMethod(
         'CreateRoom',
         RoomJoinResultSchema,
-        { hostNickname: nickname, roomCode: code || null }
+        { hostNickname: nickname, roomCode: code || null, preferredCharacterId }
       );
       if (res.isSuccess && res.data) {
         conn.saveSession({ roomId: res.data.roomCode, sessionToken: res.data.sessionToken });
@@ -391,10 +393,11 @@ export function useGameSession() {
   const joinRoom = async (targetRoomCode: string, nickname: string) => {
     try {
       const conn = await ensureConnected();
+      const preferredCharacterId = useGameStore.getState().selectedCharacterId;
       const res = await conn.invokeHubMethod(
         'JoinRoom',
         RoomJoinResultSchema,
-        { roomCode: targetRoomCode, nickname }
+        { roomCode: targetRoomCode, nickname, preferredCharacterId }
       );
       if (res.isSuccess && res.data) {
         conn.saveSession({ roomId: res.data.roomCode, sessionToken: res.data.sessionToken });
@@ -405,6 +408,25 @@ export function useGameSession() {
       }
     } catch (err) {
       fail('JoinRoom', errText(err));
+    }
+  };
+
+  const selectCharacter = async (characterId: CharacterId) => {
+    const previous = useGameStore.getState().selectedCharacterId;
+    useGameStore.getState().setSelectedCharacter(characterId);
+    if (!roomCode) return;
+    try {
+      const conn = await ensureConnected();
+      const res = await conn.invokeHubCommand('SelectCharacter', { roomCode, characterId });
+      if (res.isSuccess) {
+        logMessage(`SelectCharacter sent: characterId=${characterId}`);
+      } else {
+        useGameStore.getState().setSelectedCharacter(previous);
+        fail('SelectCharacter', res.error ?? res.errorCode ?? 'Unknown error');
+      }
+    } catch (err) {
+      useGameStore.getState().setSelectedCharacter(previous);
+      fail('SelectCharacter', errText(err));
     }
   };
 
@@ -550,6 +572,7 @@ export function useGameSession() {
     createRoom,
     joinRoom,
     setReady,
+    selectCharacter,
     startRound,
     playCards,
     callTrace,

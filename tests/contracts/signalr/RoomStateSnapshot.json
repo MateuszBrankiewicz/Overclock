@@ -17,6 +17,7 @@
       "status": "Active",
       "isReady": true,
       "handCount": 5,
+      "characterId": "ghost",
       "riskLevel": 1,
       "exploit": {
         "type": "PacketSniffer",
@@ -29,6 +30,7 @@
       "status": "Active",
       "isReady": true,
       "handCount": 5,
+      "characterId": "volt",
       "riskLevel": 2,
       "exploit": {
         "type": "GroundWire",

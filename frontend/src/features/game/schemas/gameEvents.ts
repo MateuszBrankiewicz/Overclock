@@ -48,6 +48,7 @@ export const PlayerSeatSchema = z.object({
   status: PlayerStatusSchema,
   isReady: z.boolean(),
   handCount: z.number().int().nonnegative(),
+  characterId: z.string().min(1).default('ghost'),
   riskLevel: z.number().int().min(1).max(6).default(1),
   exploit: ExploitModuleSchema.nullable().optional(),
 });
@@ -57,6 +58,7 @@ export type PlayerSeat = {
   status: PlayerStatus;
   isReady: boolean;
   handCount: number;
+  characterId?: string;
   riskLevel?: number;
   exploit?: ExploitModule | null;
 };
@@ -359,4 +361,11 @@ export const LeaveRoomContractSchema = z.object({
   playerId: z.string().uuid(),
 });
 export type LeaveRoomContract = z.infer<typeof LeaveRoomContractSchema>;
+
+export const SelectCharacterContractSchema = z.object({
+  roomCode: z.string(),
+  playerId: z.string().uuid(),
+  characterId: z.string().min(1),
+});
+export type SelectCharacterContract = z.infer<typeof SelectCharacterContractSchema>;
 

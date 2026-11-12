@@ -766,5 +766,64 @@ public class GameHubIntegrationTests(WebApplicationFactory<Program> factory)
         Assert.False(response.IsSuccess);
         Assert.Equal("Connection.RoomMismatch", response.ErrorCode);
     }
+
+    [Fact]
+    public async Task SelectCharacter_SynchronizesSelection_AndRejectsDuplicatesOrNonLobby()
+    {
+        var roomCode = $"CYBER-C{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
+        await using var hostConnection = CreateHubConnection();
+        await hostConnection.StartAsync();
+        var hostResponse = await hostConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "CreateRoom",
+            new CreateRoomRequest("HostPlayer", roomCode, "ghost"));
+        Assert.True(hostResponse.IsSuccess, hostResponse.Error);
+
+        await using var guestConnection = CreateHubConnection();
+        await guestConnection.StartAsync();
+        var guestResponse = await guestConnection.InvokeAsync<HubResponse<RoomJoinResultDto>>(
+            "JoinRoom",
+            new JoinRoomRequest(roomCode, "GuestPlayer", "volt"));
+        Assert.True(guestResponse.IsSuccess, guestResponse.Error);
+
+        var guestSnapshotTcs = new TaskCompletionSource<PlayerGameStateDto>(TaskCreationOptions.RunContinuationsAsynchronously);
+        guestConnection.On<PlayerGameStateDto>("ReceiveGameState", s =>
+        {
+            var hostSeat = s.Seats.FirstOrDefault(seat => seat.PlayerId == hostResponse.Data!.PlayerId);
+            if (hostSeat?.CharacterId == "proxy")
+            {
+                guestSnapshotTcs.TrySetResult(s);
+            }
+        });
+
+        // 1. Host selects 'proxy' -> Guest receives snapshot where Host is 'proxy'
+        var selectProxyResponse = await hostConnection.InvokeAsync<HubResponse>(
+            "SelectCharacter",
+            new SelectCharacterRequest(roomCode, "proxy"));
+        Assert.True(selectProxyResponse.IsSuccess, selectProxyResponse.Error);
+
+        var guestSnapshot = await guestSnapshotTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var hostSeatInGuestSnapshot = guestSnapshot.Seats.First(s => s.PlayerId == hostResponse.Data!.PlayerId);
+        Assert.Equal("proxy", hostSeatInGuestSnapshot.CharacterId);
+
+        // 2. Guest tries to select 'proxy' (already taken by Host) -> Conflict
+        var conflictResponse = await guestConnection.InvokeAsync<HubResponse>(
+            "SelectCharacter",
+            new SelectCharacterRequest(roomCode, "proxy"));
+        Assert.False(conflictResponse.IsSuccess);
+        Assert.Equal("Room.CharacterTaken", conflictResponse.ErrorCode);
+
+        // 3. Start game -> SelectCharacter outside Lobby returns NotInLobby
+        await hostConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        await guestConnection.InvokeAsync<HubResponse>("SetReady", new SetReadyRequest(roomCode, true));
+        var startResponse = await hostConnection.InvokeAsync<HubResponse>("StartRound", new StartRoundRequest(roomCode));
+        Assert.True(startResponse.IsSuccess, startResponse.Error);
+
+        var notInLobbyResponse = await hostConnection.InvokeAsync<HubResponse>(
+            "SelectCharacter",
+            new SelectCharacterRequest(roomCode, "null"));
+        Assert.False(notInLobbyResponse.IsSuccess);
+        Assert.Equal("Room.NotInLobby", notInLobbyResponse.ErrorCode);
+    }
 }
 

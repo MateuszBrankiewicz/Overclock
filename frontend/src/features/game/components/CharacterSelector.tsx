@@ -9,6 +9,7 @@ export interface CharacterSelectorProps {
   selectedId: CharacterId;
   onSelect: (id: CharacterId) => void;
   compact?: boolean;
+  takenByCharacterId?: Record<string, string>;
 }
 
 const RigAvatarSvg: React.FC<{ profile: CharacterProfile; isSelected: boolean }> = ({
@@ -87,6 +88,7 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
   selectedId,
   onSelect,
   compact = false,
+  takenByCharacterId,
 }) => {
   const { language, t } = useI18n();
 
@@ -104,6 +106,8 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
       <div className={clsx('grid gap-2.5', compact ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2')}>
         {CHARACTER_CATALOG.map((char) => {
           const isSelected = char.id === selectedId;
+          const takenByNickname = takenByCharacterId?.[char.id];
+          const isTaken = Boolean(takenByNickname) && !isSelected;
           const { role, bio, perk } = getCharacterText(char, language);
 
           return (
@@ -112,12 +116,18 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
               type="button"
               data-testid={`select-character-${char.id}`}
               aria-pressed={isSelected}
-              onClick={() => onSelect(char.id)}
+              disabled={isTaken}
+              aria-disabled={isTaken}
+              onClick={() => {
+                if (!isTaken) onSelect(char.id);
+              }}
               className={clsx(
-                'text-left rounded-xl border p-2.5 transition-all cursor-pointer flex items-start gap-3 relative overflow-hidden',
-                isSelected
-                  ? clsx('bg-zinc-900/95 ring-1 ring-white/20', char.borderGlowClass)
-                  : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-600 opacity-80 hover:opacity-100'
+                'text-left rounded-xl border p-2.5 transition-all flex items-start gap-3 relative overflow-hidden',
+                isTaken
+                  ? 'bg-zinc-950/40 border-zinc-900 opacity-50 cursor-not-allowed'
+                  : isSelected
+                    ? clsx('bg-zinc-900/95 ring-1 ring-white/20 cursor-pointer', char.borderGlowClass)
+                    : 'bg-zinc-950/80 border-zinc-800 hover:border-zinc-600 opacity-80 hover:opacity-100 cursor-pointer'
               )}
             >
               <RigAvatarSvg profile={char} isSelected={isSelected} />
@@ -127,7 +137,7 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
                   <span className="font-black text-xs text-white tracking-wider truncate">
                     {char.codename}
                   </span>
-                  {isSelected && (
+                  {isSelected ? (
                     <span
                       className={clsx(
                         'text-[9px] font-black px-1.5 py-0.2 rounded border uppercase shrink-0',
@@ -136,7 +146,14 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
                     >
                       {t.home.characterActive}
                     </span>
-                  )}
+                  ) : isTaken ? (
+                    <span
+                      className="text-[9px] font-black px-1.5 py-0.2 rounded border border-zinc-700 bg-zinc-900 text-zinc-400 uppercase shrink-0 truncate max-w-[110px]"
+                      title={takenByNickname}
+                    >
+                      {t.home.characterTaken}: {takenByNickname}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="text-[10px] font-bold truncate" style={{ color: char.primaryColor }}>

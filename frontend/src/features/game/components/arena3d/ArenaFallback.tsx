@@ -17,7 +17,6 @@ export interface ArenaFallbackProps {
   myPlayerId: string | null;
   myCharacter: CharacterProfile;
   selectedCharacterId: CharacterId;
-  characterByPlayerId: Record<string, CharacterId>;
   tablePileCount: number;
   currentTargetProtocol: CardProtocol | null;
   lastPlayedCards: CardsPlayedEvent | null;
@@ -29,10 +28,7 @@ export interface ArenaFallbackProps {
 /** Deterministic non-WebGL / test fallback: opponents row plus a flat 2D hand. */
 export const ArenaFallback: React.FC<ArenaFallbackProps> = ({
   opponents,
-  myPlayerId,
   myCharacter,
-  selectedCharacterId,
-  characterByPlayerId,
   tablePileCount,
   currentTargetProtocol,
   lastPlayedCards,
@@ -45,14 +41,8 @@ export const ArenaFallback: React.FC<ArenaFallbackProps> = ({
     className="relative z-10 flex flex-col justify-between p-4 pt-16 pb-20 min-h-[100dvh] table-grid"
   >
     <div className="flex flex-wrap justify-center gap-3">
-      {opponents.map((opp, idx) => {
-        const char = resolveSeatCharacter(
-          opp.playerId,
-          myPlayerId,
-          selectedCharacterId,
-          idx + 1,
-          characterByPlayerId
-        );
+      {opponents.map((opp) => {
+        const char = resolveSeatCharacter(opp.characterId);
         return (
           <div
             key={opp.playerId}

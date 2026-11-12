@@ -18,6 +18,7 @@ public sealed record PlayerSeatDto(
     string Status,
     bool IsReady,
     int HandCount,
+    string CharacterId = "ghost",
     int RiskLevel = 1,
     ExploitDto? Exploit = null);
 
@@ -122,4 +123,9 @@ public sealed record TriggerDischargeContractDto(
 public sealed record LeaveRoomContractDto(
     string RoomCode,
     Guid PlayerId);
+
+public sealed record SelectCharacterContractDto(
+    string RoomCode,
+    Guid PlayerId,
+    string CharacterId);
 

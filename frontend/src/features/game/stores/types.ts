@@ -63,10 +63,8 @@ export interface RoomSlice {
   awaitingDischargeForSequence: number | null;
   sniffedCard: PlayerCard | null;
   selectedCharacterId: CharacterId;
-  characterByPlayerId: Record<string, CharacterId>;
   cameraFocus: ArenaCameraFocus;
   setSelectedCharacter: (characterId: CharacterId) => void;
-  setPlayerCharacter: (playerId: string, characterId: CharacterId) => void;
   setCameraFocus: (focus: ArenaCameraFocus) => void;
   setRoom: (roomCode: string, playerId: string) => void;
   clearDischargeCinematic: () => void;

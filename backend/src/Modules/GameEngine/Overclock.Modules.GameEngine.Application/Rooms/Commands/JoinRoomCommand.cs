@@ -8,7 +8,11 @@ using Overclock.SharedKernel;
 
 namespace Overclock.Modules.GameEngine.Application.Rooms.Commands;
 
-public sealed record JoinRoomCommand(string RoomCode, string Nickname, string ConnectionId)
+public sealed record JoinRoomCommand(
+    string RoomCode,
+    string Nickname,
+    string ConnectionId,
+    string? PreferredCharacterId = null)
     : IRequest<Result<RoomJoinResultDto>>;
 
 internal sealed class JoinRoomCommandHandler(
@@ -29,14 +33,14 @@ internal sealed class JoinRoomCommandHandler(
 
         var joinOutcome = await session.EnqueueAsync(room =>
         {
-            var addResult = room.AddPlayer(playerId, request.Nickname, request.ConnectionId, sessionToken);
+            var addResult = room.AddPlayer(playerId, request.Nickname, request.ConnectionId, sessionToken, request.PreferredCharacterId);
             if (!addResult.IsSuccess)
             {
                 return addResult.ToResult<JoinRoomOutcome>();
             }
 
             var seat = addResult.Value;
-            var seatDto = new PlayerSeatDto(seat.Id.Value, seat.Nickname, seat.Status.ToString(), seat.IsReady, seat.Hand.Count);
+            var seatDto = new PlayerSeatDto(seat.Id.Value, seat.Nickname, seat.Status.ToString(), seat.IsReady, seat.Hand.Count, seat.CharacterId);
             var gameState = projector.Project(room, playerId);
 
             var joinResultDto = new RoomJoinResultDto(

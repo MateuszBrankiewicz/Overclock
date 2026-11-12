@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 
 import type { CapacitorDischargedEvent, PlayerSeat } from '../../schemas/gameEvents';
-import type { CharacterId } from '../../utils/characterCatalog';
+import { type CharacterId, isCharacterId } from '../../utils/characterCatalog';
 import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState, RoomSlice } from '../types';
 
@@ -61,7 +61,6 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   awaitingDischargeForSequence: null,
   sniffedCard: null,
   selectedCharacterId: getInitialCharacterId(),
-  characterByPlayerId: {},
   cameraFocus: 'overview',
 
   clearDischargeCinematic: () => set({ dischargeCinematic: null }),
@@ -81,21 +80,8 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
     if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
       localStorage.setItem('overclock_character', characterId);
     }
-    set((state) => ({
-      selectedCharacterId: characterId,
-      characterByPlayerId: state.playerId
-        ? { ...state.characterByPlayerId, [state.playerId]: characterId }
-        : state.characterByPlayerId,
-    }));
+    set({ selectedCharacterId: characterId });
   },
-
-  setPlayerCharacter: (playerId, characterId) =>
-    set((state) => ({
-      characterByPlayerId: {
-        ...state.characterByPlayerId,
-        [playerId]: characterId,
-      },
-    })),
 
   setCameraFocus: (focus) =>
     set({
@@ -103,15 +89,11 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
     }),
 
   setRoom: (roomCode, playerId) =>
-    set((state) => ({
+    set({
       roomCode,
       playerId,
       isInRoom: true,
-      characterByPlayerId: {
-        ...state.characterByPlayerId,
-        [playerId]: state.selectedCharacterId,
-      },
-    })),
+    }),
 
   applyRoomSnapshot: (snapshot) =>
     set((state) => {
@@ -151,12 +133,19 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       const shouldClearAwaitingDischarge =
         snapshot.state === 'TurnActive' || snapshot.state === 'Lobby';
 
+      const mySeat = snapshot.seats.find((s) => s.playerId === snapshot.myPlayerId);
+      const updatedCharacterId =
+        mySeat?.characterId && isCharacterId(mySeat.characterId)
+          ? mySeat.characterId
+          : state.selectedCharacterId;
+
       return {
         roomCode: snapshot.roomCode,
         roomState: snapshot.state,
         hostId: snapshot.hostId,
         playerId: snapshot.myPlayerId,
         isInRoom: true,
+        selectedCharacterId: updatedCharacterId,
         players: snapshot.seats,
         winnerId: snapshot.winnerId ?? null,
         placementByPlayerId:
