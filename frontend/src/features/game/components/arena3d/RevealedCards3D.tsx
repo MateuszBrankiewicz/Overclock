@@ -1,10 +1,10 @@
 import { useFrame } from '@react-three/fiber';
 import React, { useMemo, useRef } from 'react';
-import type { Group, MeshStandardMaterial } from 'three';
+import type { Group, Mesh, MeshStandardMaterial } from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
 import type { CardProtocol, PlayerCard } from '../../schemas/gameEvents';
-import { REVEAL_CARD_STAGGER_MS } from '../../utils/cinematicTiming';
+import { revealCardFlipAtMs } from '../../utils/cinematicTiming';
 import { classifyCard, MARK_COLOR } from './hud/cardMarks';
 import { prefersReducedMotion } from './hud/motion';
 import { createPcbCardBackTexture, createPcbCardTexture } from './pcbCardTexture';
@@ -13,7 +13,7 @@ import { emitCardRevealSparks } from './vfx/vfxEmitter';
 export interface RevealedCards3DProps {
   cards: PlayerCard[];
   declaredProtocol: CardProtocol | null;
-  /** Wall-clock start of the reveal; card i flips after (i + 1) * stagger. */
+  /** Wall-clock start of the reveal; card i flips at revealCardFlipAtMs(i, startedAtMs). */
   startedAtMs: number;
 }
 
@@ -38,6 +38,7 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
   const { t } = useI18n();
   const groupRef = useRef<Group>(null);
   const rimMaterialRef = useRef<MeshStandardMaterial>(null);
+  const rimMeshRef = useRef<Mesh>(null);
   const mark = classifyCard(card.protocol, declaredProtocol);
   const markColor = MARK_COLOR[mark];
   const frontTexture = useMemo(
@@ -56,7 +57,7 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
   useFrame(() => {
     const group = groupRef.current;
     if (!group) return;
-    const flipAt = startedAtMs + (index + 1) * REVEAL_CARD_STAGGER_MS;
+    const flipAt = revealCardFlipAtMs(index, startedAtMs);
     const progress = reducedMotion
       ? 1
       : Math.min(1, Math.max(0, (Date.now() - flipAt) / FLIP_DURATION_MS));
@@ -64,6 +65,17 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
     // Face-down (front facing the table) -> lifted -> face-up.
     group.rotation.x = -Math.PI / 2 + Math.PI * (1 - ease);
     group.position.y = 0.82 + Math.sin(ease * Math.PI) * 0.25;
+    // Suspense: face-down cards twitch under the scanner, harder the closer their flip gets.
+    const untilFlip = flipAt - Date.now();
+    if (!reducedMotion && untilFlip > 0) {
+      const tension = 1 - Math.min(1, untilFlip / 1200);
+      group.rotation.z = Math.sin(Date.now() * 0.045 + index * 1.7) * 0.035 * tension;
+      group.position.y += Math.abs(Math.sin(Date.now() * 0.03 + index)) * 0.025 * tension;
+    } else {
+      group.rotation.z = 0;
+    }
+    // The rim's colour gives the verdict away, so it only shows once the face turns up.
+    if (rimMeshRef.current) rimMeshRef.current.visible = progress >= 0.5;
 
     if (progress >= 0.75 && !sparkEmittedRef.current) {
       sparkEmittedRef.current = true;
@@ -71,7 +83,7 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
     }
 
     // Verdict highlighting after all cards are flipped
-    const allFlippedAt = startedAtMs + total * REVEAL_CARD_STAGGER_MS + FLIP_DURATION_MS;
+    const allFlippedAt = revealCardFlipAtMs(total - 1, startedAtMs) + FLIP_DURATION_MS;
     const rim = rimMaterialRef.current;
     if (rim) {
       if (Date.now() >= allFlippedAt) {
@@ -96,7 +108,7 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
   return (
     <group ref={groupRef} position={[x, 0.82, 0.15]} rotation={[Math.PI / 2, 0, 0]}>
       {/* Mark-coloured rim, so match / wild / bluff reads at a glance from far seats. */}
-      <mesh position={[0, 0, -0.002]}>
+      <mesh ref={rimMeshRef} position={[0, 0, -0.002]} visible={false}>
         <planeGeometry args={[0.46, 0.64]} />
         <meshStandardMaterial
           ref={rimMaterialRef}

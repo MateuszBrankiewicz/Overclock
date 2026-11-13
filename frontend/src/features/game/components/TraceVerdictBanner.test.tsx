@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useI18n } from '../../../shared/i18n';
-import { REVEAL_CARD_STAGGER_MS } from '../utils/cinematicTiming';
+import { verdictVisibleAtMs } from '../utils/cinematicTiming';
 import { TraceVerdictBanner } from './TraceVerdictBanner';
 
 describe('TraceVerdictBanner (UX-01)', () => {
@@ -15,10 +15,9 @@ describe('TraceVerdictBanner (UX-01)', () => {
     useI18n.getState().setLanguage('pl');
   });
 
-  it('remains hidden before all cards have finished flipping', () => {
+  it('announces who traces whom (and hides the verdict) while cards are still face-down', () => {
     const startedAt = 10000;
-    // Freeze time before reveal completes (startedAt + (2+1)*220 = 10660)
-    vi.spyOn(Date, 'now').mockReturnValue(10500);
+    vi.spyOn(Date, 'now').mockReturnValue(verdictVisibleAtMs(2, startedAt) - 100);
 
     const html = renderToString(
       React.createElement(TraceVerdictBanner, {
@@ -33,13 +32,41 @@ describe('TraceVerdictBanner (UX-01)', () => {
       })
     );
 
-    expect(html).toBe('');
+    expect(html).toContain('trace-duel-banner');
+    expect(html).toContain('Alice');
+    expect(html).toContain('SPRAWDZA');
+    expect(html).toContain('Bob');
+    expect(html).toContain('deklaracja: 2× ALPHA');
+    expect(html).not.toContain('trace-verdict-banner');
+    expect(html).not.toContain('BLEF WYKRYTY');
+    expect(html).not.toContain('idzie na test');
+  });
+
+  it('labels the local player as TY in the duel line', () => {
+    const startedAt = 10000;
+    vi.spyOn(Date, 'now').mockReturnValue(startedAt);
+
+    const html = renderToString(
+      React.createElement(TraceVerdictBanner, {
+        bluffDetected: false,
+        accuserNickname: 'Me',
+        accusedNickname: 'Rival',
+        loserNickname: 'Me',
+        isLocalLoser: true,
+        isLocalAccuser: true,
+        declaredProtocol: 'Beta',
+        startedAtMs: startedAt,
+        cardCount: 1,
+      })
+    );
+
+    expect(html).toMatch(/>TY<.*SPRAWDZA.*>Rival</s);
   });
 
   it('renders bluff detected variant with opponent loser subtitle in Polish', () => {
     const startedAt = 10000;
     // Set time after reveal completion
-    vi.spyOn(Date, 'now').mockReturnValue(startedAt + 3 * REVEAL_CARD_STAGGER_MS + 50);
+    vi.spyOn(Date, 'now').mockReturnValue(verdictVisibleAtMs(2, startedAt) + 50);
 
     const html = renderToString(
       React.createElement(TraceVerdictBanner, {
@@ -62,7 +89,7 @@ describe('TraceVerdictBanner (UX-01)', () => {
 
   it('renders clean transmission variant with emerald styling', () => {
     const startedAt = 10000;
-    vi.spyOn(Date, 'now').mockReturnValue(startedAt + 2 * REVEAL_CARD_STAGGER_MS + 50);
+    vi.spyOn(Date, 'now').mockReturnValue(verdictVisibleAtMs(1, startedAt) + 50);
 
     const html = renderToString(
       React.createElement(TraceVerdictBanner, {
@@ -85,7 +112,7 @@ describe('TraceVerdictBanner (UX-01)', () => {
 
   it('renders "TY idziesz na test napięcia" when local player is the loser', () => {
     const startedAt = 10000;
-    vi.spyOn(Date, 'now').mockReturnValue(startedAt + 4 * REVEAL_CARD_STAGGER_MS + 50);
+    vi.spyOn(Date, 'now').mockReturnValue(verdictVisibleAtMs(3, startedAt) + 50);
 
     const html = renderToString(
       React.createElement(TraceVerdictBanner, {
@@ -107,7 +134,7 @@ describe('TraceVerdictBanner (UX-01)', () => {
   it('correctly translates to English when language is set to EN', () => {
     useI18n.getState().setLanguage('en');
     const startedAt = 10000;
-    vi.spyOn(Date, 'now').mockReturnValue(startedAt + 2000);
+    vi.spyOn(Date, 'now').mockReturnValue(verdictVisibleAtMs(1, startedAt) + 50);
 
     const bluffHtml = renderToString(
       React.createElement(TraceVerdictBanner, {
@@ -144,7 +171,7 @@ describe('TraceVerdictBanner (UX-01)', () => {
 
   it('renders skip prompt when onSkip is provided', () => {
     const startedAt = 10000;
-    vi.spyOn(Date, 'now').mockReturnValue(startedAt + 2 * REVEAL_CARD_STAGGER_MS + 50);
+    vi.spyOn(Date, 'now').mockReturnValue(verdictVisibleAtMs(1, startedAt) + 50);
 
     const html = renderToString(
       React.createElement(TraceVerdictBanner, {

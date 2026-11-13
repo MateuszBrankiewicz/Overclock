@@ -30,6 +30,7 @@ import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
 import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
 import { DRUM_SPINDOWN_MS } from '../utils/cinematicTiming';
+import { feedEntryDelayMs } from '../utils/feedRevealDelay';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
 
 let sharedConnection: GameConnectionManager | null = null;
@@ -56,13 +57,32 @@ function errText(err: unknown): string {
  * appends a human-readable feed entry and triggers haptics for the local player.
  */
 export function recordGameEvent(source: FeedSource): void {
-  const { players, playerId } = useGameStore.getState();
+  const { players, playerId, traceReveal } = useGameStore.getState();
   const ui = useUiStore.getState();
   if (source.kind === 'RoundStarted' && source.event.roundNumber === 1) ui.clearFeed();
-  ui.pushFeedEntry(
-    formatFeedEvent(source, { players, localPlayerId: playerId, t: useI18n.getState().t.feed })
-  );
   const spindownDelayMs = prefersReducedMotion() ? 0 : DRUM_SPINDOWN_MS;
+  // Formatted now, while the names still match the seats of this event.
+  const entry = formatFeedEvent(source, {
+    players,
+    localPlayerId: playerId,
+    t: useI18n.getState().t.feed,
+  });
+  const feedDelayMs = feedEntryDelayMs(
+    source.kind,
+    traceReveal
+      ? {
+          startedAtMs: traceReveal.startedAtMs,
+          cardCount: traceReveal.resolution.revealedCards.length,
+        }
+      : null,
+    Date.now(),
+    spindownDelayMs
+  );
+  if (feedDelayMs > 0) {
+    setTimeout(() => useUiStore.getState().pushFeedEntry(entry), feedDelayMs);
+  } else {
+    ui.pushFeedEntry(entry);
+  }
   if (source.kind === 'CapacitorDischarged' && source.event.playerId === playerId) {
     if (spindownDelayMs > 0) {
       setTimeout(() => {

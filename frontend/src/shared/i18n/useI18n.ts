@@ -216,6 +216,11 @@ export interface Translations {
     cleanTransmission: string;
     loserVoltageTest: (nickname: string) => string;
     youVoltageTest: string;
+    traceTitle: string;
+    traces: string;
+    you: string;
+    claim: (count: number, protocol: string) => string;
+    scanning: string;
   };
   controls: {
     hotkeysTitle: string;
@@ -538,6 +543,11 @@ export const translations: Record<Language, Translations> = {
       cleanTransmission: 'CZYSTA TRANSMISJA',
       loserVoltageTest: (nickname) => `${nickname} idzie na test napięcia`,
       youVoltageTest: 'TY idziesz na test napięcia',
+      traceTitle: 'CALL TRACE',
+      traces: 'SPRAWDZA',
+      you: 'TY',
+      claim: (count, protocol) => `deklaracja: ${count}× ${protocol.toUpperCase()}`,
+      scanning: 'SKANOWANIE KART…',
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -830,6 +840,11 @@ export const translations: Record<Language, Translations> = {
       cleanTransmission: 'CLEAN TRANSMISSION',
       loserVoltageTest: (nickname) => `${nickname} goes to voltage test`,
       youVoltageTest: 'YOU go to voltage test',
+      traceTitle: 'CALL TRACE',
+      traces: 'TRACES',
+      you: 'YOU',
+      claim: (count, protocol) => `claimed: ${count}× ${protocol.toUpperCase()}`,
+      scanning: 'SCANNING CARDS…',
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',

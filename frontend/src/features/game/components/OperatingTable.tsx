@@ -199,6 +199,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
               ?.nickname ?? t.common.operator
           }
           isLocalLoser={revealResolution.loserPlayerId === playerId}
+          isLocalAccuser={revealResolution.accuserPlayerId === playerId}
+          isLocalAccused={revealResolution.accusedPlayerId === playerId}
           declaredProtocol={revealResolution.declaredProtocol}
           startedAtMs={traceReveal.startedAtMs}
           cardCount={revealResolution.revealedCards.length}
@@ -226,6 +228,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
               : revealResolution.accuserPlayerId
             : null
         }
+        revealAccuserPlayerId={revealResolution?.accuserPlayerId ?? null}
+        revealAccusedPlayerId={revealResolution?.accusedPlayerId ?? null}
         lastPlayedCards={lastPlayedCards}
         cameraFocus={cameraFocus}
         onCameraFocusChange={setCameraFocus}

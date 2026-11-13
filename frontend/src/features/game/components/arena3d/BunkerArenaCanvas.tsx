@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
@@ -18,7 +18,7 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useGfxSettings } from '../../stores/useGfxSettings';
 import { useRulesModalStore } from '../../stores/useRulesModalStore';
 import { type CharacterId, resolveSeatCharacter } from '../../utils/characterCatalog';
-import { DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
+import { DRUM_SPINDOWN_MS, verdictVisibleAtMs } from '../../utils/cinematicTiming';
 import { EventFeed } from '../EventFeed';
 import { ArenaFallback } from './ArenaFallback';
 import { ArenaPostFx } from './ArenaPostFx';
@@ -46,7 +46,9 @@ import { PovHandAndControls3D } from './PovHandAndControls3D';
 import { TableCenterpiece3D } from './TableCenterpiece3D';
 import { useArenaFrameloop } from './useArenaFrameloop';
 import { useCameraDrag } from './useCameraDrag';
+import { useReachedAt } from './useReachedAt';
 import { ParticleBurst } from './vfx/ParticleBurst';
+import { TraceDuelBeam3D } from './vfx/TraceDuelBeam3D';
 import { emitDischargeImpactSparks } from './vfx/vfxEmitter';
 
 export interface BunkerArenaCanvasProps {
@@ -88,6 +90,9 @@ export interface BunkerArenaCanvasProps {
   revealStartedAtMs?: number | null;
   bluffDetected?: boolean;
   revealLoserPlayerId?: string | null;
+  /** Who called TRACE and who is being traced, shown as a targeting beam until the verdict. */
+  revealAccuserPlayerId?: string | null;
+  revealAccusedPlayerId?: string | null;
   /**
    * `modal`: the centre panel (lobby, summary, intermission) takes touch input and scrolls on
    * small screens. `passive`: it only displays and the table stays draggable around it.
@@ -152,6 +157,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   revealStartedAtMs = null,
   bluffDetected = false,
   revealLoserPlayerId = null,
+  revealAccuserPlayerId = null,
+  revealAccusedPlayerId = null,
   overlayMode = 'passive',
 }) => {
   const { t } = useI18n();
@@ -314,18 +321,51 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     return [0, 1.1, -2.4];
   }, [lastPlayedCards, myPlayerId, opponents, seatLayouts]);
 
+  /** Head height above an operator's seat, used to aim reveal effects at a player. */
+  const seatHeadPos = useCallback(
+    (playerId: string): [number, number, number] => {
+      if (playerId === myPlayerId) return [0, 1.35, 1.8];
+      const oppIdx = opponents.findIndex((o) => o.playerId === playerId);
+      if (oppIdx >= 0 && seatLayouts[oppIdx]) {
+        const p = seatLayouts[oppIdx].position;
+        return [p[0], 1.35, p[2]];
+      }
+      return [0, 1.35, -2.4];
+    },
+    [myPlayerId, opponents, seatLayouts]
+  );
+
+  const revealVerdictAtMs =
+    revealStartedAtMs !== null && revealedCards && revealedCards.length > 0
+      ? verdictVisibleAtMs(revealedCards.length, revealStartedAtMs)
+      : null;
+  // Until the cards are face-up nothing may hint at the loser (camera, lightning).
+  const isVerdictReached = useReachedAt(revealVerdictAtMs);
+
   const revealLoserPos = useMemo<[number, number, number] | null>(() => {
-    if (!revealLoserPlayerId) return null;
-    if (revealLoserPlayerId === myPlayerId) {
-      return [0, 1.35, 1.8];
+    if (!revealLoserPlayerId || !isVerdictReached) return null;
+    return seatHeadPos(revealLoserPlayerId);
+  }, [revealLoserPlayerId, isVerdictReached, seatHeadPos]);
+
+  const traceDuel = useMemo(() => {
+    if (revealVerdictAtMs === null || isVerdictReached) return null;
+    if (!revealAccuserPlayerId || !revealAccusedPlayerId) return null;
+    const from = seatHeadPos(revealAccuserPlayerId);
+    const to = seatHeadPos(revealAccusedPlayerId);
+    // The local seat sits right under the camera: start the beam lower, in front of the player.
+    if (revealAccuserPlayerId === myPlayerId) {
+      from[1] = 1.05;
+      from[2] = 1.45;
     }
-    const oppIdx = opponents.findIndex((o) => o.playerId === revealLoserPlayerId);
-    if (oppIdx >= 0 && seatLayouts[oppIdx]) {
-      const p = seatLayouts[oppIdx].position;
-      return [p[0], 1.35, p[2]];
-    }
-    return [0, 1.35, -2.4];
-  }, [revealLoserPlayerId, myPlayerId, opponents, seatLayouts]);
+    return { from, to, accusedIsLocal: revealAccusedPlayerId === myPlayerId };
+  }, [
+    revealVerdictAtMs,
+    isVerdictReached,
+    revealAccuserPlayerId,
+    revealAccusedPlayerId,
+    seatHeadPos,
+    myPlayerId,
+  ]);
 
   const subjectInfo = useMemo<{
     pos: [number, number, number] | null;
@@ -333,6 +373,9 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   }>(() => {
     if (revealLoserPos) {
       return { pos: revealLoserPos, isLocal: revealLoserPlayerId === myPlayerId };
+    }
+    if (traceDuel) {
+      return { pos: traceDuel.to, isLocal: traceDuel.accusedIsLocal };
     }
     if (dischargeCinematic) {
       const pid = dischargeCinematic.event.playerId;
@@ -380,6 +423,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   }, [
     revealLoserPos,
     revealLoserPlayerId,
+    traceDuel,
     myPlayerId,
     dischargeCinematic,
     pendingDischargePlayerId,
@@ -543,6 +587,15 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               bluffDetected={bluffDetected}
               revealLoserPos={revealLoserPos}
             />
+
+            {traceDuel && revealStartedAtMs !== null && revealVerdictAtMs !== null && (
+              <TraceDuelBeam3D
+                from={traceDuel.from}
+                to={traceDuel.to}
+                startedAtMs={revealStartedAtMs}
+                endsAtMs={revealVerdictAtMs}
+              />
+            )}
 
             {dischargeCinematic && isShockActive && badgeTexture && badgePosition && (
               <mesh position={badgePosition}>
