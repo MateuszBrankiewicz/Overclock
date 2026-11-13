@@ -16,7 +16,6 @@ import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
 import { prefersReducedMotion } from './arena3d/hud/motion';
 import { AudioMuteButton } from './AudioMuteButton';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
-import { DischargeSequenceBanner } from './DischargeSequenceBanner';
 import { GfxQualityButton } from './GfxQualityButton';
 import { LeaveTableButton } from './LeaveTableButton';
 import { LobbyPlayerList } from './LobbyPlayerList';
@@ -25,7 +24,8 @@ import { MatchSummary } from './MatchSummary';
 import { RoomCodeBadge } from './RoomCodeBadge';
 import { RoundIntermissionBanner } from './RoundIntermissionBanner';
 import { RoundIntroBanner } from './RoundIntroBanner';
-import { TraceVerdictBanner } from './TraceVerdictBanner';
+import { BluffShowdown } from './showdown/BluffShowdown';
+import type { ShowdownOperator } from './showdown/showdownParts';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
 export interface OperatingTableProps {
@@ -54,6 +54,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   const toggleCardSelection = useGameStore((s) => s.toggleCardSelection);
   const lastPlayedCards = useGameStore((s) => s.lastPlayedCards);
   const traceReveal = useGameStore((s) => s.traceReveal);
+  const showdownTrace = useGameStore((s) => s.showdownTrace);
+  const dischargeDeadlineUtc = useGameStore((s) => s.dischargeDeadlineUtc);
   const finishTraceReveal = useGameStore((s) => s.finishTraceReveal);
   const roundIntro = useGameStore((s) => s.roundIntro);
   const clearRoundIntro = useGameStore((s) => s.clearRoundIntro);
@@ -135,7 +137,6 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   const players = traceReveal?.seatsAtReveal ?? livePlayers;
 
   const me = players.find((p) => p.playerId === playerId);
-  const pendingPlayer = players.find((p) => p.playerId === pendingDischargePlayerId);
   const isLocalPlayerPending = Boolean(playerId && pendingDischargePlayerId === playerId);
   const canUseGroundWire = Boolean(
     isLocalPlayerPending && me?.exploit?.type === 'GroundWire' && !me.exploit.isBurned
@@ -156,6 +157,23 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
     roomState,
     phase,
   });
+  // Reveal, voltage test decision and discharge are one sequence shown by one panel.
+  const isShowdown = phase === 'reveal' || phase === 'decision' || phase === 'discharge';
+  const showdownTargetId =
+    dischargeCinematic?.event.playerId ??
+    pendingDischargePlayerId ??
+    queuedDischarge?.playerId ??
+    showdownTrace?.loserPlayerId ??
+    null;
+  const toOperator = (id: string): ShowdownOperator => {
+    const seat = players.find((p) => p.playerId === id);
+    return {
+      nickname: seat?.nickname ?? t.common.operator,
+      isLocal: id === playerId,
+      characterId: seat?.characterId,
+      riskLevel: seat?.riskLevel ?? 1,
+    };
+  };
   if (!roomCode) {
     return <LobbyScreen onOpenTerminal={onOpenTerminal} />;
   }
@@ -183,52 +201,51 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
         />
       )}
 
-      {traceReveal && revealResolution && (
-        <TraceVerdictBanner
-          key={`verdict:${revealResolution.sequenceNumber}:${traceReveal.startedAtMs}`}
-          bluffDetected={revealResolution.bluffDetected}
-          accuserNickname={
-            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.accuserPlayerId)
-              ?.nickname ?? t.common.operator
+      {isShowdown && (
+        <BluffShowdown
+          trace={
+            showdownTrace
+              ? {
+                  accuser: toOperator(showdownTrace.accuserPlayerId),
+                  accused: toOperator(showdownTrace.accusedPlayerId),
+                  declaredProtocol: showdownTrace.declaredProtocol,
+                  cards: showdownTrace.revealedCards,
+                  bluffDetected: showdownTrace.bluffDetected,
+                }
+              : null
           }
-          accusedNickname={
-            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.accusedPlayerId)
-              ?.nickname ?? t.common.operator
+          revealStartedAtMs={traceReveal?.startedAtMs ?? null}
+          discharge={
+            dischargeCinematic
+              ? {
+                  startedAtMs: dischargeCinematic.startedAtMs,
+                  roll: dischargeCinematic.event.roll,
+                  riskLevel: dischargeCinematic.event.riskLevel,
+                  overloaded: dischargeCinematic.event.overloaded,
+                  resultingRiskLevel: dischargeCinematic.event.resultingRiskLevel,
+                }
+              : null
           }
-          loserNickname={
-            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.loserPlayerId)
-              ?.nickname ?? t.common.operator
+          target={showdownTargetId ? toOperator(showdownTargetId) : null}
+          decision={
+            phase === 'decision'
+              ? {
+                  deadlineUtc: dischargeDeadlineUtc,
+                  canUseGroundWire,
+                  onDeployGroundWire: () => void session.activateExploit('GroundWire'),
+                  onTriggerDischarge: () => void session.triggerDischarge(),
+                }
+              : null
           }
-          isLocalLoser={revealResolution.loserPlayerId === playerId}
-          isLocalAccuser={revealResolution.accuserPlayerId === playerId}
-          isLocalAccused={revealResolution.accusedPlayerId === playerId}
-          declaredProtocol={revealResolution.declaredProtocol}
-          startedAtMs={traceReveal.startedAtMs}
-          cardCount={revealResolution.revealedCards.length}
-          onSkip={finishTraceReveal}
-        />
-      )}
-
-      {dischargeCinematic && (
-        <DischargeSequenceBanner
-          key={`discharge:${dischargeCinematic.startedAtMs}`}
-          targetNickname={
-            players.find((p) => p.playerId === dischargeCinematic.event.playerId)?.nickname ??
-            t.common.operator
+          onSkip={
+            traceReveal ? finishTraceReveal : dischargeCinematic ? clearDischargeCinematic : undefined
           }
-          isLocalTarget={dischargeCinematic.event.playerId === playerId}
-          roll={dischargeCinematic.event.roll}
-          riskLevel={dischargeCinematic.event.riskLevel}
-          overloaded={dischargeCinematic.event.overloaded}
-          resultingRiskLevel={dischargeCinematic.event.resultingRiskLevel}
-          startedAtMs={dischargeCinematic.startedAtMs}
-          onSkip={clearDischargeCinematic}
         />
       )}
 
       <BunkerArenaCanvas
         players={players}
-        isOutcomeCinematic={phase === 'reveal' || phase === 'discharge'}
+        isOutcomeCinematic={isShowdown}
         myPlayerId={playerId}
         activePlayerId={activePlayerId}
         pendingDischargePlayerId={pendingDischargePlayerId}
@@ -263,14 +280,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
         onPlayCards={() => void session.playCards()}
         onCallTrace={() => void session.callTrace()}
         onActivateExploit={(exp, newTarget) => void session.activateExploit(exp, newTarget)}
-        isVoltageTestActive={phase === 'decision'}
         overlayMode={centerOverlay !== null ? 'modal' : 'passive'}
         dischargeCinematic={dischargeCinematic}
-        pendingPlayerNickname={pendingPlayer?.nickname ?? t.common.operator}
-        isLocalPlayerPending={isLocalPlayerPending}
-        canUseGroundWire={canUseGroundWire}
-        onDeployGroundWire={() => void session.activateExploit('GroundWire')}
-        onTriggerDischarge={() => void session.triggerDischarge()}
         onDismissDischarge={clearDischargeCinematic}
         topBarSlot={
           <div className="relative flex items-center gap-2 bg-black/80 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl text-xs">

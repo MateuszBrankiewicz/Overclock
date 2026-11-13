@@ -215,6 +215,18 @@ export interface Translations {
     you: string;
     claim: (count: number, protocol: string) => string;
     scanning: string;
+    showdownTitle: string;
+    voltageTitle: string;
+    steps: readonly [string, string, string, string];
+    roleAccused: string;
+    tagToTest: string;
+    tagSafe: string;
+    bluffReason: (bluffCount: number, total: number, protocol: string) => string;
+    cleanReason: (protocol: string) => string;
+    deciding: (nickname: string) => string;
+    yourDecision: string;
+    awaiting: string;
+    skipHint: string;
   };
   discharge: {
     charging: string;
@@ -543,6 +555,19 @@ export const translations: Record<Language, Translations> = {
       you: 'TY',
       claim: (count, protocol) => `deklaracja: ${count}× ${protocol.toUpperCase()}`,
       scanning: 'SKANOWANIE KART…',
+      showdownTitle: 'SPRAWDZENIE BLEFU',
+      voltageTitle: 'TEST NAPIĘCIA',
+      steps: ['SPRAWDZENIE', 'WERDYKT', 'TEST NAPIĘCIA', 'WYŁADOWANIE'],
+      roleAccused: 'SPRAWDZANY',
+      tagToTest: 'NA TEST NAPIĘCIA',
+      tagSafe: 'BEZPIECZNY',
+      bluffReason: (bluffCount, total, protocol) =>
+        `${bluffCount} z ${total} kart to nie ${protocol.toUpperCase()}`,
+      cleanReason: (protocol) => `wszystkie karty pasują do ${protocol.toUpperCase()}`,
+      deciding: (nickname) => `${nickname} decyduje…`,
+      yourDecision: 'TWOJA DECYZJA',
+      awaiting: 'UZBRAJANIE KONDENSATORA…',
+      skipHint: 'SPACJA / DOTKNIJ, ABY POMINĄĆ',
     },
     discharge: {
       charging: 'ŁADOWANIE KONDENSATORA',
@@ -841,6 +866,19 @@ export const translations: Record<Language, Translations> = {
       you: 'YOU',
       claim: (count, protocol) => `claimed: ${count}× ${protocol.toUpperCase()}`,
       scanning: 'SCANNING CARDS…',
+      showdownTitle: 'BLUFF CHECK',
+      voltageTitle: 'VOLTAGE TEST',
+      steps: ['TRACE', 'VERDICT', 'VOLTAGE TEST', 'DISCHARGE'],
+      roleAccused: 'TRACED',
+      tagToTest: 'TO VOLTAGE TEST',
+      tagSafe: 'SAFE',
+      bluffReason: (bluffCount, total, protocol) =>
+        `${bluffCount} of ${total} cards are not ${protocol.toUpperCase()}`,
+      cleanReason: (protocol) => `every card matches ${protocol.toUpperCase()}`,
+      deciding: (nickname) => `${nickname} is deciding…`,
+      yourDecision: 'YOUR CALL',
+      awaiting: 'ARMING CAPACITOR…',
+      skipHint: 'SPACE / TAP TO SKIP',
     },
     discharge: {
       charging: 'CHARGING CAPACITOR',

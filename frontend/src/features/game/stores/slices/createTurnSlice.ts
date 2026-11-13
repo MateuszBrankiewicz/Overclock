@@ -14,6 +14,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
   lastTraceResolution: null,
   lastTrace: null,
   traceReveal: null,
+  showdownTrace: null,
   lastRevealedTraceSequence: null,
   roundIntro: null,
 
@@ -37,6 +38,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,
+      showdownTrace: null,
       lastRevealedTraceSequence: null,
       awaitingDischargeForSequence: null,
       remainingTimeSeconds: 15,
@@ -129,6 +131,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastTraceResolution: null,
       lastTrace: null,
       traceReveal: null,
+      showdownTrace: null,
       lastRevealedTraceSequence: null,
       awaitingDischargeForSequence: null,
       dischargeCinematic: null,

@@ -40,7 +40,6 @@ import { YourTurnBanner } from './hud/TurnStatusHud';
 import { TurnUrgencyCountdown } from './hud/TurnUrgencyCountdown';
 import { useArenaHotkeys } from './hud/useArenaHotkeys';
 import { useExploitPicker } from './hud/useExploitPicker';
-import { VoltageControls } from './hud/VoltageControls';
 import { OperatorRig3D } from './OperatorRig3D';
 import { PovHandAndControls3D } from './PovHandAndControls3D';
 import { TableCenterpiece3D } from './TableCenterpiece3D';
@@ -76,15 +75,12 @@ export interface BunkerArenaCanvasProps {
   onActivateExploit?: (exploit: ExploitType, newTargetProtocol?: CardProtocol) => void;
   topBarSlot?: React.ReactNode;
   children?: React.ReactNode;
-  isVoltageTestActive?: boolean;
-  /** Trace reveal / discharge playing: hide the hand and action strip so one thing has focus. */
+  /**
+   * Bluff showdown on screen (reveal, voltage test, discharge): hide the hand, action strip and
+   * turn HUD so the showdown panel is the only thing asking for attention.
+   */
   isOutcomeCinematic?: boolean;
   dischargeCinematic?: DischargeCinematic | null;
-  pendingPlayerNickname?: string | null;
-  isLocalPlayerPending?: boolean;
-  canUseGroundWire?: boolean;
-  onDeployGroundWire?: () => void;
-  onTriggerDischarge?: () => void;
   onDismissDischarge?: () => void;
   /** Cards flipped face-up on the table after a trace. */
   revealedCards?: PlayerCard[] | null;
@@ -146,14 +142,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   onActivateExploit = () => {},
   topBarSlot,
   children,
-  isVoltageTestActive = false,
   isOutcomeCinematic = false,
   dischargeCinematic = null,
-  pendingPlayerNickname = null,
-  isLocalPlayerPending = false,
-  canUseGroundWire = false,
-  onDeployGroundWire,
-  onTriggerDischarge,
   onDismissDischarge,
   revealedCards = null,
   revealDeclaredProtocol = null,
@@ -460,7 +450,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
 
         <div className="relative z-10 flex flex-col items-start gap-1.5 max-w-[min(78vw,20rem)] sm:max-w-[min(90vw,20rem)]">
           <div className="pointer-events-auto">
-            <PhaseTimers roomState={roomState} />
+            <PhaseTimers roomState={isOutcomeCinematic ? null : roomState} />
           </div>
           {roomState !== 'Lobby' && <EventFeed />}
         </div>
@@ -655,7 +645,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         />
       )}
 
-      {roomState !== 'Lobby' && isEliminated && roomState !== 'GameOver' && (
+      {roomState !== 'Lobby' && isEliminated && roomState !== 'GameOver' && !isOutcomeCinematic && (
         <SpectatorHud
           livingOpponents={opponents.filter((p) => p.status === 'Active')}
           currentTargetId={spectatorTargetPlayerId}
@@ -666,27 +656,16 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       )}
 
       {roomState !== 'Lobby' &&
-        !isVoltageTestActive &&
         !isOutcomeCinematic &&
         myCards.length > 0 &&
         !isEliminated && <CardMarkLegend />}
       <FirstTurnHint
-        visible={firstTurnHint.visible && selectedCardIds.length === 0}
+        visible={firstTurnHint.visible && selectedCardIds.length === 0 && !isOutcomeCinematic}
         onDismiss={firstTurnHint.dismiss}
       />
       <HotkeyCheatSheet open={hotkeys.helpOpen} onClose={hotkeys.closeHelp} />
 
       {roomState === 'TurnActive' && <TurnUrgencyCountdown isMyTurn={isMyTurn && !isEliminated} />}
-
-      {isVoltageTestActive && (
-        <VoltageControls
-          isLocalPlayerPending={isLocalPlayerPending}
-          pendingPlayerNickname={pendingPlayerNickname}
-          canUseGroundWire={canUseGroundWire}
-          onDeployGroundWire={onDeployGroundWire}
-          onTriggerDischarge={onTriggerDischarge}
-        />
-      )}
 
       {isLocalOverloaded && isShockActive && <OverloadVignette />}
 

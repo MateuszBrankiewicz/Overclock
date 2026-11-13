@@ -5,40 +5,39 @@ import { describe, expect, it } from 'vitest';
 import { BunkerArenaCanvas } from './BunkerArenaCanvas';
 
 describe('BunkerArenaCanvas Component (ADR 0010 Diegetic 3D Arena)', () => {
-  it('renders tactile voltage test trigger button when local player is pending discharge', () => {
+  it('renders bunker arena stage and overlay children during outcome cinematic', () => {
     const html = renderToString(
-      React.createElement(BunkerArenaCanvas, {
-        players: [
-          {
-            playerId: 'p1',
-            nickname: 'LocalPilot',
-            status: 'Active',
-            isReady: true,
-            handCount: 3,
-            riskLevel: 2,
-          },
-        ],
-        myPlayerId: 'p1',
-        activePlayerId: 'p1',
-        pendingDischargePlayerId: 'p1',
-        selectedCharacterId: 'ghost',
-        tablePileCount: 2,
-        currentTargetProtocol: 'Alpha',
-        roomState: 'VoltageTest',
-        lastPlayedCards: null,
-        cameraFocus: 'overview',
-        onCameraFocusChange: () => {},
-        isVoltageTestActive: true,
-        isLocalPlayerPending: true,
-        canUseGroundWire: true,
-        onDeployGroundWire: () => {},
-        onTriggerDischarge: () => {},
-      })
+      React.createElement(
+        BunkerArenaCanvas,
+        {
+          players: [
+            {
+              playerId: 'p1',
+              nickname: 'LocalPilot',
+              status: 'Active',
+              isReady: true,
+              handCount: 3,
+              riskLevel: 2,
+            },
+          ],
+          myPlayerId: 'p1',
+          activePlayerId: 'p1',
+          pendingDischargePlayerId: 'p1',
+          selectedCharacterId: 'ghost',
+          tablePileCount: 2,
+          currentTargetProtocol: 'Alpha',
+          roomState: 'VoltageTest',
+          lastPlayedCards: null,
+          cameraFocus: 'overview',
+          onCameraFocusChange: () => {},
+          isOutcomeCinematic: true,
+        },
+        React.createElement('div', null, 'ShowdownOverlay')
+      )
     );
 
-    // Tactile action controls must be rendered diegetically without blocking 2D modals
-    expect(html).toContain('D6');
     expect(html).toContain('bunker-arena-stage');
+    expect(html).toContain('ShowdownOverlay');
   });
 
   it('renders accessible live telemetry region during dielectric discharge cinematic', () => {

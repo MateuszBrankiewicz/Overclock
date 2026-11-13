@@ -66,8 +66,8 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set,
   cameraFocus: 'overview',
   spectatorTargetPlayerId: null,
 
-  clearDischargeCinematic: () => set({ dischargeCinematic: null }),
-  clearAwaitingDischarge: () => set({ awaitingDischargeForSequence: null }),
+  clearDischargeCinematic: () => set({ dischargeCinematic: null, showdownTrace: null }),
+  clearAwaitingDischarge: () => set({ awaitingDischargeForSequence: null, showdownTrace: null }),
 
   finishTraceReveal: () =>
     set((state) => {
@@ -218,7 +218,9 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set,
           snapshot.state === 'TurnActive' && isSameRound ? state.lastPlayedCards : null,
         lastTrace: null,
         lastRevealedTraceSequence: effectiveLastRevealedSeq,
-        ...(shouldClearAwaitingDischarge ? { awaitingDischargeForSequence: null } : {}),
+        ...(shouldClearAwaitingDischarge
+          ? { awaitingDischargeForSequence: null, showdownTrace: null }
+          : {}),
         ...revealPatch,
       };
     });
@@ -325,6 +327,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set,
       queuedDischarge: null,
       awaitingDischargeForSequence: null,
       traceReveal: null,
+      showdownTrace: null,
       lastRevealedTraceSequence: null,
       spectatorTargetPlayerId: null,
       roundIntro: null,

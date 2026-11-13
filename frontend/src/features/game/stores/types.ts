@@ -109,6 +109,8 @@ export interface TurnSlice {
   lastTraceResolution: TraceResolution | null;
   lastTrace: TraceCalledEvent | null;
   traceReveal: TraceRevealCinematic | null;
+  /** Trace shown by the showdown panel until its voltage test and discharge are over. */
+  showdownTrace: TraceResolution | null;
   /** Sequence number of the last trace that was revealed (dedupes event + invoke response). */
   lastRevealedTraceSequence: number | null;
   roundIntro: RoundIntro | null;

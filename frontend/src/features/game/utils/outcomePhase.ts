@@ -20,8 +20,9 @@ export interface ResolveOutcomePhaseInput {
  * Determines the authoritative outcome presentation phase following Call Trace.
  * Priority order:
  * 1. 'reveal'        — cards are flipping on the 3D table
- * 2. 'decision'      — VoltageTest active (loser has Ground Wire choice)
- * 3. 'discharge'     — cinematic playing OR discharge queued/awaited
+ * 2. 'discharge'     — discharge cinematic playing
+ * 3. 'decision'      — VoltageTest active (loser has Ground Wire choice)
+ * 3b. 'discharge'    — discharge queued/awaited
  * 4. 'summary'       — GameOver match summary
  * 5. 'intermission'  — RoundOver countdown banner
  * 6. null            — active turn / dealing / lobby / normal gameplay
@@ -31,11 +32,16 @@ export function resolveOutcomePhase(input: ResolveOutcomePhaseInput): OutcomePha
     return 'reveal';
   }
 
+  // The roll is already on screen: the room snapshot leaving VoltageTest may still be in flight.
+  if (input.hasDischargeCinematic) {
+    return 'discharge';
+  }
+
   if (input.roomState === 'VoltageTest') {
     return 'decision';
   }
 
-  if (input.hasDischargeCinematic || input.hasQueuedDischarge || input.awaitingDischarge) {
+  if (input.hasQueuedDischarge || input.awaitingDischarge) {
     return 'discharge';
   }
 
