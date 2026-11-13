@@ -94,11 +94,11 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
 
   return (
     <div data-testid="character-selector" className="space-y-2.5 font-mono">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-extrabold tracking-wider text-zinc-200 uppercase">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="min-w-0 text-xs font-extrabold tracking-wider text-zinc-200 uppercase">
           {t.home.characterPickerTitle}
         </span>
-        <span className="text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/80">
+        <span className="shrink-0 whitespace-nowrap text-[10px] text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/80">
           {t.home.avatarReady}
         </span>
       </div>
@@ -122,7 +122,8 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
                 if (!isTaken) onSelect(char.id);
               }}
               className={clsx(
-                'text-left rounded-xl border p-2.5 transition-all flex items-start gap-3 relative overflow-hidden',
+                'text-left rounded-xl border p-2.5 transition-all flex gap-3 relative overflow-hidden min-w-0',
+                compact ? 'flex-col items-center gap-2' : 'items-start',
                 isTaken
                   ? 'bg-zinc-950/40 border-zinc-900 opacity-50 cursor-not-allowed'
                   : isSelected
@@ -132,8 +133,8 @@ export const CharacterSelector: React.FC<CharacterSelectorProps> = ({
             >
               <RigAvatarSvg profile={char} isSelected={isSelected} />
 
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center justify-between gap-1">
+              <div className={clsx('min-w-0 space-y-1', compact ? 'w-full' : 'flex-1')}>
+                <div className={clsx('flex items-center justify-between gap-1', compact && 'flex-wrap')}>
                   <span className="font-black text-xs text-white tracking-wider truncate">
                     {char.codename}
                   </span>
