@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { revealCardFlipAtMs, verdictVisibleAtMs } from '../../utils/cinematicTiming';
 import {
   presentationLayout,
   REVEAL_CARD_HEIGHT,
@@ -10,6 +11,7 @@ import {
   REVEAL_LIFT_END_MS,
   REVEAL_LIFT_START_MS,
   revealCardOffsetX,
+  revealCardsSettledAtMs,
   revealFlipProgress,
   revealLiftProgress,
 } from './revealCardPose';
@@ -72,5 +74,18 @@ describe('reveal card timing', () => {
   it('snaps the flip under reduced motion without flipping early', () => {
     expect(revealFlipProgress(-1, 0, true, true)).toBe(0);
     expect(revealFlipProgress(0, 0, true, true)).toBe(1);
+  });
+});
+
+describe('revealCardsSettledAtMs', () => {
+  it('lands when the slower last flip has finished, after the verdict stamp', () => {
+    const settled = revealCardsSettledAtMs(3, 1000);
+    expect(settled).toBe(revealCardFlipAtMs(2, 1000) + REVEAL_LAST_FLIP_MS);
+    expect(revealFlipProgress(settled, revealCardFlipAtMs(2, 1000), true, false)).toBe(1);
+    expect(settled).toBeGreaterThan(verdictVisibleAtMs(3, 1000));
+  });
+
+  it('is the last flip itself under reduced motion', () => {
+    expect(revealCardsSettledAtMs(2, 0, true)).toBe(revealCardFlipAtMs(1, 0));
   });
 });

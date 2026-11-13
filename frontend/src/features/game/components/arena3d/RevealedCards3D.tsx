@@ -25,6 +25,7 @@ import {
   REVEAL_FLIP_MS,
   REVEAL_LAST_FLIP_MS,
   revealCardOffsetX,
+  revealCardsSettledAtMs,
   revealFlipProgress,
   revealLiftProgress,
 } from './revealCardPose';
@@ -211,7 +212,7 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
     }
 
     // Verdict highlighting after all cards are flipped
-    const allFlippedAt = revealCardFlipAtMs(total - 1, startedAtMs) + REVEAL_LAST_FLIP_MS;
+    const allFlippedAt = revealCardsSettledAtMs(total, startedAtMs);
     const rim = rimMaterialRef.current;
     if (rim) {
       if (now >= allFlippedAt) {

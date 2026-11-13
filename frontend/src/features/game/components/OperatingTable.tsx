@@ -260,7 +260,6 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
         revealedCards={revealResolution?.revealedCards ?? null}
         revealDeclaredProtocol={revealResolution?.declaredProtocol ?? null}
         revealStartedAtMs={traceReveal?.startedAtMs ?? null}
-        bluffDetected={revealResolution?.bluffDetected ?? false}
         revealLoserPlayerId={
           revealResolution
             ? revealResolution.bluffDetected
@@ -268,6 +267,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
               : revealResolution.accuserPlayerId
             : null
         }
+        voltageTargetPlayerId={showdownTargetId}
         revealAccuserPlayerId={revealResolution?.accuserPlayerId ?? null}
         revealAccusedPlayerId={revealResolution?.accusedPlayerId ?? null}
         lastPlayedCards={lastPlayedCards}

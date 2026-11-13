@@ -15,7 +15,7 @@ export interface OperatorVisorLabels {
 export function createOperatorVisorTexture(
   character: CharacterProfile,
   isEliminated: boolean,
-  isPendingVoltage: boolean,
+  isHighVoltage: boolean,
   isActiveTurn: boolean,
   labels: OperatorVisorLabels
 ): THREE.CanvasTexture | null {
@@ -24,7 +24,7 @@ export function createOperatorVisorTexture(
   }
 
   const key = `${character.id}:${isEliminated ? 'dead' : 'alive'}:${
-    isPendingVoltage ? 'volt' : 'norm'
+    isHighVoltage ? 'volt' : 'norm'
   }:${isActiveTurn ? 'turn' : 'idle'}:${Object.values(labels).join('|')}`;
   const cached = visorTextureCache.get(key);
   if (cached) {
@@ -41,7 +41,7 @@ export function createOperatorVisorTexture(
 
   const mainColor = isEliminated
     ? '#52525b'
-    : isPendingVoltage
+    : isHighVoltage
     ? '#ef4444'
     : character.primaryColor;
   const subColor = isEliminated ? '#27272a' : character.secondaryColor;

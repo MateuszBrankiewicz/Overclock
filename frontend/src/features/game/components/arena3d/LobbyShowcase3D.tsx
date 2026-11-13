@@ -140,7 +140,6 @@ export const LobbyShowcase3D: React.FC<LobbyShowcase3DProps> = ({
             position={[0, 0, -1.95]}
             rotationY={0}
             isActiveTurn={false}
-            isPendingVoltage={false}
           />
         </group>
       </Canvas>

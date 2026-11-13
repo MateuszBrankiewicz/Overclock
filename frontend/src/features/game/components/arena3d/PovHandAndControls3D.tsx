@@ -70,7 +70,12 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
   );
   const backTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
-  const mountTimeRef = useRef<number | null>(null);
+  /**
+   * Seconds this card has been rendered, summed from frame deltas. The R3F clock cannot be used:
+   * it restarts from 0 whenever the frameloop resumes (tab hidden and shown again), which made
+   * every card look freshly dealt again and drop out of view.
+   */
+  const ageRef = useRef(0);
 
   const centerOffset = index - (total - 1) / 2;
   // Scale card spread dynamically by viewport aspect ratio so cards NEVER go off-screen
@@ -88,10 +93,8 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
 
   useFrame(({ clock }, delta) => {
     if (!groupRef.current) return;
-    if (mountTimeRef.current === null) {
-      mountTimeRef.current = clock.getElapsedTime();
-    }
-    const elapsed = clock.getElapsedTime() - mountTimeRef.current;
+    ageRef.current += Math.min(delta, 0.1);
+    const elapsed = ageRef.current;
     const reducedMotion = prefersReducedMotion();
     const dealDelaySec = reducedMotion ? 0 : index * 0.06;
     const isEntering = elapsed < dealDelaySec;

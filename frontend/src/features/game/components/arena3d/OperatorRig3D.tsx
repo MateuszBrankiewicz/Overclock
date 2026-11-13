@@ -43,6 +43,8 @@ const RIG_BUILD: Record<CharacterProfile['visorStyle'], RigBuild> = {
 const HOOD_OPENING = 1.9;
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+/** Fraction of the shock pose a survivor plays (the overload keeps the full death pose). */
+const SURVIVOR_SHOCK_STRENGTH = 0.45;
 
 /** Capsule limb segment stretched between two joints. */
 const Limb: React.FC<{ from: Vec3; to: Vec3; radius: number; material: Material }> = ({
@@ -77,11 +79,12 @@ export interface OperatorRig3DProps {
   position: [number, number, number];
   rotationY: number;
   isActiveTurn: boolean;
-  isPendingVoltage: boolean;
   lookTargetAngle?: number;
   isBeingShocked?: boolean;
   isOverloaded?: boolean;
   isWinner?: boolean;
+  /** Discharge not yet struck: keep the living look even if the seat is already Eliminated. */
+  isStrikePending?: boolean;
   cinematicStartTimeMs?: number | null;
 }
 
@@ -91,11 +94,11 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
   position,
   rotationY,
   isActiveTurn,
-  isPendingVoltage,
   lookTargetAngle = 0,
   isBeingShocked = false,
   isOverloaded = false,
   isWinner = false,
+  isStrikePending = false,
   cinematicStartTimeMs = null,
 }) => {
   const { t } = useI18n();
@@ -108,7 +111,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
   const sparkFlashRef = useRef<Mesh>(null);
   const visorMatRef = useRef<MeshStandardMaterial>(null);
 
-  const isEliminated = seat.status === 'Eliminated' || isOverloaded;
+  const isEliminated = (seat.status === 'Eliminated' && !isStrikePending) || isOverloaded;
   const risk = seat.riskLevel ?? 1;
   const visibleCards = Math.min(seat.handCount, 6);
 
@@ -117,7 +120,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
     return seat.playerId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
   }, [seat.playerId]);
 
-  const initialEliminatedRef = useRef<boolean>(seat.status === 'Eliminated');
+  const initialEliminatedRef = useRef<boolean>(seat.status === 'Eliminated' && !isStrikePending);
   const liveStartTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -135,7 +138,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
       createOperatorVisorTexture(
         character,
         isEliminated,
-        isPendingVoltage || isBeingShocked,
+        isBeingShocked,
         isActiveTurn,
         {
           blackout: t.arena.visorBlackout,
@@ -145,7 +148,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
           synthesis: t.arena.visorSynthesis,
         }
       ),
-    [character, isEliminated, isPendingVoltage, isBeingShocked, isActiveTurn, t]
+    [character, isEliminated, isBeingShocked, isActiveTurn, t]
   );
   const cardBackTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
 
@@ -216,23 +219,27 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
         elapsedShock = Math.max(0, (Date.now() - startMs) / 1000);
       }
       const pose = computeShockPose(elapsedShock, seed);
+      // Surviving the test is a light jolt; the full-strength convulsion belongs to the overload.
+      const k = SURVIVOR_SHOCK_STRENGTH;
       if (bodyRef.current) {
-        bodyRef.current.position.set(...pose.bodyPosition);
-        bodyRef.current.rotation.set(...pose.bodyRotation);
+        const [px, py, pz] = pose.bodyPosition;
+        const [rx, ry, rz] = pose.bodyRotation;
+        bodyRef.current.position.set(px * k, py * k, pz * k);
+        bodyRef.current.rotation.set(rx * k, ry * k, rz * k);
       }
       if (headRef.current) {
-        headRef.current.rotation.x = pose.headRotationX;
+        headRef.current.rotation.x = pose.headRotationX * k;
       }
       if (sparkFlashRef.current) {
         sparkFlashRef.current.visible = pose.isShockActive;
         if (pose.isShockActive) {
-          sparkFlashRef.current.scale.setScalar(1 + Math.sin(elapsed * 50) * 0.4);
+          sparkFlashRef.current.scale.setScalar(0.6 + Math.sin(elapsed * 50) * 0.25);
         }
       }
       return;
     }
 
-    // 3. Normal Living Idle / Breathing / Voltage Tension
+    // 3. Normal Living Idle / Breathing (waiting for the discharge looks the same)
     if (sparkFlashRef.current) {
       sparkFlashRef.current.visible = false;
     }
@@ -242,44 +249,25 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
         ? 0.92
         : 0.92 + Math.sin(elapsed * (isActiveTurn ? 3.8 : 1.8)) * (isActiveTurn ? 0.035 : 0.012);
     }
+    // Waiting for the discharge is calm: the convulsions belong to the strike itself.
     if (bodyRef.current) {
-      if (isPendingVoltage) {
-        if (reducedMotion) {
-          bodyRef.current.position.set(0, 0, 0);
-          bodyRef.current.rotation.x = -0.15;
-        } else {
-          bodyRef.current.position.x = Math.sin(elapsed * 48) * 0.04;
-          bodyRef.current.position.y = Math.cos(elapsed * 36) * 0.025;
-          bodyRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.06;
-        }
+      if (reducedMotion) {
+        bodyRef.current.position.set(0, 0, 0);
+        bodyRef.current.rotation.set(0, 0, 0);
       } else {
-        if (reducedMotion) {
-          bodyRef.current.position.set(0, 0, 0);
-          bodyRef.current.rotation.set(0, 0, 0);
-        } else {
-          bodyRef.current.position.set(0, Math.sin(elapsed * 2.1 + position[0]) * 0.025, 0);
-          bodyRef.current.rotation.set(0, 0, 0);
-        }
+        bodyRef.current.position.set(0, Math.sin(elapsed * 2.1 + position[0]) * 0.025, 0);
+        bodyRef.current.rotation.set(0, 0, 0);
       }
     }
 
     if (headRef.current) {
-      if (isPendingVoltage) {
-        if (reducedMotion) {
-          headRef.current.rotation.set(-0.15, 0, 0);
-        } else {
-          headRef.current.rotation.x = -0.15 + Math.sin(elapsed * 35) * 0.08;
-          headRef.current.rotation.z = Math.cos(elapsed * 28) * 0.08;
-        }
+      if (reducedMotion) {
+        headRef.current.rotation.set(0, lookTargetAngle * 0.25, 0);
       } else {
-        if (reducedMotion) {
-          headRef.current.rotation.set(0, lookTargetAngle * 0.25, 0);
-        } else {
-          headRef.current.rotation.x = isActiveTurn ? -0.05 : Math.sin(elapsed * 1.4) * 0.035;
-          headRef.current.rotation.y =
-            lookTargetAngle * 0.25 + Math.sin(elapsed * (isActiveTurn ? 2.6 : 0.9)) * 0.09;
-          headRef.current.rotation.z = 0;
-        }
+        headRef.current.rotation.x = isActiveTurn ? -0.05 : Math.sin(elapsed * 1.4) * 0.035;
+        headRef.current.rotation.y =
+          lookTargetAngle * 0.25 + Math.sin(elapsed * (isActiveTurn ? 2.6 : 0.9)) * 0.09;
+        headRef.current.rotation.z = 0;
       }
     }
 
@@ -299,7 +287,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
 
   const activeColor = isEliminated
     ? '#3f3f46'
-    : isBeingShocked || isPendingVoltage
+    : isBeingShocked
     ? '#ef4444'
     : character.primaryColor;
 
@@ -776,7 +764,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
           <div
             className={clsx(
               'px-2 py-0.5 rounded-md border font-mono text-[9px] whitespace-nowrap backdrop-blur-md transition-all select-none pointer-events-none shadow-md',
-              isPendingVoltage || isBeingShocked
+              isBeingShocked
                 ? 'bg-red-950/95 border-red-500 text-red-100 motion-safe:animate-pulse'
                 : isActiveTurn
                 ? 'bg-emerald-950/95 border-emerald-400 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.6)]'

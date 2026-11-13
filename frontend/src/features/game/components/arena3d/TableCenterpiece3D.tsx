@@ -8,19 +8,13 @@ import * as THREE from 'three';
 import { useI18n } from '../../../../shared/i18n';
 import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
-import { DISCHARGE_CHARGE_MS, DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
 import { BunkerTable3D } from './BunkerTable3D';
 import { prefersReducedMotion } from './hud/motion';
-import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
 import { RevealedCards3D } from './RevealedCards3D';
 import { ServerRackDiodes3D } from './ServerRackDiodes3D';
 import { RoundProtocolCard3D } from './vfx/RoundProtocolCard3D';
 import { emitCardLandingSparks, emitCardTrail } from './vfx/vfxEmitter';
-
-/** Capacitor drum: sunk into the table top, and hovering above it while live. */
-const DRUM_TABLE_Y = 0.85;
-const DRUM_HOVER_Y = 1.3;
 
 export interface TableCenterpiece3DProps {
   tablePileCount: number;
@@ -32,16 +26,10 @@ export interface TableCenterpiece3DProps {
   flightToken?: object | null;
   isMyTurn?: boolean;
   activePlayerNickname?: string;
-  shockTargetPos?: [number, number, number] | null;
-  isOverloadedShock?: boolean;
-  testedRiskLevel?: number;
   dischargeStartedAtMs?: number | null;
-  dischargeRoll?: number | null;
   revealedCards?: PlayerCard[] | null;
   revealDeclaredProtocol?: CardProtocol | null;
   revealStartedAtMs?: number | null;
-  bluffDetected?: boolean;
-  revealLoserPos?: [number, number, number] | null;
   /** Hide the pile / turn pill while a cinematic owns the screen. */
   hideStatusPill?: boolean;
 }
@@ -55,27 +43,17 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   flightToken = null,
   isMyTurn = false,
   activePlayerNickname,
-  shockTargetPos,
-  isOverloadedShock = false,
-  testedRiskLevel = 1,
   dischargeStartedAtMs = null,
-  dischargeRoll = null,
   revealedCards = null,
   revealDeclaredProtocol = null,
   revealStartedAtMs = null,
-  bluffDetected = false,
-  revealLoserPos = null,
   hideStatusPill = false,
 }) => {
   const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
   const spotLightRef = useRef<SpotLight>(null);
-  const capacitorDrumRef = useRef<Group>(null);
-  const chargeSpinRef = useRef(0);
-  const chargeLightRef = useRef<THREE.PointLight>(null);
   const laserScannerRef = useRef<Mesh>(null);
   const flyingGroupRef = useRef<Group>(null);
-  const hotChamberMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const stackGroupRef = useRef<Group>(null);
   const landingBounceRef = useRef<number>(0);
 
@@ -96,9 +74,8 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   const protocolColor = PROTOCOL_HEX[currentTargetProtocol ?? 'Alpha'] ?? '#10b981';
   const isBluffCheck = roomState === 'BluffCheck';
   // The discharge sequence usually plays after the server already moved on to RoundOver, so the
-  // drum has to stay up for the whole cinematic, not just the VoltageTest state.
-  const isVoltageTest =
-    roomState === 'VoltageTest' || Boolean(shockTargetPos) || Boolean(dischargeStartedAtMs);
+  // amber stage light has to last for the whole cinematic, not just the VoltageTest state.
+  const isVoltageTest = roomState === 'VoltageTest' || Boolean(dischargeStartedAtMs);
 
   const stageAccentColor = isGameOver
     ? '#f59e0b'
@@ -146,81 +123,6 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
 
     if (spotLightRef.current) {
       spotLightRef.current.color.lerp(keyLightColor, Math.min(1, delta * 3.5));
-    }
-
-    if (capacitorDrumRef.current && isVoltageTest) {
-      if (shockTargetPos) {
-        // Aim capacitor turret directly at the target operator
-        const aimAngle = Math.atan2(shockTargetPos[0], shockTargetPos[2]);
-        capacitorDrumRef.current.rotation.y = aimAngle;
-        capacitorDrumRef.current.position.y = DRUM_HOVER_Y;
-        capacitorDrumRef.current.scale.setScalar(1);
-      } else if (dischargeStartedAtMs && dischargeRoll !== null && dischargeRoll !== undefined) {
-        const drum = capacitorDrumRef.current;
-        const sinceStart = Date.now() - dischargeStartedAtMs;
-        const targetAngle = -((dischargeRoll - 1) * Math.PI * 2) / 6;
-        if (reducedMotion) {
-          drum.rotation.y = targetAngle;
-          drum.position.y = DRUM_HOVER_Y;
-          drum.scale.setScalar(1);
-        } else if (sinceStart < DISCHARGE_CHARGE_MS) {
-          // Charge: the drum rises out of the table, spinning up and shaking harder as it charges.
-          const p = Math.max(0, sinceStart / DISCHARGE_CHARGE_MS);
-          const rise = 1 - Math.pow(1 - Math.min(1, p * 1.6), 3);
-          const spinRate = 2 + p * 14;
-          chargeSpinRef.current += delta * spinRate;
-          drum.rotation.y = chargeSpinRef.current;
-          drum.position.y = DRUM_TABLE_Y + (DRUM_HOVER_Y - DRUM_TABLE_Y) * rise + Math.sin(elapsed * 40) * 0.012 * p;
-          drum.scale.setScalar(0.4 + 0.6 * rise);
-        } else if (sinceStart < DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS) {
-          // Roll: ease-out cubic spin-down that lands exactly on the rolled chamber.
-          const p = (sinceStart - DISCHARGE_CHARGE_MS) / DRUM_SPINDOWN_MS;
-          const easeOut = 1 - Math.pow(1 - p, 3);
-          drum.rotation.y = Math.PI * 2 * 3 * (1 - easeOut) + targetAngle;
-          drum.position.y = DRUM_HOVER_Y + (1 - easeOut) * Math.sin(elapsed * 28) * 0.03;
-          drum.scale.setScalar(1);
-        } else {
-          drum.rotation.y = targetAngle;
-          drum.position.y = DRUM_HOVER_Y;
-          drum.scale.setScalar(1);
-        }
-      } else {
-        if (reducedMotion) {
-          capacitorDrumRef.current.position.y = 1.25;
-        } else {
-          capacitorDrumRef.current.rotation.y += delta * 3.5;
-          capacitorDrumRef.current.position.y = 1.25 + Math.sin(elapsed * 4) * 0.03;
-        }
-      }
-    }
-
-    if (hotChamberMaterialRef.current) {
-      if (reducedMotion) {
-        hotChamberMaterialRef.current.emissiveIntensity = 2.0;
-      } else {
-        let pulseSpeed = 4;
-        if (dischargeStartedAtMs && dischargeRoll !== null) {
-          const elapsedSinceDischarge = Date.now() - dischargeStartedAtMs;
-          const t = Math.max(
-            0,
-            Math.min(1, elapsedSinceDischarge / (DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS))
-          );
-          pulseSpeed = 4 + t * 30;
-        }
-        const pulse = 1.6 + Math.sin(elapsed * pulseSpeed) * 0.8;
-        hotChamberMaterialRef.current.emissiveIntensity = pulse;
-      }
-    }
-
-    if (chargeLightRef.current) {
-      // Grows from nothing to a flickering glare while the capacitor charges, then dies on the strike.
-      let charge = 0;
-      if (dischargeStartedAtMs && !shockTargetPos && !reducedMotion) {
-        const total = DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS;
-        charge = Math.max(0, Math.min(1, (Date.now() - dischargeStartedAtMs) / total));
-      }
-      chargeLightRef.current.intensity =
-        charge === 0 ? 0 : charge * 9 * (0.75 + 0.25 * Math.sin(elapsed * (20 + charge * 40)));
     }
 
     if (laserScannerRef.current && isBluffCheck) {
@@ -396,62 +298,6 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
             emissiveIntensity={2.0}
           />
         </mesh>
-      )}
-
-      {/* 3D 6-Chamber High-Voltage Dielectric Revolver Cylinder during VoltageTest & Shock */}
-      {isVoltageTest && (
-        <group ref={capacitorDrumRef} position={[0, dischargeStartedAtMs ? DRUM_TABLE_Y : 1.25, 0]}>
-          <pointLight ref={chargeLightRef} color="#ef4444" intensity={0} distance={4.5} />
-          <mesh castShadow>
-            <cylinderGeometry args={[0.42, 0.42, 0.48, 18]} />
-            <meshStandardMaterial color="#18181b" metalness={0.9} roughness={0.15} />
-          </mesh>
-          {Array.from({ length: 6 }).map((_, i) => {
-            const angle = (i * Math.PI * 2) / 6;
-            const cx = Math.cos(angle) * 0.28;
-            const cz = Math.sin(angle) * 0.28;
-            const isHotChamber = i < Math.max(1, Math.min(6, testedRiskLevel));
-            return (
-              <mesh key={i} position={[cx, 0, cz]}>
-                <cylinderGeometry args={[0.08, 0.08, 0.52, 12]} />
-                <meshStandardMaterial
-                  ref={isHotChamber ? hotChamberMaterialRef : undefined}
-                  color={isHotChamber ? '#ef4444' : '#f59e0b'}
-                  emissive={isHotChamber ? '#ef4444' : '#f59e0b'}
-                  emissiveIntensity={isHotChamber ? 2.2 : 1.2}
-                />
-              </mesh>
-            );
-          })}
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.56, 0.02, 12, 32]} />
-            <meshStandardMaterial
-              color="#ef4444"
-              emissive="#ef4444"
-              emissiveIntensity={1.8}
-            />
-          </mesh>
-        </group>
-      )}
-
-      {/* Short 3D Lightning Bolt fired from Table Center towards loser during trace verdict */}
-      {isRevealing && revealLoserPos && (
-        <LightningArc3D
-          start={[0, 1.1, 0]}
-          end={revealLoserPos}
-          color={bluffDetected ? '#ef4444' : '#38bdf8'}
-          intensity={4.5}
-        />
-      )}
-
-      {/* 3D Crackling Lightning Bolt fired from Cylinder directly into Target Operator */}
-      {shockTargetPos && (
-        <LightningArc3D
-          start={[0, 1.35, 0]}
-          end={shockTargetPos}
-          color={isOverloadedShock ? '#ef4444' : '#38bdf8'}
-          intensity={isOverloadedShock ? 6 : 4}
-        />
       )}
     </group>
   );

@@ -9,6 +9,10 @@ export interface LightningArc3DProps {
   color?: string;
   intensity?: number;
   segments?: number;
+  /** Random displacement of the bolt's inner vertices; short arcs need a small one. */
+  jitter?: number;
+  /** Width multiplier of the bolt's core and halo. */
+  thickness?: number;
 }
 
 // Module-scoped scratch objects to avoid any allocations in useFrame
@@ -25,6 +29,8 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
   color = '#38bdf8',
   intensity = 6,
   segments = 8,
+  jitter = 0.32,
+  thickness = 1,
 }) => {
   const groupRef = useRef<Group>(null);
 
@@ -52,14 +58,14 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
 
       // Add random high-frequency electric jitter to intermediate vertices
       if (i > 0) {
-        _scratchP1.x += (Math.random() - 0.5) * 0.32;
-        _scratchP1.y += (Math.random() - 0.5) * 0.32;
-        _scratchP1.z += (Math.random() - 0.5) * 0.32;
+        _scratchP1.x += (Math.random() - 0.5) * jitter;
+        _scratchP1.y += (Math.random() - 0.5) * jitter;
+        _scratchP1.z += (Math.random() - 0.5) * jitter;
       }
       if (i + 1 < segments) {
-        _scratchP2.x += (Math.random() - 0.5) * 0.32;
-        _scratchP2.y += (Math.random() - 0.5) * 0.32;
-        _scratchP2.z += (Math.random() - 0.5) * 0.32;
+        _scratchP2.x += (Math.random() - 0.5) * jitter;
+        _scratchP2.y += (Math.random() - 0.5) * jitter;
+        _scratchP2.z += (Math.random() - 0.5) * jitter;
       }
 
       const rod = rodsRef.current[i]?.mesh;
@@ -72,7 +78,7 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
         rod.position.copy(_scratchMid);
         _scratchQuat.setFromUnitVectors(_vUp, _scratchDir);
         rod.quaternion.copy(_scratchQuat);
-        rod.scale.set(1, len, 1);
+        rod.scale.set(thickness, len, thickness);
       }
     }
 
@@ -85,9 +91,10 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
         _scratchP1.copy(basePoints[idx]);
         _scratchP2.copy(_scratchP1);
         const sign = b === 0 ? 1 : -1;
-        _scratchP2.x += sign * (0.35 + (Math.random() - 0.5) * 0.25);
-        _scratchP2.y += (Math.random() - 0.5) * 0.3;
-        _scratchP2.z += (Math.random() - 0.5) * 0.25;
+        const reach = Math.min(1, jitter / 0.32);
+        _scratchP2.x += sign * (0.35 + (Math.random() - 0.5) * 0.25) * reach;
+        _scratchP2.y += (Math.random() - 0.5) * 0.3 * reach;
+        _scratchP2.z += (Math.random() - 0.5) * 0.25 * reach;
 
         _scratchMid.addVectors(_scratchP1, _scratchP2).multiplyScalar(0.5);
         _scratchDir.subVectors(_scratchP2, _scratchP1);
@@ -97,7 +104,7 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
         rod.position.copy(_scratchMid);
         _scratchQuat.setFromUnitVectors(_vUp, _scratchDir);
         rod.quaternion.copy(_scratchQuat);
-        rod.scale.set(1, len, 1);
+        rod.scale.set(thickness, len, thickness);
       }
     }
   });

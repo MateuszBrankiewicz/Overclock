@@ -42,11 +42,14 @@ import { useArenaHotkeys } from './hud/useArenaHotkeys';
 import { useExploitPicker } from './hud/useExploitPicker';
 import { OperatorRig3D } from './OperatorRig3D';
 import { PovHandAndControls3D } from './PovHandAndControls3D';
+import { revealCardsSettledAtMs } from './revealCardPose';
 import { TableCenterpiece3D } from './TableCenterpiece3D';
 import { useArenaFrameloop } from './useArenaFrameloop';
 import { useCameraDrag } from './useCameraDrag';
 import { useReachedAt } from './useReachedAt';
 import { ParticleBurst } from './vfx/ParticleBurst';
+import { resolveCableTargetId } from './vfx/shockCables';
+import { ShockCables3D } from './vfx/ShockCables3D';
 import { TraceDuelBeam3D } from './vfx/TraceDuelBeam3D';
 import { emitDischargeImpactSparks } from './vfx/vfxEmitter';
 
@@ -86,8 +89,12 @@ export interface BunkerArenaCanvasProps {
   revealedCards?: PlayerCard[] | null;
   revealDeclaredProtocol?: CardProtocol | null;
   revealStartedAtMs?: number | null;
-  bluffDetected?: boolean;
   revealLoserPlayerId?: string | null;
+  /**
+   * Operator facing the voltage test for the whole showdown (pending decision, queued or running
+   * discharge, or the trace loser while the server catches up); the leads stay clamped on them.
+   */
+  voltageTargetPlayerId?: string | null;
   /** Who called TRACE and who is being traced, shown as a targeting beam until the verdict. */
   revealAccuserPlayerId?: string | null;
   revealAccusedPlayerId?: string | null;
@@ -148,8 +155,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   revealedCards = null,
   revealDeclaredProtocol = null,
   revealStartedAtMs = null,
-  bluffDetected = false,
   revealLoserPlayerId = null,
+  voltageTargetPlayerId = null,
   revealAccuserPlayerId = null,
   revealAccusedPlayerId = null,
   overlayMode = 'passive',
@@ -243,6 +250,16 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   const isLocalShockTarget = Boolean(
     dischargeCinematic && dischargeCinematic.event.playerId === myPlayerId
   );
+  /**
+   * The server marks the loser Eliminated as soon as the discharge resolves, but on screen they
+   * must look alive until the current actually hits them (or until the discharge arrives at all).
+   */
+  const strikePendingPlayerId = dischargeCinematic
+    ? isShockActive
+      ? null
+      : dischargeCinematic.event.playerId
+    : pendingDischargePlayerId;
+  const isLocalEliminatedShown = isEliminated && strikePendingPlayerId !== myPlayerId;
   const isLocalOverloaded = Boolean(
     isLocalShockTarget && dischargeCinematic?.event.overloaded
   );
@@ -306,6 +323,40 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     if (!revealLoserPlayerId || !isVerdictReached) return null;
     return seatHeadPos(revealLoserPlayerId);
   }, [revealLoserPlayerId, isVerdictReached, seatHeadPos]);
+
+  /** Chest of an operator, where the voltage-test leads clamp on. */
+  const seatChestPos = useCallback(
+    (playerId: string): [number, number, number] => {
+      if (playerId === myPlayerId) return [0, 1.0, 1.85];
+      const oppIdx = opponents.findIndex((o) => o.playerId === playerId);
+      if (oppIdx >= 0 && seatLayouts[oppIdx]) {
+        const [x, , z] = seatLayouts[oppIdx].position;
+        const r = Math.hypot(x, z);
+        const k = r > 0.1 ? (r - 0.1) / r : 1;
+        return [x * k, 1.15, z * k];
+      }
+      return [0, 1.15, -2.3];
+    },
+    [myPlayerId, opponents, seatLayouts]
+  );
+
+  // Leads clamp on the loser only once the last reveal card has stopped turning, and stay on while
+  // the table waits for the discharge and through it.
+  const revealCardsSettledAt =
+    revealStartedAtMs !== null && revealedCards && revealedCards.length > 0
+      ? revealCardsSettledAtMs(revealedCards.length, revealStartedAtMs, prefersReducedMotion())
+      : null;
+  const areRevealCardsSettled = useReachedAt(revealCardsSettledAt);
+  const cableTargetId = resolveCableTargetId({
+    dischargePlayerId: dischargeCinematic?.event.playerId ?? null,
+    voltageTargetPlayerId: voltageTargetPlayerId ?? pendingDischargePlayerId,
+    isRevealOnScreen: revealCardsSettledAt !== null,
+    areRevealCardsSettled,
+  });
+  const cableTargetPos = useMemo(
+    () => (cableTargetId ? seatChestPos(cableTargetId) : null),
+    [cableTargetId, seatChestPos]
+  );
 
   const traceDuel = useMemo(() => {
     if (revealVerdictAtMs === null || isVerdictReached) return null;
@@ -479,7 +530,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               focus={cameraFocus}
               roomState={roomState}
               offsetsRef={cameraDrag.offsetsRef}
-              isLocalEliminated={isEliminated}
+              isLocalEliminated={isLocalEliminatedShown}
               isLocalOverloaded={isLocalOverloaded && isShockActive}
               cinematicStartTimeMs={effectiveShockStartTimeMs}
               subjectPosition={subjectInfo.pos}
@@ -516,15 +567,6 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
 
             <BunkerAtmosphere3D accentColor={stageAccentColor} />
 
-            {isShockActive && shockTargetInfo.pos && (
-              <pointLight
-                position={shockTargetInfo.pos}
-                color={shockTargetInfo.isOverloaded ? '#f97316' : '#38bdf8'}
-                intensity={7.5}
-                distance={5}
-              />
-            )}
-
             <ParticleBurst />
 
             <TableCenterpiece3D
@@ -536,18 +578,21 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               flightToken={lastPlayedCards}
               isMyTurn={isMyTurn}
               activePlayerNickname={activePlayerNickname}
-              shockTargetPos={shockTargetInfo.pos}
-              isOverloadedShock={shockTargetInfo.isOverloaded}
-              testedRiskLevel={dischargeCinematic?.event.riskLevel ?? 1}
               dischargeStartedAtMs={dischargeCinematic?.startedAtMs ?? null}
-              dischargeRoll={dischargeCinematic?.event.roll ?? null}
               revealedCards={revealedCards}
               revealDeclaredProtocol={revealDeclaredProtocol}
               revealStartedAtMs={revealStartedAtMs}
-              bluffDetected={bluffDetected}
-              revealLoserPos={revealLoserPos}
               hideStatusPill={isOutcomeCinematic}
             />
+
+            {cableTargetPos && (
+              <ShockCables3D
+                target={cableTargetPos}
+                chargeStartedAtMs={dischargeCinematic?.startedAtMs ?? null}
+                strikeAtMs={effectiveShockStartTimeMs}
+                overloaded={isShockActive && Boolean(dischargeCinematic?.event.overloaded)}
+              />
+            )}
 
             {traceDuel && revealStartedAtMs !== null && revealVerdictAtMs !== null && (
               <TraceDuelBeam3D
@@ -576,9 +621,9 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
                   position={layout.position}
                   rotationY={layout.rotationY}
                   isActiveTurn={activePlayerId === opp.playerId}
-                  isPendingVoltage={pendingDischargePlayerId === opp.playerId}
                   isBeingShocked={isBeingShocked && isShockActive}
                   isOverloaded={isOverloadDeath && isShockActive}
+                  isStrikePending={strikePendingPlayerId === opp.playerId}
                   isWinner={roomState === 'GameOver' && opp.status === 'Active'}
                   cinematicStartTimeMs={
                     isTargetOfCinematic ? effectiveShockStartTimeMs : null

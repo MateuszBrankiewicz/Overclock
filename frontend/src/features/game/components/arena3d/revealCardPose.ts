@@ -4,6 +4,8 @@
  * ever covers them, whichever camera mode is active and whatever the aspect ratio.
  */
 
+import { revealCardFlipAtMs } from '../../utils/cinematicTiming';
+
 /** Unscaled card face and the spacing between card centres (scene units). */
 export const REVEAL_CARD_WIDTH = 0.42;
 export const REVEAL_CARD_HEIGHT = 0.6;
@@ -16,6 +18,16 @@ export const REVEAL_LIFT_END_MS = 1000;
 /** Card flip duration; the last card turns 30% slower for the final beat. */
 export const REVEAL_FLIP_MS = 380;
 export const REVEAL_LAST_FLIP_MS = Math.round(REVEAL_FLIP_MS * 1.3);
+
+/** Wall-clock moment the last reveal card stops turning (every card is face-up and still). */
+export function revealCardsSettledAtMs(
+  cardCount: number,
+  startedAtMs: number,
+  reducedMotion = false
+): number {
+  const lastFlipAt = revealCardFlipAtMs(Math.max(1, cardCount) - 1, startedAtMs);
+  return reducedMotion ? lastFlipAt : lastFlipAt + REVEAL_LAST_FLIP_MS;
+}
 
 export interface PresentationLayout {
   /** Distance in front of the camera where the row of cards stands. */
