@@ -54,7 +54,7 @@ export const SpectatorHud: React.FC<SpectatorHudProps> = ({
   return (
     <div
       data-testid="spectator-hud"
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-auto"
+      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 w-max max-w-[calc(100vw-1.5rem)] pointer-events-auto"
     >
       <HudBadge variant="warning" size="md" className="tracking-widest">
         <Eye className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -76,7 +76,7 @@ export const SpectatorHud: React.FC<SpectatorHudProps> = ({
           <ChevronLeft className="w-3.5 h-3.5" />
         </HudButton>
 
-        <span className="font-bold text-zinc-200 min-w-28 text-center truncate">
+        <span className="font-bold text-zinc-200 min-w-20 sm:min-w-28 text-center truncate">
           {currentTarget ? currentTarget.nickname : t.summary.spectatorOverview}
         </span>
 

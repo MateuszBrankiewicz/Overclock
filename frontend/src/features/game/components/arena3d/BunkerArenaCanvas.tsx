@@ -21,6 +21,7 @@ import { type CharacterId, resolveSeatCharacter } from '../../utils/characterCat
 import { dischargeStrikeDelayMs, verdictVisibleAtMs } from '../../utils/cinematicTiming';
 import { EventFeed } from '../EventFeed';
 import { ArenaFallback } from './ArenaFallback';
+import { ArenaLighting3D } from './ArenaLighting3D';
 import { ArenaPostFx } from './ArenaPostFx';
 import { BunkerAtmosphere3D } from './BunkerAtmosphere3D';
 import { getBunkerFloorTexture, getTableAoTexture } from './bunkerFloorTexture';
@@ -441,23 +442,28 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       className="relative w-full h-full min-h-[100dvh] bg-black overflow-hidden select-none font-mono"
     >
       {/* Top In-Bounds Visor Bar */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto flex flex-col items-start gap-2 max-w-[min(90vw,20rem)]">
-          <div className="flex items-center gap-2">{topBarSlot}</div>
-          <PhaseTimers roomState={roomState} />
-          {roomState !== 'Lobby' && <EventFeed />}
+      <div className="absolute top-3 left-3 right-3 z-30 flex flex-col gap-1.5 pointer-events-none">
+        <div className="relative z-20 flex flex-wrap items-start justify-between gap-2">
+          <div className="pointer-events-auto flex items-center gap-2 max-w-full">{topBarSlot}</div>
+
+          <CameraPresetBar
+            cameraFocus={cameraFocus}
+            showDismiss={Boolean(dischargeCinematic)}
+            onDismissDischarge={onDismissDischarge}
+            onSelect={(focus, yaw, pitch) => {
+              cameraDrag.reset(yaw, pitch);
+              wake();
+              onCameraFocusChange(focus);
+            }}
+          />
         </div>
 
-        <CameraPresetBar
-          cameraFocus={cameraFocus}
-          showDismiss={Boolean(dischargeCinematic)}
-          onDismissDischarge={onDismissDischarge}
-          onSelect={(focus, yaw, pitch) => {
-            cameraDrag.reset(yaw, pitch);
-            wake();
-            onCameraFocusChange(focus);
-          }}
-        />
+        <div className="relative z-10 flex flex-col items-start gap-1.5 max-w-[min(78vw,20rem)] sm:max-w-[min(90vw,20rem)]">
+          <div className="pointer-events-auto">
+            <PhaseTimers roomState={roomState} />
+          </div>
+          {roomState !== 'Lobby' && <EventFeed />}
+        </div>
       </div>
 
       <YourTurnBanner isMyTurn={isMyTurn} />
@@ -476,8 +482,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
             camera={{ position: [0, 1.94, 3.15], fov: 50 }}
           >
             {gfxQuality === 'high' && <ArenaPostFx />}
-            <color attach="background" args={['#040406']} />
-            <fog attach="fog" args={['#040406', 5.2, 12.5]} />
+            <color attach="background" args={['#05060a']} />
+            <fog attach="fog" args={['#05060a', 7.5, 19]} />
 
             <CameraController
               focus={cameraFocus}
@@ -491,12 +497,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               isOpponentShock={isOpponentShock}
             />
 
-            <ambientLight intensity={0.15} />
-            <hemisphereLight args={['#1e293b', '#020617', 0.28]} />
-
-            <pointLight position={[0, 2.0, 2.7]} intensity={1.2} color="#ffffff" />
-            <pointLight position={[-2.5, 2.2, -2]} intensity={0.55} color="#06b6d4" />
-            <pointLight position={[2.5, 2.2, -2]} intensity={0.55} color="#f59e0b" />
+            <ArenaLighting3D />
 
             {/* Procedural Concrete Bunker Floor */}
             {floorTexture && (
@@ -504,8 +505,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
                 <planeGeometry args={[18, 18]} />
                 <meshStandardMaterial
                   map={floorTexture}
-                  roughness={0.88}
-                  metalness={0.12}
+                  roughness={0.72}
+                  metalness={0.2}
                 />
               </mesh>
             )}
@@ -664,7 +665,11 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         />
       )}
 
-      {roomState !== 'Lobby' && myCards.length > 0 && !isEliminated && <CardMarkLegend />}
+      {roomState !== 'Lobby' &&
+        !isVoltageTestActive &&
+        !isOutcomeCinematic &&
+        myCards.length > 0 &&
+        !isEliminated && <CardMarkLegend />}
       <FirstTurnHint
         visible={firstTurnHint.visible && selectedCardIds.length === 0}
         onDismiss={firstTurnHint.dismiss}

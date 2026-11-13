@@ -32,8 +32,8 @@ export const TurnUrgencyCountdownView: React.FC<TurnUrgencyCountdownViewProps> =
         key={countdown.secondsLeft}
         className={
           isMyTurn
-            ? 'text-7xl sm:text-8xl font-black tabular-nums text-red-400 drop-shadow-[0_0_28px_rgba(239,68,68,0.95)] motion-safe:animate-pulse'
-            : 'text-4xl sm:text-5xl font-black tabular-nums text-amber-300/90 drop-shadow-[0_0_18px_rgba(245,158,11,0.8)]'
+            ? 'text-5xl sm:text-8xl font-black tabular-nums text-red-400 drop-shadow-[0_0_28px_rgba(239,68,68,0.95)] motion-safe:animate-pulse'
+            : 'text-3xl sm:text-5xl font-black tabular-nums text-amber-300/90 drop-shadow-[0_0_18px_rgba(245,158,11,0.8)]'
         }
       >
         {countdown.secondsLeft}

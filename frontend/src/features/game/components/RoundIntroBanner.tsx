@@ -34,10 +34,10 @@ export const RoundIntroBanner: React.FC<RoundIntroBannerProps> = ({
       initial={{ opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
-      className="fixed left-1/2 top-[30%] -translate-x-1/2 -translate-y-1/2 z-40 w-[min(92vw,26rem)] pointer-events-none"
+      className="fixed left-1/2 top-[26%] sm:top-[30%] -translate-x-1/2 -translate-y-1/2 z-40 w-[min(92vw,26rem)] pointer-events-none"
     >
-      <div className="flex flex-col items-center gap-1 px-6 py-4 rounded-2xl border-2 border-cyan-400 bg-black/85 font-mono text-center shadow-[0_0_40px_rgba(34,211,238,0.55)]">
-        <span className="text-sm font-black tracking-[0.35em] text-cyan-300">
+      <div className="flex flex-col items-center gap-1 px-4 py-3 sm:px-6 sm:py-4 rounded-2xl border-2 border-cyan-400 bg-black/85 font-mono text-center shadow-[0_0_40px_rgba(34,211,238,0.55)]">
+        <span className="text-xs sm:text-sm font-black tracking-[0.25em] sm:tracking-[0.35em] text-cyan-300">
           {t.hud.roundIntroTitle(roundNumber)}
         </span>
         {protocol && (
@@ -47,7 +47,7 @@ export const RoundIntroBanner: React.FC<RoundIntroBannerProps> = ({
             </span>
             <span
               data-testid="round-intro-protocol"
-              className="text-4xl sm:text-5xl font-black tracking-widest text-white drop-shadow-[0_0_16px_rgba(34,211,238,0.9)]"
+              className="text-3xl sm:text-5xl font-black tracking-widest text-white drop-shadow-[0_0_16px_rgba(34,211,238,0.9)]"
             >
               {protocol.toUpperCase()}
             </span>

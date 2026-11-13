@@ -14,7 +14,7 @@ export const FirstTurnHint: React.FC<FirstTurnHintProps> = ({ visible, onDismiss
   return (
     <div
       data-testid="first-turn-hint"
-      className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2 rounded-xl bg-emerald-950/95 border border-emerald-400/80 text-emerald-100 text-xs font-bold shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+      className="absolute bottom-36 sm:bottom-24 left-1/2 -translate-x-1/2 z-40 flex items-center justify-between gap-2 sm:gap-3 w-[min(92vw,28rem)] sm:w-auto px-3 py-2 sm:px-4 rounded-xl bg-emerald-950/95 border border-emerald-400/80 text-emerald-100 text-[11px] sm:text-xs font-bold shadow-[0_0_20px_rgba(16,185,129,0.5)]"
     >
       <span>{t.controls.firstTurnHint}</span>
       <button

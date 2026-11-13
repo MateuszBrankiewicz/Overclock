@@ -20,7 +20,7 @@ export const YourTurnBannerView: React.FC<YourTurnBannerViewProps> = ({ visible 
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: '120%', opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="absolute top-1/3 left-1/2 -translate-x-1/2 z-40 px-8 py-3 rounded-xl border-2 border-emerald-300 bg-emerald-950/90 text-emerald-200 text-2xl sm:text-3xl font-black tracking-[0.3em] shadow-[0_0_40px_rgba(16,185,129,0.8)] pointer-events-none"
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 z-40 px-4 py-2 sm:px-8 sm:py-3 rounded-xl border-2 border-emerald-300 bg-emerald-950/90 text-emerald-200 text-lg sm:text-3xl font-black tracking-[0.18em] sm:tracking-[0.3em] whitespace-nowrap max-w-[92vw] shadow-[0_0_40px_rgba(16,185,129,0.8)] pointer-events-none"
         >
           ▶ {t.hud.yourTurnBanner}
         </motion.div>

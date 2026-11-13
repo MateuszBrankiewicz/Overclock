@@ -50,26 +50,14 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
   const { t } = useI18n();
 
   return (
-    <div className="absolute bottom-3 left-3 right-3 z-30 flex items-center justify-between gap-2 max-w-4xl mx-auto pointer-events-none">
-      <HudButton
-        variant="danger"
-        size="lg"
-        disabled={!canTrace}
-        onClick={onCallTrace}
-        className={clsx(
-          'pointer-events-auto',
-          canTrace && 'shadow-[0_0_25px_rgba(239,68,68,0.75)]'
-        )}
-      >
-        <ShieldAlert className="w-4 h-4 shrink-0 text-red-400" />
-        <span>{t.table.callTrace}</span>
-        {showKeyHints && <KeyHint k="T" />}
-      </HudButton>
-
+    <div
+      data-testid="action-strip"
+      className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-2.5 right-2.5 sm:left-3 sm:right-3 z-30 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-1.5 sm:gap-2 max-w-4xl mx-auto pointer-events-none"
+    >
       <HudPanel
         tone="default"
         cornerBrackets
-        className="relative pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[11px] sm:text-xs"
+        className="order-1 sm:order-2 self-center relative pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 text-[11px] sm:text-xs max-w-full"
       >
         <span
           className={clsx(
@@ -112,24 +100,41 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
         )}
       </HudPanel>
 
-      <HudButton
-        variant="primary"
-        size="lg"
-        disabled={!canTransmit}
-        onClick={onPlayCards}
-        active={canTransmit}
-        className={clsx(
-          'pointer-events-auto',
-          canTransmit && 'shadow-[0_0_25px_rgba(16,185,129,0.75)]'
-        )}
-      >
-        <Send className="w-4 h-4 shrink-0 text-emerald-300" />
-        <span>
-          {t.table.transmitCards}
-          {selectedCount > 0 ? ` (${selectedCount})` : ''}
-        </span>
-        {showKeyHints && <KeyHint k="↵" />}
-      </HudButton>
+      <div className="order-2 sm:contents grid grid-cols-2 gap-1.5">
+        <HudButton
+          variant="danger"
+          size="lg"
+          disabled={!canTrace}
+          onClick={onCallTrace}
+          className={clsx(
+            'sm:order-1 pointer-events-auto w-full sm:w-auto min-w-0 min-h-[42px] sm:min-h-[48px] px-2.5 py-1.5 sm:px-6 sm:py-2.5 text-[11px] sm:text-sm tracking-tight sm:tracking-wider leading-tight',
+            canTrace && 'shadow-[0_0_25px_rgba(239,68,68,0.75)]'
+          )}
+        >
+          <ShieldAlert className="w-4 h-4 shrink-0 text-red-400" />
+          <span className="truncate">{t.table.callTrace}</span>
+          {showKeyHints && <KeyHint k="T" />}
+        </HudButton>
+
+        <HudButton
+          variant="primary"
+          size="lg"
+          disabled={!canTransmit}
+          onClick={onPlayCards}
+          active={canTransmit}
+          className={clsx(
+            'sm:order-3 pointer-events-auto w-full sm:w-auto min-w-0 min-h-[42px] sm:min-h-[48px] px-2.5 py-1.5 sm:px-6 sm:py-2.5 text-[11px] sm:text-sm tracking-tight sm:tracking-wider leading-tight',
+            canTransmit && 'shadow-[0_0_25px_rgba(16,185,129,0.75)]'
+          )}
+        >
+          <Send className="w-4 h-4 shrink-0 text-emerald-300" />
+          <span className="truncate">
+            {t.table.transmitCards}
+            {selectedCount > 0 ? ` (${selectedCount})` : ''}
+          </span>
+          {showKeyHints && <KeyHint k="↵" />}
+        </HudButton>
+      </div>
     </div>
   );
 };

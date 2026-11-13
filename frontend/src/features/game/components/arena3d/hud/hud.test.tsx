@@ -117,6 +117,29 @@ describe('EMP Flare protocol picker flow (ADR 0009)', () => {
     expect(html).toContain('ALPHA');
     expect(html).toContain('BETA');
     expect(html).toContain('GAMMA');
+    expect(html).toContain('left-1/2 -translate-x-1/2');
+  });
+
+  it('stacks into a two-row responsive strip on mobile so action buttons stay in-bounds', () => {
+    const html = renderToString(
+      <ActionStrip
+        canTrace
+        canTransmit
+        canUseChip={false}
+        exploit={{ type: 'GroundWire', isBurned: false }}
+        riskLevel={2}
+        myCharacter={getCharacterById('ghost')}
+        selectedCount={1}
+        currentTargetProtocol="Alpha"
+        picker={{ isOpen: false, request: () => {}, pick: () => {}, close: () => {} }}
+        onCallTrace={() => {}}
+        onPlayCards={() => {}}
+      />
+    );
+    expect(html).toContain('data-testid="action-strip"');
+    expect(html).toContain('flex-col sm:flex-row');
+    expect(html).toContain('grid-cols-2');
+    expect(html).toContain('(1)');
   });
 });
 

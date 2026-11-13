@@ -165,7 +165,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
     <div className="fixed inset-0 z-40 w-screen h-[100dvh] bg-black overflow-hidden font-mono">
       {/* Packet Sniffer Visor HUD Alert */}
       {sniffedCard && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-950/90 border border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.6)] text-xs text-cyan-200 pointer-events-none">
+        <div className="fixed top-24 sm:top-16 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center justify-center gap-2 w-max max-w-[92vw] px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-cyan-950/90 border border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.6)] text-[11px] sm:text-xs text-cyan-200 text-center pointer-events-none">
           <span>⚡ {t.table.packetSnifferAlert}</span>
           <span className="px-2 py-0.5 rounded font-black text-black bg-cyan-400">
             {sniffedCard.protocol}
