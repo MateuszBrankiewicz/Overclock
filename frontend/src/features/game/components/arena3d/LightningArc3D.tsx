@@ -11,6 +11,14 @@ export interface LightningArc3DProps {
   segments?: number;
 }
 
+// Module-scoped scratch objects to avoid any allocations in useFrame
+const _scratchP1 = new Vector3();
+const _scratchP2 = new Vector3();
+const _scratchMid = new Vector3();
+const _scratchDir = new Vector3();
+const _scratchQuat = new Quaternion();
+const _vUp = new Vector3(0, 1, 0);
+
 export const LightningArc3D: React.FC<LightningArc3DProps> = ({
   start,
   end,
@@ -31,38 +39,64 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
     return pts;
   }, [start, end, segments]);
 
-  const rodsRef = useRef<Array<{ mesh: Group | null; p1: Vector3; p2: Vector3 }>>([]);
+  const rodsRef = useRef<Array<{ mesh: Group | null }>>([]);
+  const branchRodsRef = useRef<Array<{ mesh: Group | null }>>([]);
 
   useFrame(() => {
     if (!groupRef.current) return;
-    const vUp = new Vector3(0, 1, 0);
 
+    // 1. Update main trunk segments
     for (let i = 0; i < segments; i++) {
-      const p1 = basePoints[i].clone();
-      const p2 = basePoints[i + 1].clone();
+      _scratchP1.copy(basePoints[i]);
+      _scratchP2.copy(basePoints[i + 1]);
 
       // Add random high-frequency electric jitter to intermediate vertices
       if (i > 0) {
-        p1.x += (Math.random() - 0.5) * 0.32;
-        p1.y += (Math.random() - 0.5) * 0.32;
-        p1.z += (Math.random() - 0.5) * 0.32;
+        _scratchP1.x += (Math.random() - 0.5) * 0.32;
+        _scratchP1.y += (Math.random() - 0.5) * 0.32;
+        _scratchP1.z += (Math.random() - 0.5) * 0.32;
       }
       if (i + 1 < segments) {
-        p2.x += (Math.random() - 0.5) * 0.32;
-        p2.y += (Math.random() - 0.5) * 0.32;
-        p2.z += (Math.random() - 0.5) * 0.32;
+        _scratchP2.x += (Math.random() - 0.5) * 0.32;
+        _scratchP2.y += (Math.random() - 0.5) * 0.32;
+        _scratchP2.z += (Math.random() - 0.5) * 0.32;
       }
 
       const rod = rodsRef.current[i]?.mesh;
       if (rod) {
-        const mid = new Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-        const dir = new Vector3().subVectors(p2, p1);
-        const len = dir.length();
-        dir.normalize();
+        _scratchMid.addVectors(_scratchP1, _scratchP2).multiplyScalar(0.5);
+        _scratchDir.subVectors(_scratchP2, _scratchP1);
+        const len = _scratchDir.length();
+        _scratchDir.normalize();
 
-        rod.position.copy(mid);
-        const quat = new Quaternion().setFromUnitVectors(vUp, dir);
-        rod.quaternion.copy(quat);
+        rod.position.copy(_scratchMid);
+        _scratchQuat.setFromUnitVectors(_vUp, _scratchDir);
+        rod.quaternion.copy(_scratchQuat);
+        rod.scale.set(1, len, 1);
+      }
+    }
+
+    // 2. Update 2 electric branching forks (branching off trunk points 2 and 5)
+    const branchIndices = [Math.floor(segments * 0.3), Math.floor(segments * 0.65)];
+    for (let b = 0; b < branchIndices.length; b++) {
+      const idx = branchIndices[b];
+      const rod = branchRodsRef.current[b]?.mesh;
+      if (rod && basePoints[idx]) {
+        _scratchP1.copy(basePoints[idx]);
+        _scratchP2.copy(_scratchP1);
+        const sign = b === 0 ? 1 : -1;
+        _scratchP2.x += sign * (0.35 + (Math.random() - 0.5) * 0.25);
+        _scratchP2.y += (Math.random() - 0.5) * 0.3;
+        _scratchP2.z += (Math.random() - 0.5) * 0.25;
+
+        _scratchMid.addVectors(_scratchP1, _scratchP2).multiplyScalar(0.5);
+        _scratchDir.subVectors(_scratchP2, _scratchP1);
+        const len = _scratchDir.length();
+        _scratchDir.normalize();
+
+        rod.position.copy(_scratchMid);
+        _scratchQuat.setFromUnitVectors(_vUp, _scratchDir);
+        rod.quaternion.copy(_scratchQuat);
         rod.scale.set(1, len, 1);
       }
     }
@@ -70,16 +104,13 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
 
   return (
     <group ref={groupRef}>
+      {/* Main lightning trunk with thickened core */}
       {Array.from({ length: segments }).map((_, i) => (
         <group
-          key={i}
+          key={`trunk-${i}`}
           ref={(el) => {
             if (!rodsRef.current[i]) {
-              rodsRef.current[i] = {
-                mesh: el,
-                p1: basePoints[i],
-                p2: basePoints[i + 1],
-              };
+              rodsRef.current[i] = { mesh: el };
             } else {
               rodsRef.current[i].mesh = el;
             }
@@ -87,13 +118,36 @@ export const LightningArc3D: React.FC<LightningArc3DProps> = ({
         >
           {/* Inner Glowing White Core */}
           <mesh>
-            <cylinderGeometry args={[0.025, 0.025, 1, 6]} />
+            <cylinderGeometry args={[0.042, 0.042, 1, 6]} />
             <meshBasicMaterial color="#ffffff" />
           </mesh>
           {/* Outer Electric Plasma Halo */}
           <mesh>
-            <cylinderGeometry args={[0.07, 0.07, 1, 6]} />
+            <cylinderGeometry args={[0.11, 0.11, 1, 6]} />
             <meshBasicMaterial color={color} transparent opacity={0.65} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* 2 Electric Branch Forks */}
+      {[0, 1].map((b) => (
+        <group
+          key={`branch-${b}`}
+          ref={(el) => {
+            if (!branchRodsRef.current[b]) {
+              branchRodsRef.current[b] = { mesh: el };
+            } else {
+              branchRodsRef.current[b].mesh = el;
+            }
+          }}
+        >
+          <mesh>
+            <cylinderGeometry args={[0.02, 0.02, 1, 5]} />
+            <meshBasicMaterial color="#ffffff" />
+          </mesh>
+          <mesh>
+            <cylinderGeometry args={[0.055, 0.055, 1, 5]} />
+            <meshBasicMaterial color={color} transparent opacity={0.5} />
           </mesh>
         </group>
       ))}

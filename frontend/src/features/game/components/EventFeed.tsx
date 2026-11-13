@@ -28,21 +28,25 @@ export function EventFeedList({ entries, label }: { entries: FeedEntry[]; label:
       aria-live="polite"
       aria-label={label}
       data-testid="event-feed"
-      className="pointer-events-none fixed left-2 top-14 z-40 flex max-w-[55vw] flex-col gap-1 sm:left-4 sm:top-16 sm:max-w-xs"
+      className="pointer-events-none flex w-full max-w-[min(85vw,18rem)] sm:max-w-xs flex-col gap-1"
     >
-      {visible.map((entry, index) => (
-        <div
-          key={entry.id}
-          data-testid="event-feed-entry"
-          style={{ opacity: 0.45 + (0.55 * (index + 1)) / visible.length }}
-          className={clsx(
-            'rounded border-l-2 bg-black/60 px-2 py-0.5 text-[10px] leading-tight backdrop-blur-sm transition-opacity duration-500 sm:text-xs',
-            TONE_CLASS[entry.tone]
-          )}
-        >
-          {entry.text}
-        </div>
-      ))}
+      {visible.map((entry, index) => {
+        const isOlderThan3 = visible.length > 3 && index < visible.length - 3;
+        return (
+          <div
+            key={entry.id}
+            data-testid="event-feed-entry"
+            style={{ opacity: 0.45 + (0.55 * (index + 1)) / visible.length }}
+            className={clsx(
+              'rounded border-l-2 bg-black/75 px-2 py-0.5 text-[11px] leading-tight backdrop-blur-sm transition-opacity duration-500 sm:text-xs',
+              isOlderThan3 && 'hidden sm:block',
+              TONE_CLASS[entry.tone]
+            )}
+          >
+            {entry.text}
+          </div>
+        );
+      })}
     </div>
   );
 }

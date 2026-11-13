@@ -8,6 +8,7 @@ import { REVEAL_CARD_STAGGER_MS } from '../../utils/cinematicTiming';
 import { classifyCard, MARK_COLOR } from './hud/cardMarks';
 import { prefersReducedMotion } from './hud/motion';
 import { createPcbCardBackTexture, createPcbCardTexture } from './pcbCardTexture';
+import { emitCardRevealSparks } from './vfx/vfxEmitter';
 
 export interface RevealedCards3DProps {
   cards: PlayerCard[];
@@ -49,6 +50,8 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
   );
   const backTexture = useMemo(() => createPcbCardBackTexture(t.arena.cardBack), [t.arena.cardBack]);
   const reducedMotion = useMemo(() => prefersReducedMotion(), []);
+  const sparkEmittedRef = useRef(false);
+  const x = (index - (total - 1) / 2) * CARD_SPACING;
 
   useFrame(() => {
     const group = groupRef.current;
@@ -61,6 +64,11 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
     // Face-down (front facing the table) -> lifted -> face-up.
     group.rotation.x = -Math.PI / 2 + Math.PI * (1 - ease);
     group.position.y = 0.82 + Math.sin(ease * Math.PI) * 0.25;
+
+    if (progress >= 0.75 && !sparkEmittedRef.current) {
+      sparkEmittedRef.current = true;
+      emitCardRevealSparks([x, 0.95, 0.15], mark === 'bluff');
+    }
 
     // Verdict highlighting after all cards are flipped
     const allFlippedAt = startedAtMs + total * REVEAL_CARD_STAGGER_MS + FLIP_DURATION_MS;
@@ -84,8 +92,6 @@ const RevealedCard: React.FC<RevealedCardProps> = ({
       }
     }
   });
-
-  const x = (index - (total - 1) / 2) * CARD_SPACING;
 
   return (
     <group ref={groupRef} position={[x, 0.82, 0.15]} rotation={[Math.PI / 2, 0, 0]}>

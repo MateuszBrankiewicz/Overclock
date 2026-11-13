@@ -28,7 +28,7 @@ export function ConnectionStatusBadge({ status }: { status: ConnectionStatus }) 
       data-testid="connection-pill"
       className={clsx(
         'rounded-full border px-2 py-0.5 text-[11px] font-bold',
-        amber ? 'animate-pulse border-amber-500/60 bg-amber-950/70 text-amber-300' : 'border-red-500/60 bg-red-950/70 text-red-300'
+        amber ? 'motion-safe:animate-pulse border-amber-500/60 bg-amber-950/70 text-amber-300' : 'border-red-500/60 bg-red-950/70 text-red-300'
       )}
     >
       {label}

@@ -19,7 +19,7 @@ export function startTraceReveal(
       startedAtMs: Date.now(),
       seatsAtReveal: state.players,
     },
-    lastRevealedTraceSequence: seq,
-    awaitingDischargeForSequence: seq,
+    lastRevealedTraceSequence: seq ?? -1,
+    awaitingDischargeForSequence: seq ?? -1,
   };
 }

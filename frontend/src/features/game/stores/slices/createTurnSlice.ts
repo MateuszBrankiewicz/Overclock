@@ -37,6 +37,7 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastPlayedCards: null,
       lastTraceResolution: null,
       lastTrace: null,
+      lastRevealedTraceSequence: null,
       awaitingDischargeForSequence: null,
       remainingTimeSeconds: 15,
     }),
@@ -80,13 +81,17 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
           lastTraceResolution: resolution,
           tablePileCount: 0,
           turnDeadlineUtc: null,
-          roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
         };
       }
 
       return {
         ...startTraceReveal(state, resolution),
-        roomState: state.roomState === 'GameOver' ? 'GameOver' : 'RoundOver',
+        roomState:
+          state.roomState === 'GameOver' ||
+          state.roomState === 'RoundOver' ||
+          state.roomState === 'VoltageTest'
+            ? state.roomState
+            : 'BluffCheck',
       };
     }),
 
@@ -124,7 +129,11 @@ export const createTurnSlice: StateCreator<GameState, [], [], TurnSlice> = (set)
       lastTraceResolution: null,
       lastTrace: null,
       traceReveal: null,
+      lastRevealedTraceSequence: null,
       awaitingDischargeForSequence: null,
+      dischargeCinematic: null,
+      queuedDischarge: null,
+      lastDischargeOutcome: null,
       roundIntro: null,
     })),
 });

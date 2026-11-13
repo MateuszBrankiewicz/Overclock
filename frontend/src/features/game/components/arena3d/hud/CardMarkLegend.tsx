@@ -16,7 +16,7 @@ export const CardMarkLegend: React.FC = () => {
   return (
     <div
       data-testid="card-mark-legend"
-      className="absolute bottom-16 sm:bottom-[4.5rem] left-3 z-30 flex gap-2 px-2 py-1 rounded-lg bg-black/70 border border-zinc-800 text-[9px] uppercase tracking-wider pointer-events-none"
+      className="absolute bottom-16 sm:bottom-[4.5rem] left-3 z-30 flex gap-2 px-2.5 py-1 rounded-lg bg-black/75 border border-zinc-800 text-[11px] sm:text-xs uppercase tracking-wider pointer-events-none"
     >
       {MARKS.map((m) => (
         <span key={m} className="flex items-center gap-1 text-zinc-300">

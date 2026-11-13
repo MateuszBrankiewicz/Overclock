@@ -4,22 +4,34 @@ import { Vector3 } from 'three';
 
 import type { RoomState } from '../../schemas/gameEvents';
 import type { ArenaCameraFocus } from '../../stores/types';
+import { prefersReducedMotion } from './hud/motion';
+import { resolveCameraTarget } from './resolveCameraTarget';
 import type { CameraOffsets } from './useCameraDrag';
 
-export const CameraController: React.FC<{
+export interface CameraControllerProps {
   focus: ArenaCameraFocus;
   roomState: RoomState | null;
   offsetsRef: React.RefObject<CameraOffsets>;
   isLocalEliminated: boolean;
   isLocalOverloaded: boolean;
   cinematicStartTimeMs: number | null;
-}> = ({
+  subjectPosition?: [number, number, number] | null;
+  isLocalSubject?: boolean;
+  isOpponentShock?: boolean;
+  shockShakeIntensity?: number;
+}
+
+export const CameraController: React.FC<CameraControllerProps> = ({
   focus,
   roomState,
   offsetsRef,
   isLocalEliminated,
   isLocalOverloaded,
   cinematicStartTimeMs,
+  subjectPosition = null,
+  isLocalSubject = false,
+  isOpponentShock = false,
+  shockShakeIntensity = 0,
 }) => {
   const size = useThree((s) => s.size);
   const aspect = size.width / Math.max(1, size.height);
@@ -38,6 +50,18 @@ export const CameraController: React.FC<{
 
     // 1. Local Player Death Slam Sequence (First Person POV)
     if (localDeathElapsed !== null) {
+      if (prefersReducedMotion()) {
+        // Reduced motion: smooth transition to spectator view without shakes, table slam, or rollZ
+        targetPos.set(0, 3.1, 2.65 + mobilePullback);
+        targetLook.set(0, 0.85, 0);
+        camera.rotation.z = 0;
+        const step = Math.min(1, delta * 4);
+        camera.position.lerp(targetPos, step);
+        currentLook.current.lerp(targetLook, step);
+        camera.lookAt(currentLook.current);
+        return;
+      }
+
       let rollZ = 0;
       let snapCamera = false;
 
@@ -105,10 +129,27 @@ export const CameraController: React.FC<{
       return;
     }
 
+    const reducedMotion = prefersReducedMotion();
+
     if (isLocalEliminated) {
-      // If loaded already eliminated, remain in spectator view
-      targetPos.set(0, 3.1, 2.65 + mobilePullback);
-      targetLook.set(0, 0.85, 0);
+      if (focus === 'overview' && !subjectPosition) {
+        targetPos.set(0, 3.1, 2.65 + mobilePullback);
+        targetLook.set(0, 0.85, 0);
+      } else {
+        const target = resolveCameraTarget({
+          focus,
+          roomState,
+          subjectPosition: subjectPosition ?? null,
+          isLocalSubject: false,
+          yawOffset: offsetsRef.current.yaw,
+          pitchOffset: offsetsRef.current.pitch,
+          mobilePullback,
+          reducedMotion,
+          shockShakeIntensity: 0,
+        });
+        targetPos.set(...target.position);
+        targetLook.set(...target.lookAt);
+      }
       camera.rotation.z = 0;
       const step = Math.min(1, delta * 5);
       camera.position.lerp(targetPos, step);
@@ -118,21 +159,31 @@ export const CameraController: React.FC<{
     }
 
     const { yaw: yawOffset, pitch: pitchOffset } = offsetsRef.current;
-    const pitchLook = pitchOffset * 0.4;
+    const now = Date.now();
 
-    if (roomState === 'BluffCheck' || roomState === 'VoltageTest') {
-      targetPos.set(yawOffset * 0.5, 2.35, 2.3 + mobilePullback);
-      targetLook.set(0, 0.92 + pitchLook, 0);
-    } else if (focus === 'table') {
-      targetPos.set(yawOffset * 0.45, 2.15, 2.65 + mobilePullback);
-      targetLook.set(yawOffset * 0.25, 0.9 + pitchLook, 0.45);
-    } else if (focus === 'opponents') {
-      targetPos.set(yawOffset * 1.1, 1.85, 2.9 + mobilePullback);
-      targetLook.set(yawOffset * 0.8, 1.22 + pitchLook, -1.8);
-    } else {
-      targetPos.set(yawOffset * 0.75, 1.94, 3.15 + mobilePullback);
-      targetLook.set(yawOffset * 0.45, 1.04 + pitchLook, 0.2);
+    let effectiveShake = reducedMotion ? 0 : shockShakeIntensity;
+    if (!reducedMotion && isOpponentShock && cinematicStartTimeMs) {
+      const elapsedMs = now - cinematicStartTimeMs;
+      if (elapsedMs >= 0 && elapsedMs < 130) {
+        effectiveShake = Math.max(effectiveShake, 1 - elapsedMs / 130);
+      }
     }
+
+    const target = resolveCameraTarget({
+      focus,
+      roomState,
+      subjectPosition: subjectPosition ?? null,
+      isLocalSubject: Boolean(isLocalSubject),
+      yawOffset,
+      pitchOffset,
+      mobilePullback,
+      reducedMotion,
+      shockShakeIntensity: effectiveShake,
+      timeMs: now,
+    });
+
+    targetPos.set(...target.position);
+    targetLook.set(...target.lookAt);
 
     const step = Math.min(1, delta * 5);
     camera.position.lerp(targetPos, step);

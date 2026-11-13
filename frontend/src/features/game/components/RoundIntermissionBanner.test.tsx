@@ -64,7 +64,25 @@ describe('RoundIntermissionBanner Component', () => {
 
     expect(html).toContain('GhostOperator');
     expect(html).toContain('round-intermission-banner');
+    expect(html).toContain('intermission-waiting');
+  });
+
+  it('renders countdown anchored to authoritative intermissionDeadlineUtc and announces upcoming round in final second', () => {
+    const finalSecondDeadline = new Date(Date.now() + 1000).toISOString();
+    const html = renderToString(
+      React.createElement(RoundIntermissionBanner, {
+        roundNumber: 3,
+        players: [
+          { playerId: 'p1', nickname: 'GhostOperator', status: 'Active', isReady: true, handCount: 2, riskLevel: 1 },
+        ],
+        lastDischargeOutcome: null,
+        isHost: true,
+        isDischargeCinematicActive: false,
+        intermissionDeadlineUtc: finalSecondDeadline,
+      })
+    );
     expect(html).toContain('intermission-countdown');
+    expect(html).toMatch(/ROUND 4|RUNDA 4/);
   });
 
   it('renders countdown anchored to authoritative intermissionDeadlineUtc', () => {

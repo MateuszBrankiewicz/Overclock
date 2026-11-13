@@ -4,6 +4,7 @@ export {
   __resetRobotVoiceForTests,
   cancelAllSpeech,
   speakRobotVoice,
+  warmupSpeechSynthesis,
 } from './robotVoice';
 export * from './types';
 export { useAudioSettings } from './useAudioSettings';

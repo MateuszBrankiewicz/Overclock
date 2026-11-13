@@ -26,6 +26,8 @@ describe('haptics', () => {
     expect(spy).toHaveBeenLastCalledWith([200, 80, 200, 80, 400]);
     vibrate('turn');
     expect(spy).toHaveBeenLastCalledWith(20);
+    vibrate('select');
+    expect(spy).toHaveBeenLastCalledWith(10);
   });
 
   it('does nothing when prefers-reduced-motion is set', () => {

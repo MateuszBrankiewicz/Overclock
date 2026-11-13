@@ -151,7 +151,7 @@ export const PcbCard: React.FC<PcbCardProps> = ({
             className={clsx(
               'text-[7px] font-black uppercase px-1 py-0.2 rounded border shadow-xs',
               badge === 'match' && 'bg-emerald-950 text-emerald-300 border-emerald-500',
-              badge === 'wild' && 'bg-fuchsia-950 text-fuchsia-300 border-fuchsia-500 animate-pulse',
+              badge === 'wild' && 'bg-fuchsia-950 text-fuchsia-300 border-fuchsia-500 motion-safe:animate-pulse',
               badge === 'bluff' && 'bg-amber-950 text-amber-300 border-amber-600'
             )}
           >

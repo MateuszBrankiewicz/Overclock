@@ -79,6 +79,11 @@ export interface Translations {
     playAgain: string;
     waitingForHost: string;
     leave: string;
+    youWon: string;
+    youLost: (placement: number) => string;
+    spectatingBadge: string;
+    spectatorOverview: string;
+    spectatorCycle: string;
   };
   table: {
     targetProtocol: string;
@@ -196,12 +201,21 @@ export interface Translations {
     unmuteAudio: string;
     muteVoice: string;
     unmuteVoice: string;
+    gfxHigh: string;
+    gfxLow: string;
+    gfxToggleTooltip: string;
   };
   voice: {
     playCards: (count: number, protocol: string) => string;
     liar: string;
     eliminated: string;
     win: string;
+  };
+  verdict: {
+    bluffDetected: string;
+    cleanTransmission: string;
+    loserVoltageTest: (nickname: string) => string;
+    youVoltageTest: string;
   };
   controls: {
     hotkeysTitle: string;
@@ -353,6 +367,11 @@ export const translations: Record<Language, Translations> = {
       playAgain: 'Zagraj ponownie',
       waitingForHost: 'Czekamy, aż host rozpocznie rewanż...',
       leave: 'Opuść stół',
+      youWon: 'WYGRAŁEŚ',
+      youLost: (placement: number) => `PRZEGRAŁEŚ — miejsce #${placement}`,
+      spectatingBadge: 'OBSERWUJESZ',
+      spectatorOverview: 'Widok ogólny',
+      spectatorCycle: 'Przełącz operatora',
     },
     table: {
       targetProtocol: 'WYMAGANY PROTOKÓŁ:',
@@ -471,6 +490,9 @@ export const translations: Record<Language, Translations> = {
       unmuteAudio: 'Włącz dźwięk',
       muteVoice: 'Wyłącz głosy robotów',
       unmuteVoice: 'Włącz głosy robotów',
+      gfxHigh: 'FX: WYSOKA',
+      gfxLow: 'FX: NISKA',
+      gfxToggleTooltip: 'Przełącz jakość grafiki',
     },
     voice: {
       playCards: (count: number, protocol: string) => {
@@ -510,6 +532,12 @@ export const translations: Record<Language, Translations> = {
       liar: 'KŁAMCA!',
       eliminated: 'system... offline',
       win: 'zwycięstwo protokołu',
+    },
+    verdict: {
+      bluffDetected: 'BLEF WYKRYTY',
+      cleanTransmission: 'CZYSTA TRANSMISJA',
+      loserVoltageTest: (nickname) => `${nickname} idzie na test napięcia`,
+      youVoltageTest: 'TY idziesz na test napięcia',
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -660,6 +688,11 @@ export const translations: Record<Language, Translations> = {
       playAgain: 'Play again',
       waitingForHost: 'Waiting for the host to start a rematch...',
       leave: 'Leave table',
+      youWon: 'VICTORY',
+      youLost: (placement: number) => `DEFEAT — #${placement} place`,
+      spectatingBadge: 'SPECTATING',
+      spectatorOverview: 'Overview',
+      spectatorCycle: 'Cycle operator',
     },
     table: {
       targetProtocol: 'TARGET PROTOCOL:',
@@ -778,6 +811,9 @@ export const translations: Record<Language, Translations> = {
       unmuteAudio: 'Unmute audio',
       muteVoice: 'Disable robot voices',
       unmuteVoice: 'Enable robot voices',
+      gfxHigh: 'FX: HIGH',
+      gfxLow: 'FX: LOW',
+      gfxToggleTooltip: 'Toggle graphics quality',
     },
     voice: {
       playCards: (count: number, protocol: string) => {
@@ -788,6 +824,12 @@ export const translations: Record<Language, Translations> = {
       liar: 'LIAR!',
       eliminated: 'system... offline',
       win: 'protocol victory',
+    },
+    verdict: {
+      bluffDetected: 'BLUFF DETECTED',
+      cleanTransmission: 'CLEAN TRANSMISSION',
+      loserVoltageTest: (nickname) => `${nickname} goes to voltage test`,
+      youVoltageTest: 'YOU go to voltage test',
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',

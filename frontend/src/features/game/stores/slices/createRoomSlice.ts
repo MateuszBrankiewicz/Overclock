@@ -1,5 +1,7 @@
 import type { StateCreator } from 'zustand';
 
+import { playSfx } from '../../../../shared/lib/audio';
+import { vibrate } from '../../../../shared/lib/haptics';
 import type { CapacitorDischargedEvent, PlayerSeat } from '../../schemas/gameEvents';
 import { type CharacterId, isCharacterId } from '../../utils/characterCatalog';
 import { startTraceReveal } from '../helpers/startTraceReveal';
@@ -42,7 +44,7 @@ function dischargeUpdate(state: GameState, event: CapacitorDischargedEvent): Par
   };
 }
 
-export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set) => ({
+export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set, get) => ({
   roomCode: null,
   roomState: null,
   hostId: null,
@@ -62,6 +64,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
   sniffedCard: null,
   selectedCharacterId: getInitialCharacterId(),
   cameraFocus: 'overview',
+  spectatorTargetPlayerId: null,
 
   clearDischargeCinematic: () => set({ dischargeCinematic: null }),
   clearAwaitingDischarge: () => set({ awaitingDischargeForSequence: null }),
@@ -88,6 +91,11 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       cameraFocus: focus,
     }),
 
+  setSpectatorTarget: (playerId) =>
+    set({
+      spectatorTargetPlayerId: playerId,
+    }),
+
   setRoom: (roomCode, playerId) =>
     set({
       roomCode,
@@ -95,7 +103,28 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       isInRoom: true,
     }),
 
-  applyRoomSnapshot: (snapshot) =>
+  applyRoomSnapshot: (snapshot) => {
+    const prevState = get();
+    const isLocalTurnStarting =
+      snapshot.state === 'TurnActive' &&
+      Boolean(snapshot.myPlayerId) &&
+      snapshot.currentTurnPlayerId === snapshot.myPlayerId &&
+      (prevState.activePlayerId !== snapshot.myPlayerId || prevState.roomState !== 'TurnActive');
+
+    const isLocalVictory =
+      snapshot.state === 'GameOver' &&
+      prevState.roomState !== 'GameOver' &&
+      Boolean(snapshot.myPlayerId) &&
+      snapshot.winnerId === snapshot.myPlayerId;
+
+    if (isLocalTurnStarting) {
+      playSfx('yourTurn');
+      vibrate('turn');
+    }
+    if (isLocalVictory) {
+      playSfx('victory');
+    }
+
     set((state) => {
       const shouldClearSniffedCard =
         snapshot.state !== 'TurnActive' ||
@@ -116,14 +145,23 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       const isSameRound = snapshot.roundNumber === state.roundNumber;
       const turnDeadlineUtc = snapshot.turnDeadlineUtc ?? null;
 
+      const isNewRoundOrLobby =
+        snapshot.state === 'TurnActive' ||
+        snapshot.state === 'Lobby' ||
+        snapshot.roundNumber !== state.roundNumber;
+
+      const effectiveLastRevealedSeq = isNewRoundOrLobby
+        ? null
+        : state.lastRevealedTraceSequence;
+
       const snapshotTrace = snapshot.lastTraceResolution;
-      const snapshotSeq = snapshotTrace?.sequenceNumber ?? null;
       const shouldTriggerRevealFromSnapshot = Boolean(
         snapshotTrace &&
+          !isNewRoundOrLobby &&
           !state.traceReveal &&
-          (snapshotSeq === null ||
-            state.lastRevealedTraceSequence === null ||
-            snapshotSeq > state.lastRevealedTraceSequence)
+          !state.dischargeCinematic &&
+          !state.queuedDischarge &&
+          effectiveLastRevealedSeq === null
       );
 
       const revealPatch = shouldTriggerRevealFromSnapshot
@@ -179,10 +217,12 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
         lastPlayedCards:
           snapshot.state === 'TurnActive' && isSameRound ? state.lastPlayedCards : null,
         lastTrace: null,
+        lastRevealedTraceSequence: effectiveLastRevealedSeq,
         ...(shouldClearAwaitingDischarge ? { awaitingDischargeForSequence: null } : {}),
         ...revealPatch,
       };
-    }),
+    });
+  },
 
   applyPlayerJoined: (event) =>
     set((state) => {
@@ -286,6 +326,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set)
       awaitingDischargeForSequence: null,
       traceReveal: null,
       lastRevealedTraceSequence: null,
+      spectatorTargetPlayerId: null,
       roundIntro: null,
       sniffedCard: null,
       myCards: [],

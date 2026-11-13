@@ -430,9 +430,9 @@ describe('Ephemeral Game Store (Zustand) - TASK-0.9', () => {
 
       expect(state.lastTraceResolution).toEqual(resolution);
       expect(state.tablePileCount).toBe(0);
-      expect(state.roomState).toBe('RoundOver');
+      expect(state.roomState).toBe('BluffCheck');
 
-      // If room is already in GameOver, applyTraceResolution should not downgrade to RoundOver
+      // If room is already in GameOver, applyTraceResolution should not downgrade to BluffCheck
       useGameStore.setState({ roomState: 'GameOver' });
       useGameStore.getState().applyTraceResolution(resolution);
       state = useGameStore.getState();

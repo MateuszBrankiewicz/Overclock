@@ -41,6 +41,38 @@ describe('MatchSummary', () => {
     expect(guest).not.toContain('Zagraj ponownie');
     expect(guest).toContain('Czekamy');
   });
+
+  it('renders victory headline when local player won', () => {
+    const html = renderToString(
+      React.createElement(MatchSummary, {
+        players,
+        placementByPlayerId: { p2: 3, p3: 2 },
+        winnerId: 'p1',
+        myPlayerId: 'p1',
+        roundNumber: 4,
+        isHost: true,
+        onPlayAgain: () => undefined,
+        onLeave: () => undefined,
+      })
+    );
+    expect(html).toContain('WYGRAŁEŚ');
+  });
+
+  it('renders defeat with placement when local player lost', () => {
+    const html = renderToString(
+      React.createElement(MatchSummary, {
+        players,
+        placementByPlayerId: { p2: 3, p3: 2 },
+        winnerId: 'p1',
+        myPlayerId: 'p3',
+        roundNumber: 4,
+        isHost: false,
+        onPlayAgain: () => undefined,
+        onLeave: () => undefined,
+      })
+    );
+    expect(html).toContain('PRZEGRAŁEŚ — miejsce #2');
+  });
 });
 
 describe('LeaveTableButton', () => {

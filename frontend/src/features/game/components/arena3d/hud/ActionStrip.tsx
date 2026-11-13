@@ -1,7 +1,9 @@
 import clsx from 'clsx';
+import { Radio, Send, ShieldAlert, Zap } from 'lucide-react';
 import React from 'react';
 
 import { useI18n } from '../../../../../shared/i18n';
+import { HudButton, HudPanel } from '../../../../../shared/ui';
 import type { CardProtocol, ExploitModule } from '../../../schemas/gameEvents';
 import type { CharacterProfile } from '../../../utils/characterCatalog';
 import { ProtocolPickerPopover } from './ProtocolPickerPopover';
@@ -24,7 +26,10 @@ export interface ActionStripProps {
 }
 
 const KeyHint: React.FC<{ k: string }> = ({ k }) => (
-  <span data-testid="key-hint" className="ml-1.5 opacity-70 font-mono text-[10px]">{`[${k}]`}</span>
+  <span
+    data-testid="key-hint"
+    className="ml-1.5 opacity-70 font-mono text-[11px] sm:text-xs"
+  >{`[${k}]`}</span>
 );
 
 /** Locked bottom-edge tactical visor action strip. */
@@ -43,45 +48,60 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
   showKeyHints = false,
 }) => {
   const { t } = useI18n();
+
   return (
     <div className="absolute bottom-3 left-3 right-3 z-30 flex items-center justify-between gap-2 max-w-4xl mx-auto pointer-events-none">
-      <button
-        type="button"
+      <HudButton
+        variant="danger"
+        size="lg"
         disabled={!canTrace}
         onClick={onCallTrace}
         className={clsx(
-          'pointer-events-auto px-3.5 sm:px-5 py-2.5 rounded-xl border font-extrabold text-xs transition-all',
-          canTrace
-            ? 'bg-red-600 hover:bg-red-500 active:scale-95 text-black border-red-300 shadow-[0_0_25px_rgba(239,68,68,0.75)] cursor-pointer'
-            : 'bg-zinc-950/85 border-zinc-800 text-zinc-500 opacity-50 pointer-events-none'
+          'pointer-events-auto',
+          canTrace && 'shadow-[0_0_25px_rgba(239,68,68,0.75)]'
         )}
       >
-        🚨 {t.table.callTrace}
+        <ShieldAlert className="w-4 h-4 shrink-0 text-red-400" />
+        <span>{t.table.callTrace}</span>
         {showKeyHints && <KeyHint k="T" />}
-      </button>
+      </HudButton>
 
-      <div className="relative pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/85 backdrop-blur-md border border-zinc-800 text-[10px] sm:text-xs">
-        <span className={clsx('font-black px-1.5 py-0.5 rounded border', myCharacter.accentBadgeClass)}>
+      <HudPanel
+        tone="default"
+        cornerBrackets
+        className="relative pointer-events-auto flex items-center gap-2 px-3 py-1.5 text-[11px] sm:text-xs"
+      >
+        <span
+          className={clsx(
+            'font-black px-1.5 py-0.5 rounded border',
+            myCharacter.accentBadgeClass
+          )}
+        >
           {`[${myCharacter.codename}]`}
         </span>
-        <span className={clsx('font-bold', riskLevel >= 4 ? 'text-red-400' : 'text-amber-400')}>
-          ⚡ {riskLevel}/6
+        <span
+          className={clsx(
+            'flex items-center gap-1 font-bold',
+            riskLevel >= 4 ? 'text-red-400' : 'text-amber-400'
+          )}
+        >
+          <Zap className="w-3.5 h-3.5 shrink-0" />
+          <span>{riskLevel}/6</span>
         </span>
         {exploit && !exploit.isBurned && (
-          <button
-            type="button"
+          <HudButton
+            variant="accent"
+            size="sm"
             disabled={!canUseChip}
             onClick={() => canUseChip && picker.request(exploit.type)}
-            className={clsx(
-              'px-2 py-0.5 rounded border font-black uppercase transition-all',
-              canUseChip
-                ? 'bg-cyan-400 text-black border-cyan-200 animate-pulse cursor-pointer'
-                : 'bg-zinc-900 border-cyan-900 text-cyan-400 opacity-60'
-            )}
+            pulse={canUseChip}
           >
-            {t.hud.chipLabel}: {exploit.type}
+            <Radio className="w-3 h-3 shrink-0" />
+            <span>
+              {t.hud.chipLabel}: {exploit.type}
+            </span>
             {showKeyHints && <KeyHint k="E" />}
-          </button>
+          </HudButton>
         )}
         {picker.isOpen && canUseChip && (
           <ProtocolPickerPopover
@@ -90,23 +110,26 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
             onCancel={picker.close}
           />
         )}
-      </div>
+      </HudPanel>
 
-      <button
-        type="button"
+      <HudButton
+        variant="primary"
+        size="lg"
         disabled={!canTransmit}
         onClick={onPlayCards}
+        active={canTransmit}
         className={clsx(
-          'pointer-events-auto px-4 sm:px-6 py-2.5 rounded-xl border font-extrabold text-xs transition-all',
-          canTransmit
-            ? 'bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-black border-emerald-200 shadow-[0_0_25px_rgba(16,185,129,0.75)] cursor-pointer'
-            : 'bg-zinc-950/85 border-zinc-800 text-zinc-500 opacity-50 pointer-events-none'
+          'pointer-events-auto',
+          canTransmit && 'shadow-[0_0_25px_rgba(16,185,129,0.75)]'
         )}
       >
-        ▶ {t.table.transmitCards}
-        {selectedCount > 0 ? ` (${selectedCount})` : ''}
+        <Send className="w-4 h-4 shrink-0 text-emerald-300" />
+        <span>
+          {t.table.transmitCards}
+          {selectedCount > 0 ? ` (${selectedCount})` : ''}
+        </span>
         {showKeyHints && <KeyHint k="↵" />}
-      </button>
+      </HudButton>
     </div>
   );
 };

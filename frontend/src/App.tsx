@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import clsx from 'clsx';
 import { Globe, HelpCircle, Terminal } from 'lucide-react';
 import { useState } from 'react';
 
@@ -7,7 +8,6 @@ import { GameRulesModal } from './features/game/components/GameRulesModal';
 import { OperatingTable } from './features/game/components/OperatingTable';
 import { ToastHost } from './features/game/components/ToastHost';
 import { useRoomUrlSync } from './features/game/hooks/useRoomUrlSync';
-import { useGameStore } from './features/game/stores/useGameStore';
 import { useRulesModalStore } from './features/game/stores/useRulesModalStore';
 import { useI18n } from './shared/i18n';
 
@@ -16,14 +16,14 @@ const queryClient = new QueryClient();
 export function App() {
   const [activeView, setActiveView] = useState<'table' | 'terminal'>('table');
   const { language, setLanguage, t } = useI18n();
-  const roomCode = useGameStore((s) => s.roomCode);
   const isRulesOpen = useRulesModalStore((s) => s.isOpen);
   const openRules = useRulesModalStore((s) => s.open);
   const closeRules = useRulesModalStore((s) => s.close);
   useRoomUrlSync();
 
-  // The seated table is a fullscreen 3D scene: chrome would only render underneath it.
-  const showChrome = !(roomCode && activeView === 'table');
+  // The table (3D arena and 3D bunker lobby) manages its own fullscreen viewport.
+  // Traditional web chrome is only shown for the dev terminal view.
+  const showWebChrome = activeView === 'terminal';
 
   const langButton = (lang: 'pl' | 'en') => (
     <button
@@ -40,12 +40,19 @@ export function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="relative min-h-screen bg-zinc-950 text-emerald-400 font-mono flex flex-col p-4 sm:p-6 overflow-hidden">
+      <div
+        className={clsx(
+          'relative text-emerald-400 font-mono overflow-hidden',
+          showWebChrome
+            ? 'min-h-screen bg-zinc-950 flex flex-col p-4 sm:p-6'
+            : 'w-screen h-[100dvh] bg-black'
+        )}
+      >
         <ToastHost />
-        {/* CRT Scanline overlay */}
-        <div className="absolute inset-0 scanlines pointer-events-none z-50" />
+        {/* CRT Scanline overlay for dev terminal */}
+        {showWebChrome && <div className="absolute inset-0 scanlines pointer-events-none z-50" />}
 
-        {showChrome && (
+        {showWebChrome && (
           <header className="border-b border-zinc-800 pb-4 mb-6 flex flex-wrap justify-between items-center gap-3">
             <h1 className="text-xl font-bold tracking-wider text-emerald-300">
               {t.common.appTitle}
@@ -68,27 +75,30 @@ export function App() {
                 {langButton('en')}
               </div>
 
-              {/* Dev tool: reachable but de-emphasised */}
               <button
                 type="button"
-                onClick={() => setActiveView(activeView === 'table' ? 'terminal' : 'table')}
-                className="flex items-center gap-1 px-2 py-1 text-[11px] text-zinc-600 hover:text-zinc-300 transition-colors cursor-pointer"
+                onClick={() => setActiveView('table')}
+                className="flex items-center gap-1 px-2 py-1 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
               >
                 <Terminal className="w-3 h-3" />
-                <span>{activeView === 'table' ? t.home.debugToggle : t.home.backToGame}</span>
+                <span>{t.home.backToGame}</span>
               </button>
             </div>
           </header>
         )}
 
-        <main className="flex-1 flex flex-col justify-start items-center max-w-5xl mx-auto w-full space-y-6">
-          {activeView === 'table' ? <OperatingTable /> : <DebugTerminal />}
-        </main>
+        {showWebChrome ? (
+          <main className="flex-1 flex flex-col justify-start items-center max-w-5xl mx-auto w-full space-y-6">
+            <DebugTerminal />
+          </main>
+        ) : (
+          <OperatingTable onOpenTerminal={() => setActiveView('terminal')} />
+        )}
 
         {/* Single Rules Modal instance (opened from the lobby and from the table) */}
         <GameRulesModal isOpen={isRulesOpen} onClose={closeRules} />
 
-        {showChrome && (
+        {showWebChrome && (
           <footer className="border-t border-zinc-800 pt-4 mt-6 text-xs text-zinc-500">
             <span>{t.home.footer}</span>
           </footer>

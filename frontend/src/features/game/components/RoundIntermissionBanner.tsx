@@ -1,7 +1,9 @@
 import clsx from 'clsx';
-import React, { useEffect, useState } from 'react';
+import { ShieldCheck, Zap } from 'lucide-react';
+import React from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { HudPanel } from '../../../shared/ui';
 import { useCountdown } from '../hooks/useCountdown';
 import type { CapacitorDischargedEvent, PlayerSeat } from '../schemas/gameEvents';
 
@@ -29,21 +31,7 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
 }) => {
   const { t } = useI18n();
   const serverCountdown = useCountdown(intermissionDeadlineUtc, 10);
-  const [localCountdown, setLocalCountdown] = useState<number>(3);
-
-  useEffect(() => {
-    if (intermissionDeadlineUtc || isDischargeCinematicActive) {
-      return;
-    }
-    const interval = setInterval(() => {
-      setLocalCountdown((prev) => (prev <= 1 ? 0 : prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [intermissionDeadlineUtc, isDischargeCinematicActive, roundNumber]);
-
-  const countdown = intermissionDeadlineUtc
-    ? serverCountdown.secondsLeft
-    : localCountdown;
+  const countdown = serverCountdown.secondsLeft;
 
   const activeCount = players.filter((p) => p.status === 'Active').length;
   const totalCount = players.length;
@@ -58,13 +46,12 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
   const riskPercent = Math.round((resultingRisk / 6) * 100);
 
   return (
-    <div
+    <HudPanel
       data-testid="round-intermission-banner"
+      tone={isOverloaded ? 'danger' : 'accent'}
+      cornerBrackets
       className={clsx(
-        'flex flex-col items-center justify-center p-5 rounded-2xl border-2 font-mono transition-all duration-500 max-w-lg mx-auto w-full backdrop-blur-md shadow-2xl',
-        isOverloaded
-          ? 'bg-red-950/90 border-red-500 shadow-[0_0_40px_rgba(239,68,68,0.5)]'
-          : 'bg-zinc-950/95 border-emerald-500/80 shadow-[0_0_40px_rgba(16,185,129,0.4)]',
+        'flex flex-col items-center justify-center p-5 max-w-lg mx-auto w-full transition-all duration-500',
         className
       )}
     >
@@ -81,17 +68,23 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
         {lastDischargeOutcome ? (
           isOverloaded ? (
             <div className="space-y-1">
-              <span className="text-sm font-black text-red-400 tracking-wider block">
-                ⚡ [{testedNick}] {t.intermission.operatorEliminated}
+              <span className="flex items-center justify-center gap-1.5 text-sm font-black text-red-400 tracking-wider">
+                <Zap className="w-4 h-4 shrink-0 text-red-400" />
+                <span>
+                  [{testedNick}] {t.intermission.operatorEliminated}
+                </span>
               </span>
-              <span className="text-[11px] text-zinc-400">
+              <span className="text-[11px] text-zinc-400 block">
                 {t.intermission.breakdownDesc}
               </span>
             </div>
           ) : (
             <div className="space-y-1">
-              <span className="text-sm font-black text-emerald-400 tracking-wider block">
-                🛡️ [{testedNick}] {t.intermission.survivedAttempt}
+              <span className="flex items-center justify-center gap-1.5 text-sm font-black text-emerald-400 tracking-wider">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                <span>
+                  [{testedNick}] {t.intermission.survivedAttempt}
+                </span>
               </span>
               <span className="text-xs text-amber-300 font-bold block">
                 {`${t.intermission.riskIncreased} ${resultingRisk}/6 (${riskPercent}%)`}
@@ -107,22 +100,43 @@ export const RoundIntermissionBanner: React.FC<RoundIntermissionBannerProps> = (
 
       <div className="mt-4 pt-3 border-t border-zinc-800/80 w-full flex flex-col items-center gap-2">
         {!isDischargeCinematicActive ? (
-          <div
-            data-testid="intermission-countdown"
-            className="flex flex-col items-center gap-1 text-cyan-300"
-          >
-            <span className="text-xs font-bold tracking-widest">⚡ {t.intermission.nextCycleAuto}</span>
-            <span
-              key={countdown}
-              className="text-5xl sm:text-6xl font-black text-white tabular-nums drop-shadow-[0_0_18px_rgba(34,211,238,0.9)] animate-pulse"
+          intermissionDeadlineUtc ? (
+            <div
+              data-testid="intermission-countdown"
+              className="flex flex-col items-center gap-1 text-cyan-300"
             >
-              {countdown}
-            </span>
-          </div>
+              <span className="flex items-center gap-1 text-xs font-bold tracking-widest">
+                <Zap className="w-3.5 h-3.5 shrink-0" />
+                {countdown <= 1 ? (
+                  <span className="text-cyan-400 font-black">
+                    {t.hud.roundIntroTitle(roundNumber + 1)}
+                  </span>
+                ) : (
+                  <span>{t.intermission.nextCycleAuto}</span>
+                )}
+              </span>
+              <span
+                key={countdown}
+                className="text-5xl sm:text-6xl font-black text-white tabular-nums drop-shadow-[0_0_18px_rgba(34,211,238,0.9)] motion-safe:animate-pulse"
+              >
+                {countdown}
+              </span>
+            </div>
+          ) : (
+            <div
+              data-testid="intermission-waiting"
+              className="flex flex-col items-center gap-1 text-zinc-400"
+            >
+              <span className="flex items-center gap-1 text-xs font-bold tracking-widest motion-safe:animate-pulse">
+                <Zap className="w-3.5 h-3.5 shrink-0" />
+                <span>{t.intermission.nextCycleAuto}</span>
+              </span>
+            </div>
+          )
         ) : (
           <span className="text-xs text-zinc-500 italic">{t.intermission.dischargeResolving}</span>
         )}
       </div>
-    </div>
+    </HudPanel>
   );
 };

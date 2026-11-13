@@ -5,8 +5,9 @@ import { computeCountdown } from '../../../hooks/useCountdown';
 import { becameMyTurn } from '../../../hooks/useYourTurnBanner';
 import { getCharacterById } from '../../../utils/characterCatalog';
 import { ActionStrip } from './ActionStrip';
+import { SpectatorHud } from './SpectatorHud';
 import { TimerBar } from './TimerBar';
-import { ActiveTurnLabel, YourTurnBannerView } from './TurnStatusHud';
+import { YourTurnBannerView } from './TurnStatusHud';
 import { TurnUrgencyCountdownView } from './TurnUrgencyCountdown';
 import { createExploitPickerController } from './useExploitPicker';
 
@@ -54,12 +55,6 @@ describe('turn status HUD', () => {
     expect(renderToString(<YourTurnBannerView visible={false} />)).not.toContain(
       'your-turn-banner'
     );
-  });
-
-  it('names the acting opponent', () => {
-    const html = renderToString(<ActiveTurnLabel isMyTurn={false} activePlayerNickname="Volt" />);
-    expect(html).toContain('Volt');
-    expect(renderToString(<ActiveTurnLabel isMyTurn activePlayerNickname="Volt" />)).toBe('');
   });
 });
 
@@ -151,5 +146,40 @@ describe('turn urgency countdown', () => {
     const html = renderToString(<TurnUrgencyCountdownView countdown={countdown} isMyTurn />);
     expect(html).toContain('turn-urgency-countdown');
     expect(html).toContain('>5<');
+  });
+});
+
+describe('SpectatorHud', () => {
+  const livingOpponents = [
+    { playerId: 'p1', nickname: 'GhostOperator', status: 'Active' as const, isReady: true, handCount: 3 },
+    { playerId: 'p2', nickname: 'VoltRunner', status: 'Active' as const, isReady: true, handCount: 2 },
+  ];
+
+  it('renders spectator badge and overview option', () => {
+    const html = renderToString(
+      <SpectatorHud
+        livingOpponents={livingOpponents}
+        currentTargetId={null}
+        cameraFocus="overview"
+        onSelectTarget={() => {}}
+        onSelectFocus={() => {}}
+      />
+    );
+    expect(html).toContain('spectator-hud');
+    expect(html).toContain('OBSERWUJESZ');
+    expect(html).toContain('Widok ogólny');
+  });
+
+  it('renders active target nickname when focused on an opponent', () => {
+    const html = renderToString(
+      <SpectatorHud
+        livingOpponents={livingOpponents}
+        currentTargetId="p1"
+        cameraFocus="opponents"
+        onSelectTarget={() => {}}
+        onSelectFocus={() => {}}
+      />
+    );
+    expect(html).toContain('GhostOperator');
   });
 });
