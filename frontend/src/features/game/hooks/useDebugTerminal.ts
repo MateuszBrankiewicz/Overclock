@@ -37,6 +37,8 @@ import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalo
 import { dischargeStrikeDelayMs } from '../utils/cinematicTiming';
 import { feedEntryDelayMs } from '../utils/feedRevealDelay';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
+import { readRoomParam } from '../utils/invite';
+import { loadSavedNickname } from '../utils/nickname';
 
 /** Delay before the trace siren plays so it does not drown out the "LIAR!" robot voice. */
 export const TRACE_SIREN_DELAY_MS = 900;
@@ -217,6 +219,57 @@ export async function resumeSavedSession(
     abort();
   }
   return false;
+}
+
+/**
+ * Invokes the hub `JoinRoom` method and applies the result to the stores.
+ * Returns null on success, or the failure detail reported by the hub.
+ */
+export async function joinRoomOn(
+  conn: Pick<GameConnectionManager, 'invokeHubMethod' | 'saveSession'>,
+  targetRoomCode: string,
+  nickname: string
+): Promise<string | null> {
+  const preferredCharacterId = useGameStore.getState().selectedCharacterId;
+  const res = await conn.invokeHubMethod('JoinRoom', RoomJoinResultSchema, {
+    roomCode: targetRoomCode,
+    nickname,
+    preferredCharacterId,
+  });
+  if (res.isSuccess && res.data) {
+    conn.saveSession({ roomId: res.data.roomCode, sessionToken: res.data.sessionToken });
+    useGameStore.getState().applyRoomSnapshot(res.data.gameState);
+    return null;
+  }
+  return res.error ?? res.errorCode ?? 'Unknown error';
+}
+
+/**
+ * Joins the room named by the `?room=` invite link. With a saved nickname the join is immediate;
+ * without one the lobby is asked to prompt for a nickname first (`inviteJoin.needsNickname`).
+ */
+export async function autoJoinFromInvite(
+  conn: Pick<GameConnectionManager, 'invokeHubMethod' | 'saveSession'>,
+  search: string = typeof window === 'undefined' ? '' : window.location.search
+): Promise<void> {
+  const roomCode = readRoomParam(search);
+  if (!roomCode || useGameStore.getState().isInRoom) return;
+  const { setInviteJoin } = useUiStore.getState();
+  const nickname = loadSavedNickname();
+  if (!nickname) {
+    setInviteJoin({ roomCode, status: 'needsNickname' });
+    return;
+  }
+  setInviteJoin({ roomCode, status: 'joining' });
+  const net = useI18n.getState().t.network;
+  try {
+    const error = await joinRoomOn(conn, roomCode, nickname);
+    if (error) reportError(net.actionFailed('JoinRoom', error));
+  } catch (err) {
+    reportError(net.actionFailed('JoinRoom', errText(err)));
+  } finally {
+    setInviteJoin(null);
+  }
 }
 
 /** Lazily creates the app-wide SignalR connection wired to the UI store. */
@@ -447,8 +500,11 @@ export function useGameSession() {
           logMessage('Connected to SignalR GameHub');
           if (!startupResumeAttempted) {
             startupResumeAttempted = true;
+            // A saved session owns the tab: an invite link never opens a second seat next to it.
+            const hadSession = conn.getSession() !== null;
             const resumed = await resumeSavedSession(conn, { resetOnFailure: true });
             if (resumed) logMessage('Session resumed after page load');
+            if (!hadSession) await autoJoinFromInvite(conn);
           }
         })
         .catch((err: unknown) => {
@@ -515,18 +571,11 @@ export function useGameSession() {
   const joinRoom = async (targetRoomCode: string, nickname: string) => {
     try {
       const conn = await ensureConnected();
-      const preferredCharacterId = useGameStore.getState().selectedCharacterId;
-      const res = await conn.invokeHubMethod(
-        'JoinRoom',
-        RoomJoinResultSchema,
-        { roomCode: targetRoomCode, nickname, preferredCharacterId }
-      );
-      if (res.isSuccess && res.data) {
-        conn.saveSession({ roomId: res.data.roomCode, sessionToken: res.data.sessionToken });
-        applyRoomSnapshot(res.data.gameState);
-        logMessage(`Joined room ${res.data.roomCode} as ${nickname}`);
+      const error = await joinRoomOn(conn, targetRoomCode, nickname);
+      if (error) {
+        fail('JoinRoom', error);
       } else {
-        fail('JoinRoom', res.error ?? res.errorCode ?? 'Unknown error');
+        logMessage(`Joined room ${targetRoomCode} as ${nickname}`);
       }
     } catch (err) {
       fail('JoinRoom', errText(err));

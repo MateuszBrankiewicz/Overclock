@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGameStore } from '../stores/useGameStore';
+import { useUiStore } from '../stores/useUiStore';
 import { LobbyScreen } from './LobbyScreen';
 
 describe('LobbyScreen Component (GFX-05)', () => {
@@ -12,6 +13,7 @@ describe('LobbyScreen Component (GFX-05)', () => {
     );
     useGameStore.getState().leaveRoom();
     useGameStore.getState().setSelectedCharacter('ghost');
+    useUiStore.setState({ inviteJoin: null });
   });
 
   afterEach(() => {
@@ -44,6 +46,28 @@ describe('LobbyScreen Component (GFX-05)', () => {
     const html = renderToString(React.createElement(LobbyScreen));
     expect(html).toContain('value="CYBER-7X9"');
     expect(html).toContain('CYBER-7X9');
+  });
+
+  it('shows the nickname modal when an invite link needs a nickname', () => {
+    useUiStore.setState({ inviteJoin: { roomCode: 'CYBER-7X9', status: 'needsNickname' } });
+
+    const html = renderToString(React.createElement(LobbyScreen));
+    expect(html).toContain('invite-nickname-modal');
+    expect(html).toContain('Podaj nick');
+    expect(html).toContain('CYBER-7X9');
+  });
+
+  it('shows the joining status and no modal while an invite join is in flight', () => {
+    useUiStore.setState({ inviteJoin: { roomCode: 'CYBER-7X9', status: 'joining' } });
+
+    const html = renderToString(React.createElement(LobbyScreen));
+    expect(html).toContain('Dołączanie do stołu CYBER-7X9');
+    expect(html).not.toContain('invite-nickname-modal');
+  });
+
+  it('hides the nickname modal without an invite join', () => {
+    const html = renderToString(React.createElement(LobbyScreen));
+    expect(html).not.toContain('invite-nickname-modal');
   });
 
   it('disables join submit button when room code input is empty', () => {

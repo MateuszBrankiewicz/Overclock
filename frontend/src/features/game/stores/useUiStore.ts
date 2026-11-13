@@ -11,6 +11,12 @@ export interface Toast {
   message: string;
 }
 
+/** Joining a room from an invite link: in flight, or waiting for the player to pick a nickname. */
+export interface InviteJoin {
+  roomCode: string;
+  status: 'joining' | 'needsNickname';
+}
+
 export const TOAST_TTL_MS = 4000;
 export const MAX_TOASTS = 4;
 export const MAX_FEED_ENTRIES = 20;
@@ -19,6 +25,8 @@ interface UiState {
   connectionStatus: ConnectionStatus;
   toasts: Toast[];
   feed: FeedEntry[];
+  inviteJoin: InviteJoin | null;
+  setInviteJoin: (inviteJoin: InviteJoin | null) => void;
   setConnectionStatus: (status: ConnectionStatus) => void;
   pushToast: (toast: { kind: ToastKind; message: string }) => number;
   dismissToast: (id: number) => void;
@@ -33,6 +41,8 @@ export const useUiStore = create<UiState>((set, get) => ({
   connectionStatus: 'Disconnected',
   toasts: [],
   feed: [],
+  inviteJoin: null,
+  setInviteJoin: (inviteJoin) => set({ inviteJoin }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
   pushToast: ({ kind, message }) => {
     const id = nextToastId++;

@@ -9,6 +9,7 @@ import { HudButton, HudPanel } from '../../../shared/ui';
 import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
+import { useUiStore } from '../stores/useUiStore';
 import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
 import { readRoomParam } from '../utils/invite';
 import { loadNickname, saveNickname } from '../utils/nickname';
@@ -16,6 +17,7 @@ import { LobbyShowcase3D } from './arena3d/LobbyShowcase3D';
 import { AudioMuteButton } from './AudioMuteButton';
 import { CharacterSelector } from './CharacterSelector';
 import { GfxQualityButton } from './GfxQualityButton';
+import { InviteNicknameModal } from './InviteNicknameModal';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
 export interface LobbyScreenProps {
@@ -32,6 +34,9 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const openRules = useRulesModalStore((s) => s.open);
   const selectedCharacterId = useGameStore((s) => s.selectedCharacterId);
   const setSelectedCharacter = useGameStore((s) => s.setSelectedCharacter);
+  const inviteJoin = useUiStore((s) => s.inviteJoin);
+  const setInviteJoin = useUiStore((s) => s.setInviteJoin);
+  const isInviteJoining = inviteJoin?.status === 'joining';
 
   const [hasWebGL] = useState<boolean>(() => checkWebGLAvailable());
   const [nickname, setNickname] = useState(() => loadNickname());
@@ -70,6 +75,17 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
     e.preventDefault();
     if (targetCode.trim()) {
       void session.joinRoom(targetCode.trim().toUpperCase(), persistedNickname());
+    }
+  };
+
+  const handleInviteNickname = async (roomCode: string, chosenNickname: string) => {
+    saveNickname(chosenNickname);
+    setNickname(chosenNickname);
+    setInviteJoin({ roomCode, status: 'joining' });
+    try {
+      await session.joinRoom(roomCode, chosenNickname);
+    } finally {
+      setInviteJoin(null);
     }
   };
 
@@ -199,6 +215,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 variant="primary"
                 size="md"
                 onClick={handleCreateRoom}
+                disabled={isInviteJoining}
                 className="flex items-center justify-center gap-1.5 text-xs"
               >
                 <PlusCircle className="w-3.5 h-3.5 shrink-0" />
@@ -216,6 +233,12 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 <span>{t.home.joinCta}</span>
               </HudButton>
             </div>
+
+            {isInviteJoining && (
+              <p role="status" className="text-[11px] font-bold text-cyan-300 animate-pulse">
+                {t.home.inviteJoining(inviteJoin.roomCode)}
+              </p>
+            )}
 
             {/* Expandable Join Code Row */}
             {isJoinOpen && (
@@ -235,7 +258,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
                   type="submit"
                   variant="primary"
                   size="sm"
-                  disabled={!targetCode.trim()}
+                  disabled={!targetCode.trim() || isInviteJoining}
                   className="shrink-0 text-xs"
                 >
                   {t.home.joinCta}
@@ -245,6 +268,16 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </div>
         </HudPanel>
       </div>
+
+      {inviteJoin?.status === 'needsNickname' && (
+        <InviteNicknameModal
+          roomCode={inviteJoin.roomCode}
+          onSubmit={(chosenNickname) => {
+            void handleInviteNickname(inviteJoin.roomCode, chosenNickname);
+          }}
+          onCancel={() => setInviteJoin(null)}
+        />
+      )}
     </div>
   );
 };
