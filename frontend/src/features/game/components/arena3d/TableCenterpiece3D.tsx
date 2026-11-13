@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { useI18n } from '../../../../shared/i18n';
 import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
-import { DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
+import { DISCHARGE_CHARGE_MS, DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
 import { prefersReducedMotion } from './hud/motion';
 import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
@@ -16,6 +16,10 @@ import { RevealedCards3D } from './RevealedCards3D';
 import { ServerRackDiodes3D } from './ServerRackDiodes3D';
 import { RoundProtocolCard3D } from './vfx/RoundProtocolCard3D';
 import { emitCardLandingSparks, emitCardTrail } from './vfx/vfxEmitter';
+
+/** Capacitor drum: sunk into the table top, and hovering above it while live. */
+const DRUM_TABLE_Y = 0.85;
+const DRUM_HOVER_Y = 1.3;
 
 export interface TableCenterpiece3DProps {
   tablePileCount: number;
@@ -37,6 +41,8 @@ export interface TableCenterpiece3DProps {
   revealStartedAtMs?: number | null;
   bluffDetected?: boolean;
   revealLoserPos?: [number, number, number] | null;
+  /** Hide the pile / turn pill while a cinematic owns the screen. */
+  hideStatusPill?: boolean;
 }
 
 export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
@@ -58,11 +64,14 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   revealStartedAtMs = null,
   bluffDetected = false,
   revealLoserPos = null,
+  hideStatusPill = false,
 }) => {
   const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
   const spotLightRef = useRef<SpotLight>(null);
   const capacitorDrumRef = useRef<Group>(null);
+  const chargeSpinRef = useRef(0);
+  const chargeLightRef = useRef<THREE.PointLight>(null);
   const laserScannerRef = useRef<Mesh>(null);
   const flyingGroupRef = useRef<Group>(null);
   const hotChamberMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
@@ -85,7 +94,10 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   const isGameOver = roomState === 'GameOver';
   const protocolColor = PROTOCOL_HEX[currentTargetProtocol ?? 'Alpha'] ?? '#10b981';
   const isBluffCheck = roomState === 'BluffCheck';
-  const isVoltageTest = roomState === 'VoltageTest' || Boolean(shockTargetPos);
+  // The discharge sequence usually plays after the server already moved on to RoundOver, so the
+  // drum has to stay up for the whole cinematic, not just the VoltageTest state.
+  const isVoltageTest =
+    roomState === 'VoltageTest' || Boolean(shockTargetPos) || Boolean(dischargeStartedAtMs);
 
   const stageAccentColor = isGameOver
     ? '#f59e0b'
@@ -136,24 +148,36 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
         // Aim capacitor turret directly at the target operator
         const aimAngle = Math.atan2(shockTargetPos[0], shockTargetPos[2]);
         capacitorDrumRef.current.rotation.y = aimAngle;
-        capacitorDrumRef.current.position.y = 1.35;
+        capacitorDrumRef.current.position.y = DRUM_HOVER_Y;
+        capacitorDrumRef.current.scale.setScalar(1);
       } else if (dischargeStartedAtMs && dischargeRoll !== null && dischargeRoll !== undefined) {
-        // Spin-down deceleration phase ending on roll chamber
-        const spindownDuration = reducedMotion ? 0 : DRUM_SPINDOWN_MS;
-        const elapsedSinceDischarge = Date.now() - dischargeStartedAtMs;
+        const drum = capacitorDrumRef.current;
+        const sinceStart = Date.now() - dischargeStartedAtMs;
         const targetAngle = -((dischargeRoll - 1) * Math.PI * 2) / 6;
-
-        if (spindownDuration > 0 && elapsedSinceDischarge < spindownDuration) {
-          const t = Math.max(0, Math.min(1, elapsedSinceDischarge / spindownDuration));
-          // Ease-out cubic deceleration
-          const easeOut = 1 - Math.pow(1 - t, 3);
-          const totalSpins = Math.PI * 2 * 3;
-          capacitorDrumRef.current.rotation.y = totalSpins * (1 - easeOut) + targetAngle;
-          capacitorDrumRef.current.position.y = 1.25 + (1 - easeOut) * Math.sin(elapsed * 28) * 0.04;
+        if (reducedMotion) {
+          drum.rotation.y = targetAngle;
+          drum.position.y = DRUM_HOVER_Y;
+          drum.scale.setScalar(1);
+        } else if (sinceStart < DISCHARGE_CHARGE_MS) {
+          // Charge: the drum rises out of the table, spinning up and shaking harder as it charges.
+          const p = Math.max(0, sinceStart / DISCHARGE_CHARGE_MS);
+          const rise = 1 - Math.pow(1 - Math.min(1, p * 1.6), 3);
+          const spinRate = 2 + p * 14;
+          chargeSpinRef.current += delta * spinRate;
+          drum.rotation.y = chargeSpinRef.current;
+          drum.position.y = DRUM_TABLE_Y + (DRUM_HOVER_Y - DRUM_TABLE_Y) * rise + Math.sin(elapsed * 40) * 0.012 * p;
+          drum.scale.setScalar(0.4 + 0.6 * rise);
+        } else if (sinceStart < DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS) {
+          // Roll: ease-out cubic spin-down that lands exactly on the rolled chamber.
+          const p = (sinceStart - DISCHARGE_CHARGE_MS) / DRUM_SPINDOWN_MS;
+          const easeOut = 1 - Math.pow(1 - p, 3);
+          drum.rotation.y = Math.PI * 2 * 3 * (1 - easeOut) + targetAngle;
+          drum.position.y = DRUM_HOVER_Y + (1 - easeOut) * Math.sin(elapsed * 28) * 0.03;
+          drum.scale.setScalar(1);
         } else {
-          // Settled on target roll chamber
-          capacitorDrumRef.current.rotation.y = targetAngle;
-          capacitorDrumRef.current.position.y = 1.25;
+          drum.rotation.y = targetAngle;
+          drum.position.y = DRUM_HOVER_Y;
+          drum.scale.setScalar(1);
         }
       } else {
         if (reducedMotion) {
@@ -172,12 +196,26 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
         let pulseSpeed = 4;
         if (dischargeStartedAtMs && dischargeRoll !== null) {
           const elapsedSinceDischarge = Date.now() - dischargeStartedAtMs;
-          const t = Math.max(0, Math.min(1, elapsedSinceDischarge / DRUM_SPINDOWN_MS));
-          pulseSpeed = 6 + t * 24;
+          const t = Math.max(
+            0,
+            Math.min(1, elapsedSinceDischarge / (DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS))
+          );
+          pulseSpeed = 4 + t * 30;
         }
         const pulse = 1.6 + Math.sin(elapsed * pulseSpeed) * 0.8;
         hotChamberMaterialRef.current.emissiveIntensity = pulse;
       }
+    }
+
+    if (chargeLightRef.current) {
+      // Grows from nothing to a flickering glare while the capacitor charges, then dies on the strike.
+      let charge = 0;
+      if (dischargeStartedAtMs && !shockTargetPos && !reducedMotion) {
+        const total = DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS;
+        charge = Math.max(0, Math.min(1, (Date.now() - dischargeStartedAtMs) / total));
+      }
+      chargeLightRef.current.intensity =
+        charge === 0 ? 0 : charge * 9 * (0.75 + 0.25 * Math.sin(elapsed * (20 + charge * 40)));
     }
 
     if (laserScannerRef.current && isBluffCheck) {
@@ -310,7 +348,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
       {roomState !== 'Lobby' && <RoundProtocolCard3D />}
 
       {/* Pile Counter & Turn Status Info Pill next to Hologram */}
-      {roomState !== 'Lobby' && (
+      {roomState !== 'Lobby' && !hideStatusPill && (
         <Html position={[0, 0.98, -0.32]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
           <div className="px-3 py-1 rounded-full border border-zinc-700/80 bg-black/85 backdrop-blur-md font-mono text-[10px] flex items-center gap-2.5 shadow-[0_0_25px_rgba(0,0,0,0.9)] select-none pointer-events-none whitespace-nowrap">
             <span className="text-zinc-300 font-bold">{t.arena.hologramPile}: {tablePileCount}</span>
@@ -385,7 +423,8 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
 
       {/* 3D 6-Chamber High-Voltage Dielectric Revolver Cylinder during VoltageTest & Shock */}
       {isVoltageTest && (
-        <group ref={capacitorDrumRef} position={[0, 1.25, 0]}>
+        <group ref={capacitorDrumRef} position={[0, dischargeStartedAtMs ? DRUM_TABLE_Y : 1.25, 0]}>
+          <pointLight ref={chargeLightRef} color="#ef4444" intensity={0} distance={4.5} />
           <mesh castShadow>
             <cylinderGeometry args={[0.42, 0.42, 0.48, 18]} />
             <meshStandardMaterial color="#18181b" metalness={0.9} roughness={0.15} />

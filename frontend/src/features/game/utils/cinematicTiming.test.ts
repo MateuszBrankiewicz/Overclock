@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   AWAIT_DISCHARGE_TIMEOUT_MS,
   DEATH_CINEMATIC_MS,
+  DISCHARGE_CHARGE_MS,
   DISCHARGE_CINEMATIC_MS,
   dischargeCinematicDurationMs,
+  dischargeStageAt,
+  dischargeStrikeDelayMs,
   DRUM_SPINDOWN_MS,
   REVEAL_CARD_STAGGER_MS,
   REVEAL_VERDICT_HOLD_MS,
@@ -42,25 +45,37 @@ describe('cinematicTiming (BUG-02, UX-01, UX-04)', () => {
     expect(traceRevealDurationMs(4)).toBeLessThanOrEqual(4000);
   });
 
-  it('guarantees dischargeCinematicDurationMs includes drum spindown duration', () => {
-    expect(dischargeCinematicDurationMs(true)).toBe(DEATH_CINEMATIC_MS + DRUM_SPINDOWN_MS);
-    expect(dischargeCinematicDurationMs(true)).toBe(5200);
-
-    expect(dischargeCinematicDurationMs(false)).toBe(DISCHARGE_CINEMATIC_MS + DRUM_SPINDOWN_MS);
-    expect(dischargeCinematicDurationMs(false)).toBe(5000);
+  it('builds up (charge, then drum spindown) before the arc strikes', () => {
+    expect(dischargeStrikeDelayMs()).toBe(DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS);
+    expect(dischargeStageAt(0)).toBe('charge');
+    expect(dischargeStageAt(DISCHARGE_CHARGE_MS)).toBe('roll');
+    expect(dischargeStageAt(dischargeStrikeDelayMs() - 1)).toBe('roll');
+    expect(dischargeStageAt(dischargeStrikeDelayMs())).toBe('strike');
   });
 
-  it('omits drum spindown when reducedMotion is enabled', () => {
-    expect(dischargeCinematicDurationMs(true, true)).toBe(DEATH_CINEMATIC_MS);
-    expect(dischargeCinematicDurationMs(true, true)).toBe(3800);
+  it('guarantees dischargeCinematicDurationMs includes the build-up', () => {
+    expect(dischargeCinematicDurationMs(true)).toBe(DEATH_CINEMATIC_MS + dischargeStrikeDelayMs());
+    expect(dischargeCinematicDurationMs(true)).toBe(6000);
 
+    expect(dischargeCinematicDurationMs(false)).toBe(DISCHARGE_CINEMATIC_MS + dischargeStrikeDelayMs());
+    expect(dischargeCinematicDurationMs(false)).toBe(5600);
+  });
+
+  it('skips the build-up when reducedMotion is enabled', () => {
+    expect(dischargeStrikeDelayMs(true)).toBe(0);
+    expect(dischargeStageAt(0, true)).toBe('strike');
+    expect(dischargeCinematicDurationMs(true, true)).toBe(DEATH_CINEMATIC_MS);
     expect(dischargeCinematicDurationMs(false, true)).toBe(DISCHARGE_CINEMATIC_MS);
-    expect(dischargeCinematicDurationMs(false, true)).toBe(3600);
+  });
+
+  it('leaves part of the 10 s round intermission after the discharge', () => {
+    expect(dischargeCinematicDurationMs(true)).toBeLessThanOrEqual(6500);
   });
 
   it('defines await discharge watchdog timeout and drum spindown duration', () => {
     expect(AWAIT_DISCHARGE_TIMEOUT_MS).toBe(15000);
     expect(DRUM_SPINDOWN_MS).toBe(1400);
+    expect(DISCHARGE_CHARGE_MS).toBe(1200);
     expect(REVEAL_VERDICT_HOLD_MS).toBe(1700);
     expect(TRACE_SUSPENSE_MS).toBe(1000);
     expect(ROUND_INTRO_MS).toBe(1400);

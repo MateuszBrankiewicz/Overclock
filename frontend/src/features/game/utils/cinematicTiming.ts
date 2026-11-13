@@ -29,22 +29,42 @@ export function traceRevealDurationMs(cardCount: number): number {
   return verdictVisibleAtMs(cardCount, 0) + REVEAL_VERDICT_HOLD_MS;
 }
 
-/** Duration of the 3D discharge / death cinematic on the tested operator. */
-export const DISCHARGE_CINEMATIC_MS = 3600;
-
-/** Real duration of the multi-phase operator elimination/death kinematic. */
-export const DEATH_CINEMATIC_MS = 3800;
+/**
+ * Discharge sequence on the tested operator, all measured from `dischargeCinematic.startedAtMs`:
+ *   charge  [0, CHARGE)                  capacitor drum rises out of the table and charges up
+ *   roll    [CHARGE, CHARGE + SPINDOWN)  drum spins down onto the d6 chamber
+ *   strike  [CHARGE + SPINDOWN, end)     arc hits the operator, result is shown
+ * Reduced motion skips straight to the strike.
+ */
+export const DISCHARGE_CHARGE_MS = 1200;
 
 /** High-voltage capacitor drum spin-down deceleration duration before shock execution. */
 export const DRUM_SPINDOWN_MS = 1400;
 
+/** Time after the strike: the arc / result (survived) or the death kinematic (overloaded). */
+export const DISCHARGE_CINEMATIC_MS = 3000;
+export const DEATH_CINEMATIC_MS = 3400;
+
 /** Maximum time client waits for discharge event after trace resolution before releasing watchdog. */
 export const AWAIT_DISCHARGE_TIMEOUT_MS = 15000;
 
-/** Duration of the 3D discharge or death cinematic on the tested operator. */
+/** Delay from the start of the discharge cinematic until the arc strikes the operator. */
+export function dischargeStrikeDelayMs(reducedMotion = false): number {
+  return reducedMotion ? 0 : DISCHARGE_CHARGE_MS + DRUM_SPINDOWN_MS;
+}
+
+export type DischargeStage = 'charge' | 'roll' | 'strike';
+
+/** Which stage of the discharge sequence is on screen `elapsedMs` after it started. */
+export function dischargeStageAt(elapsedMs: number, reducedMotion = false): DischargeStage {
+  if (elapsedMs >= dischargeStrikeDelayMs(reducedMotion)) return 'strike';
+  return elapsedMs < DISCHARGE_CHARGE_MS ? 'charge' : 'roll';
+}
+
+/** Full duration of the discharge sequence (build-up + strike + aftermath). */
 export function dischargeCinematicDurationMs(overloaded: boolean, reducedMotion = false): number {
   const base = overloaded ? Math.max(DISCHARGE_CINEMATIC_MS, DEATH_CINEMATIC_MS) : DISCHARGE_CINEMATIC_MS;
-  return reducedMotion ? base : base + DRUM_SPINDOWN_MS;
+  return base + dischargeStrikeDelayMs(reducedMotion);
 }
 
 /** How long the "round N - protocol X" announcement stays up. */

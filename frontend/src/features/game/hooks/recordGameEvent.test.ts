@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { playSfx, speakRobotVoice } from '../../../shared/lib/audio';
 import { useGameStore } from '../stores/useGameStore';
 import { useUiStore } from '../stores/useUiStore';
+import { dischargeStrikeDelayMs } from '../utils/cinematicTiming';
 import { recordGameEvent } from './useDebugTerminal';
 
 vi.mock('../../../shared/lib/audio', () => ({
@@ -62,7 +63,7 @@ describe('recordGameEvent', () => {
       },
     });
     expect(vibrateMock).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1400);
+    vi.advanceTimersByTime(dischargeStrikeDelayMs());
     expect(vibrateMock).toHaveBeenCalledWith(60);
   });
 
@@ -80,7 +81,7 @@ describe('recordGameEvent', () => {
       },
     });
     expect(vibrateMock).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1400);
+    vi.advanceTimersByTime(dischargeStrikeDelayMs());
     expect(vibrateMock).toHaveBeenCalledWith([200, 80, 200, 80, 400]);
     vibrateMock.mockClear();
     recordGameEvent({
@@ -140,9 +141,13 @@ describe('recordGameEvent', () => {
         overloaded: false,
       },
     });
-    expect(playSfx).toHaveBeenCalledWith('voltageBuzz', { riskLevel: 2, rising: true });
+    expect(playSfx).toHaveBeenCalledWith('voltageBuzz', {
+      riskLevel: 2,
+      rising: true,
+      duration: dischargeStrikeDelayMs() / 1000,
+    });
     expect(playSfx).not.toHaveBeenCalledWith('discharge');
-    vi.advanceTimersByTime(1400);
+    vi.advanceTimersByTime(dischargeStrikeDelayMs());
     expect(playSfx).toHaveBeenCalledWith('discharge');
     vi.advanceTimersByTime(300);
     expect(playSfx).toHaveBeenCalledWith('survived');

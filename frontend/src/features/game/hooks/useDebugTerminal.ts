@@ -29,7 +29,7 @@ import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
 import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
-import { DRUM_SPINDOWN_MS } from '../utils/cinematicTiming';
+import { dischargeStrikeDelayMs } from '../utils/cinematicTiming';
 import { feedEntryDelayMs } from '../utils/feedRevealDelay';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
 
@@ -60,7 +60,7 @@ export function recordGameEvent(source: FeedSource): void {
   const { players, playerId, traceReveal } = useGameStore.getState();
   const ui = useUiStore.getState();
   if (source.kind === 'RoundStarted' && source.event.roundNumber === 1) ui.clearFeed();
-  const spindownDelayMs = prefersReducedMotion() ? 0 : DRUM_SPINDOWN_MS;
+  const spindownDelayMs = dischargeStrikeDelayMs(prefersReducedMotion());
   // Formatted now, while the names still match the seats of this event.
   const entry = formatFeedEvent(source, {
     players,
@@ -124,7 +124,11 @@ export function recordGameEvent(source: FeedSource): void {
     }
     case 'CapacitorDischarged': {
       if (spindownDelayMs > 0) {
-        playSfx('voltageBuzz', { riskLevel: source.event.riskLevel, rising: true });
+        playSfx('voltageBuzz', {
+          riskLevel: source.event.riskLevel,
+          rising: true,
+          duration: spindownDelayMs / 1000,
+        });
         setTimeout(() => {
           playSfx('discharge');
           if (!source.event.overloaded) {

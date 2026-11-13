@@ -16,6 +16,7 @@ import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
 import { prefersReducedMotion } from './arena3d/hud/motion';
 import { AudioMuteButton } from './AudioMuteButton';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
+import { DischargeSequenceBanner } from './DischargeSequenceBanner';
 import { GfxQualityButton } from './GfxQualityButton';
 import { LeaveTableButton } from './LeaveTableButton';
 import { LobbyPlayerList } from './LobbyPlayerList';
@@ -208,8 +209,26 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
         />
       )}
 
+      {dischargeCinematic && (
+        <DischargeSequenceBanner
+          key={`discharge:${dischargeCinematic.startedAtMs}`}
+          targetNickname={
+            players.find((p) => p.playerId === dischargeCinematic.event.playerId)?.nickname ??
+            t.common.operator
+          }
+          isLocalTarget={dischargeCinematic.event.playerId === playerId}
+          roll={dischargeCinematic.event.roll}
+          riskLevel={dischargeCinematic.event.riskLevel}
+          overloaded={dischargeCinematic.event.overloaded}
+          resultingRiskLevel={dischargeCinematic.event.resultingRiskLevel}
+          startedAtMs={dischargeCinematic.startedAtMs}
+          onSkip={clearDischargeCinematic}
+        />
+      )}
+
       <BunkerArenaCanvas
         players={players}
+        isOutcomeCinematic={phase === 'reveal' || phase === 'discharge'}
         myPlayerId={playerId}
         activePlayerId={activePlayerId}
         pendingDischargePlayerId={pendingDischargePlayerId}

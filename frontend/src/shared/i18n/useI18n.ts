@@ -169,12 +169,6 @@ export interface Translations {
     visorLocked: string;
     visorHighVoltage: string;
     visorSynthesis: string;
-    badgeOverload: string;
-    badgeStabilized: string;
-    badgeRoll: string;
-    badgeRisk: string;
-    badgeVerdictOverload: (roll: number, risk: number) => string;
-    badgeVerdictSurvived: (roll: number, risk: number, resulting: number) => string;
     cardReady: string;
     cardSelectHint: string;
     cardBack: string;
@@ -221,6 +215,14 @@ export interface Translations {
     you: string;
     claim: (count: number, protocol: string) => string;
     scanning: string;
+  };
+  discharge: {
+    charging: string;
+    rolling: string;
+    rule: (risk: number) => string;
+    held: string;
+    shorted: string;
+    riskNow: (risk: number) => string;
   };
   controls: {
     hotkeysTitle: string;
@@ -462,13 +464,6 @@ export const translations: Record<Language, Translations> = {
       visorLocked: 'ZABLOKOWANY',
       visorHighVoltage: '⚡ RDZEŃ WYSOKIEGO NAPIĘCIA ⚡',
       visorSynthesis: 'SYNTEZA // ŁĄCZE NEURONOWE',
-      badgeOverload: '⚡ WYKRYTO PRZECIĄŻENIE DIELEKTRYKA',
-      badgeStabilized: '🛡️ WYŁADOWANIE DIELEKTRYKA ZSTABILIZOWANE',
-      badgeRoll: 'RZUT K6',
-      badgeRisk: 'RYZYKO',
-      badgeVerdictOverload: (roll, risk) => `RZUT ${roll} ≤ ${risk} // ZWARCIE // WYELIMINOWANY`,
-      badgeVerdictSurvived: (roll, risk, resulting) =>
-        `RZUT ${roll} > ${risk} // PRZETRWAŁ // RYZYKO: ${resulting}/6`,
       cardReady: '▲ GOTOWA DO ZAGRANIA ▲',
       cardSelectHint: 'KLIKNIJ ABY WYBRAĆ',
       cardBack: 'ZASZYFROWANY PAKIET',
@@ -548,6 +543,14 @@ export const translations: Record<Language, Translations> = {
       you: 'TY',
       claim: (count, protocol) => `deklaracja: ${count}× ${protocol.toUpperCase()}`,
       scanning: 'SKANOWANIE KART…',
+    },
+    discharge: {
+      charging: 'ŁADOWANIE KONDENSATORA',
+      rolling: 'RZUT K6',
+      rule: (risk) => `zwarcie przy wyniku ≤ ${risk}`,
+      held: 'IZOLACJA WYTRZYMAŁA',
+      shorted: 'ZWARCIE // ELIMINACJA',
+      riskNow: (risk) => `ryzyko teraz ${risk}/6`,
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -788,13 +791,6 @@ export const translations: Record<Language, Translations> = {
       visorLocked: 'LOCKED',
       visorHighVoltage: '⚡ HIGH VOLTAGE CORE ⚡',
       visorSynthesis: 'SYNTHESIS // NEURAL LINK',
-      badgeOverload: '⚡ DIELECTRIC OVERLOAD DETECTED',
-      badgeStabilized: '🛡️ DIELECTRIC DISCHARGE STABILIZED',
-      badgeRoll: 'D6 ROLL',
-      badgeRisk: 'RISK',
-      badgeVerdictOverload: (roll, risk) => `ROLL ${roll} ≤ ${risk} // SHORT CIRCUIT // ELIMINATED`,
-      badgeVerdictSurvived: (roll, risk, resulting) =>
-        `ROLL ${roll} > ${risk} // SURVIVED // RISK: ${resulting}/6`,
       cardReady: '▲ READY TO PLAY ▲',
       cardSelectHint: 'CLICK TO SELECT',
       cardBack: 'ENCRYPTED PACKET',
@@ -845,6 +841,14 @@ export const translations: Record<Language, Translations> = {
       you: 'YOU',
       claim: (count, protocol) => `claimed: ${count}× ${protocol.toUpperCase()}`,
       scanning: 'SCANNING CARDS…',
+    },
+    discharge: {
+      charging: 'CHARGING CAPACITOR',
+      rolling: 'D6 ROLL',
+      rule: (risk) => `short circuit on ≤ ${risk}`,
+      held: 'INSULATION HELD',
+      shorted: 'SHORT CIRCUIT // ELIMINATED',
+      riskNow: (risk) => `risk now ${risk}/6`,
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',

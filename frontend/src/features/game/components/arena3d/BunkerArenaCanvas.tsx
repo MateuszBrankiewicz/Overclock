@@ -18,14 +18,13 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useGfxSettings } from '../../stores/useGfxSettings';
 import { useRulesModalStore } from '../../stores/useRulesModalStore';
 import { type CharacterId, resolveSeatCharacter } from '../../utils/characterCatalog';
-import { DRUM_SPINDOWN_MS, verdictVisibleAtMs } from '../../utils/cinematicTiming';
+import { dischargeStrikeDelayMs, verdictVisibleAtMs } from '../../utils/cinematicTiming';
 import { EventFeed } from '../EventFeed';
 import { ArenaFallback } from './ArenaFallback';
 import { ArenaPostFx } from './ArenaPostFx';
 import { BunkerAtmosphere3D } from './BunkerAtmosphere3D';
 import { getBunkerFloorTexture, getTableAoTexture } from './bunkerFloorTexture';
 import { CameraController } from './CameraController';
-import { createDischargeBadgeTexture } from './dischargeBadgeTexture';
 import { ActionStrip } from './hud/ActionStrip';
 import { CameraPresetBar } from './hud/CameraPresetBar';
 import { CardMarkLegend } from './hud/CardMarkLegend';
@@ -77,6 +76,8 @@ export interface BunkerArenaCanvasProps {
   topBarSlot?: React.ReactNode;
   children?: React.ReactNode;
   isVoltageTestActive?: boolean;
+  /** Trace reveal / discharge playing: hide the hand and action strip so one thing has focus. */
+  isOutcomeCinematic?: boolean;
   dischargeCinematic?: DischargeCinematic | null;
   pendingPlayerNickname?: string | null;
   isLocalPlayerPending?: boolean;
@@ -145,6 +146,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   topBarSlot,
   children,
   isVoltageTestActive = false,
+  isOutcomeCinematic = false,
   dischargeCinematic = null,
   pendingPlayerNickname = null,
   isLocalPlayerPending = false,
@@ -215,7 +217,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     [opponents.length]
   );
 
-  const spindownDelayMs = prefersReducedMotion() ? 0 : DRUM_SPINDOWN_MS;
+  const spindownDelayMs = dischargeStrikeDelayMs(prefersReducedMotion());
   const [isShockActive, setIsShockActive] = useState<boolean>(() => {
     if (!dischargeCinematic) return false;
     return Date.now() - dischargeCinematic.startedAtMs >= spindownDelayMs;
@@ -275,39 +277,6 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       emitDischargeImpactSparks(shockTargetInfo.pos, shockTargetInfo.isOverloaded);
     }
   }, [isShockActive, shockTargetInfo.pos, shockTargetInfo.isOverloaded]);
-
-  const badgeTexture = useMemo(() => {
-    if (!dischargeCinematic) return null;
-    return createDischargeBadgeTexture(
-      dischargeCinematic.event.roll,
-      dischargeCinematic.event.riskLevel,
-      dischargeCinematic.event.overloaded,
-      dischargeCinematic.event.resultingRiskLevel,
-      {
-        overload: t.arena.badgeOverload,
-        stabilized: t.arena.badgeStabilized,
-        roll: t.arena.badgeRoll,
-        risk: t.arena.badgeRisk,
-        verdictOverload: t.arena.badgeVerdictOverload,
-        verdictSurvived: t.arena.badgeVerdictSurvived,
-      }
-    );
-  }, [dischargeCinematic, t]);
-
-  useEffect(() => {
-    return () => {
-      badgeTexture?.dispose();
-    };
-  }, [badgeTexture]);
-
-  const badgePosition = useMemo<[number, number, number] | null>(() => {
-    if (!shockTargetInfo.pos) return null;
-    const p = shockTargetInfo.pos;
-    if (dischargeCinematic?.event.playerId === myPlayerId) {
-      return [0, 1.62, 1.65];
-    }
-    return [p[0], p[1] + 0.95, p[2]];
-  }, [shockTargetInfo.pos, dischargeCinematic, myPlayerId]);
 
   const lastPlaySeatPosition = useMemo<[number, number, number] | null>(() => {
     if (!lastPlayedCards) return null;
@@ -586,6 +555,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               revealStartedAtMs={revealStartedAtMs}
               bluffDetected={bluffDetected}
               revealLoserPos={revealLoserPos}
+              hideStatusPill={isOutcomeCinematic}
             />
 
             {traceDuel && revealStartedAtMs !== null && revealVerdictAtMs !== null && (
@@ -595,18 +565,6 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
                 startedAtMs={revealStartedAtMs}
                 endsAtMs={revealVerdictAtMs}
               />
-            )}
-
-            {dischargeCinematic && isShockActive && badgeTexture && badgePosition && (
-              <mesh position={badgePosition}>
-                <planeGeometry args={[1.4, 0.7]} />
-                <meshBasicMaterial
-                  map={badgeTexture}
-                  transparent
-                  opacity={0.96}
-                  depthWrite={false}
-                />
-              </mesh>
             )}
 
             {opponents.map((opp, idx) => {
@@ -638,7 +596,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               );
             })}
 
-            {roomState !== 'Lobby' && (
+            {roomState !== 'Lobby' && !isOutcomeCinematic && (
               <PovHandAndControls3D
                 myCards={myCards}
                 selectedCardIds={selectedCardIds}
@@ -679,7 +637,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         className="absolute inset-0 pointer-events-none z-10 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(4,4,6,0.65)_100%)]"
       />
 
-      {roomState !== 'Lobby' && !isEliminated && (
+      {roomState !== 'Lobby' && !isEliminated && !isOutcomeCinematic && (
         <ActionStrip
           canTrace={canTrace}
           canTransmit={canTransmit}
