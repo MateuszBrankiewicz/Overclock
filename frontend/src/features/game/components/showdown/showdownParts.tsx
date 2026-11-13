@@ -17,10 +17,12 @@ import { RigAvatarSvg } from '../RigAvatarSvg';
 import { type ShowdownTone, TONE, useReached } from './showdownTheme';
 
 /** Where the bluff check is: done steps are ticked, the current one glows in the panel tone. */
-export const ShowdownStepper: React.FC<{ current: number; tone: ShowdownTone }> = ({
-  current,
-  tone,
-}) => {
+export const ShowdownStepper: React.FC<{
+  current: number;
+  tone: ShowdownTone;
+  /** Hide even the current step's label when the bar needs the room (decision buttons). */
+  compact?: boolean;
+}> = ({ current, tone, compact = false }) => {
   const { t } = useI18n();
   return (
     <ol data-testid="showdown-stepper" className="flex items-center gap-1 sm:gap-1.5">
@@ -36,7 +38,10 @@ export const ShowdownStepper: React.FC<{ current: number; tone: ShowdownTone }> 
             {i > 0 && (
               <span
                 aria-hidden="true"
-                className={clsx('h-px w-2 sm:w-4', state === 'todo' ? 'bg-zinc-700' : 'bg-zinc-400')}
+                className={clsx(
+                  'h-px w-2 sm:w-4',
+                  state === 'todo' ? 'bg-zinc-700' : 'bg-zinc-400'
+                )}
               />
             )}
             <span
@@ -52,7 +57,9 @@ export const ShowdownStepper: React.FC<{ current: number; tone: ShowdownTone }> 
             <span
               className={clsx(
                 'text-[9px] sm:text-[10px] font-black tracking-[0.14em] whitespace-nowrap',
-                state === 'current' ? TONE[tone].text : 'hidden md:inline',
+                state === 'current' && !compact
+                  ? clsx('hidden sm:inline', TONE[tone].text)
+                  : 'hidden',
                 state === 'done' && 'text-zinc-400',
                 state === 'todo' && 'text-zinc-600'
               )}
@@ -75,8 +82,8 @@ export interface ShowdownOperator {
 
 export type PlateState = 'neutral' | 'safe' | 'tested';
 
-/** One side of the duel: portrait, name, role and (after the verdict) what happens to them. */
-export const OperatorPlate: React.FC<{
+/** One side of the duel in the bar: portrait, name and role; the tested one lights up after the verdict. */
+export const OperatorChip: React.FC<{
   operator: ShowdownOperator;
   role: string;
   state: PlateState;
@@ -90,35 +97,30 @@ export const OperatorPlate: React.FC<{
       data-testid="showdown-plate"
       data-state={state}
       className={clsx(
-        'flex min-w-0 flex-1 items-center gap-2 rounded-xl border px-2 py-1.5 transition-colors duration-300',
+        'flex min-w-0 items-center gap-1.5 rounded-lg border px-1 py-0.5 transition-[opacity,border-color,background-color] duration-300 sm:gap-2 sm:px-1.5 sm:py-1',
         mirrored && 'flex-row-reverse text-right',
-        state === 'neutral' && 'border-zinc-700/80 bg-zinc-900/60',
-        state === 'safe' && 'border-zinc-800 bg-zinc-900/40 opacity-60',
-        state === 'tested' && clsx(TONE[tone].soft, 'motion-safe:animate-pulse')
+        state === 'neutral' && 'border-transparent',
+        state === 'safe' && 'border-transparent opacity-50',
+        state === 'tested' && TONE[tone].soft
       )}
     >
       <RigAvatarSvg
         profile={profile}
         isSelected={state !== 'safe'}
-        sizeClassName="w-9 h-9 sm:w-11 sm:h-11"
+        sizeClassName="h-7 w-7 sm:h-9 sm:w-9"
       />
       <div className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-sm sm:text-base font-black uppercase tracking-wide text-white">
+        <span className="max-w-[5.5rem] truncate text-xs font-black uppercase tracking-wide text-white sm:max-w-[8rem] sm:text-sm">
           {operator.isLocal ? t.verdict.you : operator.nickname}
         </span>
-        <span className="truncate text-[9px] sm:text-[10px] font-bold tracking-[0.2em] text-zinc-400">
-          {role}
+        <span
+          className={clsx(
+            'max-w-[5.5rem] truncate text-[8px] font-bold tracking-[0.16em] sm:max-w-[8rem] sm:text-[9px]',
+            state === 'tested' ? TONE[tone].text : 'text-zinc-400'
+          )}
+        >
+          {state === 'tested' ? `⚡ ${t.verdict.tagToTest}` : role}
         </span>
-        {state !== 'neutral' && (
-          <span
-            className={clsx(
-              'truncate text-[9px] sm:text-[10px] font-black tracking-[0.14em]',
-              state === 'tested' ? TONE[tone].text : 'text-emerald-400'
-            )}
-          >
-            {state === 'tested' ? `⚡ ${t.verdict.tagToTest}` : `✓ ${t.verdict.tagSafe}`}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -133,8 +135,16 @@ const PROTOCOL_GLYPH: Record<CardProtocol, string> = {
 };
 
 const MARK_STYLE: Record<CardMark, { badge: string; ring: string; glyph: string }> = {
-  match: { badge: 'bg-emerald-500 text-black', ring: 'ring-emerald-400', glyph: '✓' },
-  wild: { badge: 'bg-fuchsia-500 text-black', ring: 'ring-fuchsia-400', glyph: '★' },
+  match: {
+    badge: 'bg-emerald-500 text-black',
+    ring: 'ring-emerald-400',
+    glyph: '✓',
+  },
+  wild: {
+    badge: 'bg-fuchsia-500 text-black',
+    ring: 'ring-fuchsia-400',
+    glyph: '★',
+  },
   bluff: { badge: 'bg-red-500 text-white', ring: 'ring-red-500', glyph: '✖' },
 };
 
@@ -181,7 +191,10 @@ const ShowdownCard: React.FC<{
               'absolute inset-0 flex flex-col items-center justify-between rounded-lg border-2 bg-zinc-950 py-1 ring-2 ring-offset-1 ring-offset-black [backface-visibility:hidden] [transform:rotateY(180deg)]',
               MARK_STYLE[mark].ring
             )}
-            style={{ borderColor: color, boxShadow: `inset 0 0 18px ${color}55` }}
+            style={{
+              borderColor: color,
+              boxShadow: `inset 0 0 18px ${color}55`,
+            }}
           >
             <span className="text-[8px] sm:text-[9px] font-black tracking-wider" style={{ color }}>
               {card.protocol.toUpperCase()}
@@ -224,11 +237,11 @@ export const ShowdownCards: React.FC<{
 );
 
 /** Six capacitor chambers; the first `risk` ones are live. Lit one by one while charging. */
-export const ChamberRow: React.FC<{ risk: number; roll: number | null; charging: boolean }> = ({
-  risk,
-  roll,
-  charging,
-}) => (
+export const ChamberRow: React.FC<{
+  risk: number;
+  roll: number | null;
+  charging: boolean;
+}> = ({ risk, roll, charging }) => (
   <div className="flex items-center justify-center gap-1.5" aria-hidden="true">
     {Array.from({ length: 6 }).map((_, i) => {
       const face = i + 1;
@@ -239,7 +252,10 @@ export const ChamberRow: React.FC<{ risk: number; roll: number | null; charging:
           key={face}
           initial={charging ? { opacity: 0.15, scale: 0.6 } : false}
           animate={{ opacity: 1, scale: isHit ? 1.3 : 1 }}
-          transition={{ delay: charging ? (i * DISCHARGE_CHARGE_MS) / 6000 : 0, duration: 0.18 }}
+          transition={{
+            delay: charging ? (i * DISCHARGE_CHARGE_MS) / 6000 : 0,
+            duration: 0.18,
+          }}
           className={clsx(
             'flex h-7 w-7 items-center justify-center rounded-md border text-xs font-black',
             isLive

@@ -32,7 +32,11 @@ interface TraceOpts {
 }
 
 /** Renders the reveal stage `offsetMs` relative to the moment the verdict becomes visible. */
-const renderReveal = (offsetMs: number, opts: TraceOpts = {}, extra: Partial<BluffShowdownProps> = {}) => {
+const renderReveal = (
+  offsetMs: number,
+  opts: TraceOpts = {},
+  extra: Partial<BluffShowdownProps> = {}
+) => {
   const revealed = opts.revealed ?? cards('Corrupted', 'Alpha');
   vi.spyOn(Date, 'now').mockReturnValue(verdictVisibleAtMs(revealed.length, START) + offsetMs);
   return renderToString(
@@ -247,13 +251,40 @@ describe('BluffShowdown', () => {
       expect(survived).toContain('IZOLACJA WYTRZYMAŁA');
       expect(survived).toContain('ryzyko teraz 3/6');
 
-      const shorted = renderDischarge(dischargeStrikeDelayMs() + 10, { roll: 1, overloaded: true });
+      const shorted = renderDischarge(dischargeStrikeDelayMs() + 10, {
+        roll: 1,
+        overloaded: true,
+      });
       expect(shorted).toContain('ZWARCIE // ELIMINACJA');
       expect(shorted).not.toContain('ryzyko teraz');
     });
 
     it('labels the local target as TY', () => {
       expect(renderDischarge(100, {}, op('Me', true))).toContain('>TY<');
+    });
+  });
+
+  describe('variants', () => {
+    it('keeps cards and chambers out of the slim bar: the 3D scene shows them', () => {
+      const reveal = renderReveal(50);
+      expect(reveal).toContain('data-variant="bar"');
+      expect(reveal).not.toContain('showdown-card');
+      expect(reveal).not.toContain('showdown-expanded');
+
+      expect(renderDischarge(100)).not.toContain('showdown-expanded');
+    });
+
+    it('shows the cards face-down until they flip when WebGL is unavailable', () => {
+      // Before the first card flips (TRACE_SUSPENSE_MS into the reveal).
+      const scanning = renderReveal(-1200, {}, { variant: 'expanded' });
+      expect(scanning).toContain('data-variant="expanded"');
+      expect(scanning).toContain('showdown-expanded');
+      expect(scanning).toContain('showdown-card');
+      expect(scanning).not.toContain('data-flipped="true"');
+
+      const verdict = renderReveal(50, {}, { variant: 'expanded' });
+      expect(verdict).not.toContain('data-flipped="false"');
+      expect(verdict).toContain('CORRUPTED');
     });
   });
 });

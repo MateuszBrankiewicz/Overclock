@@ -456,7 +456,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         </div>
       </div>
 
-      <YourTurnBanner isMyTurn={isMyTurn} />
+      <YourTurnBanner isMyTurn={isMyTurn && !isOutcomeCinematic} />
 
       {/* Fullscreen WebGL 3D First-Person POV Scene */}
       {webGLSupported ? (

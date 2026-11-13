@@ -227,6 +227,8 @@ export interface Translations {
     yourDecision: string;
     awaiting: string;
     skipHint: string;
+    groundWireShort: string;
+    dischargeShort: string;
   };
   discharge: {
     charging: string;
@@ -568,6 +570,8 @@ export const translations: Record<Language, Translations> = {
       yourDecision: 'TWOJA DECYZJA',
       awaiting: 'UZBRAJANIE KONDENSATORA…',
       skipHint: 'SPACJA / DOTKNIJ, ABY POMINĄĆ',
+      groundWireShort: 'UZIEMIENIE −50%',
+      dischargeShort: 'ROZŁADUJ',
     },
     discharge: {
       charging: 'ŁADOWANIE KONDENSATORA',
@@ -879,6 +883,8 @@ export const translations: Record<Language, Translations> = {
       yourDecision: 'YOUR CALL',
       awaiting: 'ARMING CAPACITOR…',
       skipHint: 'SPACE / TAP TO SKIP',
+      groundWireShort: 'GROUND WIRE −50%',
+      dischargeShort: 'DISCHARGE',
     },
     discharge: {
       charging: 'CHARGING CAPACITOR',

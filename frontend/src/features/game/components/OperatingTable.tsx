@@ -2,6 +2,7 @@ import { HelpCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { checkWebGLAvailable } from '../../../shared/lib/webgl';
 import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
@@ -36,6 +37,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   const session = useGameSession();
   const { t } = useI18n();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Same check as BunkerArenaCanvas: without WebGL the showdown bar shows the cards itself.
+  const [webGLSupported] = useState<boolean>(() => checkWebGLAvailable());
 
   const openRules = useRulesModalStore((s) => s.open);
 
@@ -240,6 +243,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
           onSkip={
             traceReveal ? finishTraceReveal : dischargeCinematic ? clearDischargeCinematic : undefined
           }
+          variant={webGLSupported ? 'bar' : 'expanded'}
         />
       )}
 
