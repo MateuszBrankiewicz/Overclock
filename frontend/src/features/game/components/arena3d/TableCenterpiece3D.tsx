@@ -14,7 +14,7 @@ import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
 import { RevealedCards3D } from './RevealedCards3D';
 import { ServerRackDiodes3D } from './ServerRackDiodes3D';
-import { ProtocolHologram3D } from './vfx/ProtocolHologram3D';
+import { RoundProtocolCard3D } from './vfx/RoundProtocolCard3D';
 import { emitCardLandingSparks, emitCardTrail } from './vfx/vfxEmitter';
 
 export interface TableCenterpiece3DProps {
@@ -306,8 +306,8 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
         <meshStandardMaterial color="#18181b" metalness={0.7} roughness={0.4} />
       </mesh>
 
-      {/* 3D Diegetic Hologram Symbol Above Table Center */}
-      {roomState !== 'Lobby' && <ProtocolHologram3D protocol={currentTargetProtocol} />}
+      {/* Round-start protocol card: flips face-up in the middle of the table, then sinks away */}
+      {roomState !== 'Lobby' && <RoundProtocolCard3D />}
 
       {/* Pile Counter & Turn Status Info Pill next to Hologram */}
       {roomState !== 'Lobby' && (
