@@ -9,6 +9,7 @@ import { useI18n } from '../../../../shared/i18n';
 import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
 import { DISCHARGE_CHARGE_MS, DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
+import { BunkerTable3D } from './BunkerTable3D';
 import { prefersReducedMotion } from './hud/motion';
 import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
@@ -107,7 +108,11 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
     ? '#f59e0b'
     : protocolColor;
 
-  const targetAccentColor = useMemo(() => new THREE.Color(stageAccentColor), [stageAccentColor]);
+  // Tungsten key light, only tinted by the stage accent: operators and cards keep their own colours.
+  const keyLightColor = useMemo(
+    () => new THREE.Color('#ffe6c4').lerp(new THREE.Color(stageAccentColor), 0.3),
+    [stageAccentColor]
+  );
 
   // The snapshot already counts the cards in flight: hold them back until they land.
   const visiblePileCount = isFlying
@@ -140,7 +145,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
     }
 
     if (spotLightRef.current) {
-      spotLightRef.current.color.lerp(targetAccentColor, delta * 3.5);
+      spotLightRef.current.color.lerp(keyLightColor, Math.min(1, delta * 3.5));
     }
 
     if (capacitorDrumRef.current && isVoltageTest) {
@@ -264,85 +269,57 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
 
   return (
     <group>
-      {/* Background Underground Bunker Server Racks with Instanced Diode Matrix */}
-      {[-3.8, -1.9, 1.9, 3.8].map((rx, idx) => (
-        <mesh key={idx} position={[rx, 1.5, -4.4]} castShadow receiveShadow>
-          <boxGeometry args={[1.1, 3.0, 0.7]} />
-          <meshStandardMaterial color="#09090b" metalness={0.8} roughness={0.35} />
-        </mesh>
-      ))}
       <ServerRackDiodes3D
         isBluffCheck={isBluffCheck}
         isVoltageTest={isVoltageTest}
         stageAccentColor={stageAccentColor}
       />
 
-      {/* Overhead Swinging Bunker Lamp & Dynamic Key Spotlight */}
+      {/* Overhead Swinging Bunker Lamp & Key Spotlight */}
       <group ref={lampGroupRef} position={[0, 3.85, 0]}>
         <mesh position={[0, 0.25, 0]}>
           <cylinderGeometry args={[0.03, 0.03, 0.6, 8]} />
           <meshStandardMaterial color="#27272a" metalness={0.8} roughness={0.3} />
         </mesh>
-        <mesh>
-          <coneGeometry args={[0.48, 0.28, 16]} />
-          <meshStandardMaterial color="#18181b" metalness={0.85} roughness={0.2} />
-        </mesh>
-        <mesh position={[0, -0.1, 0]}>
-          <sphereGeometry args={[0.14, 12, 12]} />
+        {/* Enamel shade: open underneath so the lit interior is visible from the table */}
+        <mesh position={[0, 0.02, 0]}>
+          <coneGeometry args={[0.56, 0.3, 24, 1, true]} />
           <meshStandardMaterial
-            color={stageAccentColor}
-            emissive={stageAccentColor}
-            emissiveIntensity={2.0}
+            color="#1d2027"
+            metalness={0.85}
+            roughness={0.3}
+            side={THREE.DoubleSide}
           />
+        </mesh>
+        <mesh position={[0, -0.128, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.52, 0.57, 24]} />
+          <meshStandardMaterial
+            color="#000000"
+            emissive={stageAccentColor}
+            emissiveIntensity={2.2}
+            toneMapped={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        <mesh position={[0, -0.06, 0]}>
+          <sphereGeometry args={[0.1, 16, 12]} />
+          <meshBasicMaterial color="#fff1d6" toneMapped={false} />
         </mesh>
         <spotLight
           ref={spotLightRef}
           position={[0, -0.15, 0]}
-          angle={0.78}
-          penumbra={0.65}
-          intensity={5.4}
+          angle={1.02}
+          penumbra={0.85}
+          intensity={62}
           castShadow
           shadow-mapSize={[1024, 1024]}
           shadow-bias={-0.0005}
-          color={stageAccentColor}
+          shadow-normalBias={0.02}
+          color="#ffe6c4"
         />
       </group>
 
-      {/* Main Octagonal Bunker Table Top */}
-      <mesh position={[0, 0.68, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[2.22, 2.34, 0.14, 8]} />
-        <meshStandardMaterial color="#09090b" metalness={0.82} roughness={0.24} />
-      </mesh>
-
-      {/* Inner Dielectric Glass Surface */}
-      <mesh position={[0, 0.755, 0]} receiveShadow>
-        <cylinderGeometry args={[1.9, 1.9, 0.02, 8]} />
-        <meshStandardMaterial color="#041f14" metalness={0.9} roughness={0.14} />
-      </mesh>
-
-      {/* Glowing Protocol Circuit Rings on Table Surface */}
-      <mesh position={[0, 0.768, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1.22, 1.28, 32]} />
-        <meshStandardMaterial
-          color={stageAccentColor}
-          emissive={stageAccentColor}
-          emissiveIntensity={1.9}
-        />
-      </mesh>
-      <mesh position={[0, 0.768, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.52, 0.56, 24]} />
-        <meshStandardMaterial
-          color={stageAccentColor}
-          emissive={stageAccentColor}
-          emissiveIntensity={1.5}
-        />
-      </mesh>
-
-      {/* Heavy Table Pedestal */}
-      <mesh position={[0, 0.34, 0]} castShadow>
-        <cylinderGeometry args={[0.58, 0.88, 0.68, 8]} />
-        <meshStandardMaterial color="#18181b" metalness={0.7} roughness={0.4} />
-      </mesh>
+      <BunkerTable3D accentColor={stageAccentColor} />
 
       {/* Round-start protocol card: flips face-up in the middle of the table, then sinks away */}
       {roomState !== 'Lobby' && <RoundProtocolCard3D />}
