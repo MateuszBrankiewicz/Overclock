@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
-import { playSfx, setGameAudioHum, speakRobotVoice } from '../../../shared/lib/audio';
+import {
+  playSfx,
+  setGameAudioHum,
+  speakRobotVoice,
+  useAudioSettings,
+} from '../../../shared/lib/audio';
 import { vibrate } from '../../../shared/lib/haptics';
 import {
   clearGameSession,
@@ -29,8 +34,12 @@ import { useActionQueue } from '../stores/useActionQueue';
 import { useGameStore } from '../stores/useGameStore';
 import { type ConnectionStatus, useUiStore } from '../stores/useUiStore';
 import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
-import { DRUM_SPINDOWN_MS } from '../utils/cinematicTiming';
+import { dischargeStrikeDelayMs } from '../utils/cinematicTiming';
+import { feedEntryDelayMs } from '../utils/feedRevealDelay';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
+
+/** Delay before the trace siren plays so it does not drown out the "LIAR!" robot voice. */
+export const TRACE_SIREN_DELAY_MS = 900;
 
 let sharedConnection: GameConnectionManager | null = null;
 let startupResumeAttempted = false;
@@ -56,13 +65,32 @@ function errText(err: unknown): string {
  * appends a human-readable feed entry and triggers haptics for the local player.
  */
 export function recordGameEvent(source: FeedSource): void {
-  const { players, playerId } = useGameStore.getState();
+  const { players, playerId, traceReveal } = useGameStore.getState();
   const ui = useUiStore.getState();
   if (source.kind === 'RoundStarted' && source.event.roundNumber === 1) ui.clearFeed();
-  ui.pushFeedEntry(
-    formatFeedEvent(source, { players, localPlayerId: playerId, t: useI18n.getState().t.feed })
+  const spindownDelayMs = dischargeStrikeDelayMs(prefersReducedMotion());
+  // Formatted now, while the names still match the seats of this event.
+  const entry = formatFeedEvent(source, {
+    players,
+    localPlayerId: playerId,
+    t: useI18n.getState().t.feed,
+  });
+  const feedDelayMs = feedEntryDelayMs(
+    source.kind,
+    traceReveal
+      ? {
+          startedAtMs: traceReveal.startedAtMs,
+          cardCount: traceReveal.resolution.revealedCards.length,
+        }
+      : null,
+    Date.now(),
+    spindownDelayMs
   );
-  const spindownDelayMs = prefersReducedMotion() ? 0 : DRUM_SPINDOWN_MS;
+  if (feedDelayMs > 0) {
+    setTimeout(() => useUiStore.getState().pushFeedEntry(entry), feedDelayMs);
+  } else {
+    ui.pushFeedEntry(entry);
+  }
   if (source.kind === 'CapacitorDischarged' && source.event.playerId === playerId) {
     if (spindownDelayMs > 0) {
       setTimeout(() => {
@@ -92,7 +120,6 @@ export function recordGameEvent(source: FeedSource): void {
       break;
     }
     case 'TraceCalled': {
-      playSfx('traceSiren');
       const accuser = players.find((p) => p.playerId === source.event.accuserPlayerId);
       const character = resolveSeatCharacter(accuser?.characterId).id;
       const t = useI18n.getState().t;
@@ -100,11 +127,21 @@ export function recordGameEvent(source: FeedSource): void {
         priority: 'high',
         sequenceNumber: source.event.sequenceNumber,
       });
+      const sirenDelayMs = useAudioSettings.getState().voiceEnabled ? TRACE_SIREN_DELAY_MS : 0;
+      if (sirenDelayMs > 0) {
+        setTimeout(() => playSfx('traceSiren'), sirenDelayMs);
+      } else {
+        playSfx('traceSiren');
+      }
       break;
     }
     case 'CapacitorDischarged': {
       if (spindownDelayMs > 0) {
-        playSfx('voltageBuzz', { riskLevel: source.event.riskLevel, rising: true });
+        playSfx('voltageBuzz', {
+          riskLevel: source.event.riskLevel,
+          rising: true,
+          duration: spindownDelayMs / 1000,
+        });
         setTimeout(() => {
           playSfx('discharge');
           if (!source.event.overloaded) {

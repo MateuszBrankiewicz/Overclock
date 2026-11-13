@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { playSfx, speakRobotVoice } from '../../../shared/lib/audio';
 import { useGameStore } from '../stores/useGameStore';
 import { useUiStore } from '../stores/useUiStore';
-import { recordGameEvent } from './useDebugTerminal';
+import { dischargeStrikeDelayMs } from '../utils/cinematicTiming';
+import { recordGameEvent, TRACE_SIREN_DELAY_MS } from './useDebugTerminal';
 
 vi.mock('../../../shared/lib/audio', () => ({
   playSfx: vi.fn(),
   setGameAudioHum: vi.fn(),
   speakRobotVoice: vi.fn(),
+  useAudioSettings: { getState: () => ({ voiceEnabled: true }) },
 }));
 
 const ID = '123e4567-e89b-12d3-a456-426614174001';
@@ -62,7 +64,7 @@ describe('recordGameEvent', () => {
       },
     });
     expect(vibrateMock).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1400);
+    vi.advanceTimersByTime(dischargeStrikeDelayMs());
     expect(vibrateMock).toHaveBeenCalledWith(60);
   });
 
@@ -80,7 +82,7 @@ describe('recordGameEvent', () => {
       },
     });
     expect(vibrateMock).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1400);
+    vi.advanceTimersByTime(dischargeStrikeDelayMs());
     expect(vibrateMock).toHaveBeenCalledWith([200, 80, 200, 80, 400]);
     vibrateMock.mockClear();
     recordGameEvent({
@@ -121,12 +123,14 @@ describe('recordGameEvent', () => {
         revealedCards: [],
       },
     });
-    expect(playSfx).toHaveBeenCalledWith('traceSiren');
     expect(speakRobotVoice).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
       expect.objectContaining({ priority: 'high' })
     );
+    expect(playSfx).not.toHaveBeenCalledWith('traceSiren');
+    vi.advanceTimersByTime(TRACE_SIREN_DELAY_MS);
+    expect(playSfx).toHaveBeenCalledWith('traceSiren');
 
     recordGameEvent({
       kind: 'CapacitorDischarged',
@@ -140,9 +144,13 @@ describe('recordGameEvent', () => {
         overloaded: false,
       },
     });
-    expect(playSfx).toHaveBeenCalledWith('voltageBuzz', { riskLevel: 2, rising: true });
+    expect(playSfx).toHaveBeenCalledWith('voltageBuzz', {
+      riskLevel: 2,
+      rising: true,
+      duration: dischargeStrikeDelayMs() / 1000,
+    });
     expect(playSfx).not.toHaveBeenCalledWith('discharge');
-    vi.advanceTimersByTime(1400);
+    vi.advanceTimersByTime(dischargeStrikeDelayMs());
     expect(playSfx).toHaveBeenCalledWith('discharge');
     vi.advanceTimersByTime(300);
     expect(playSfx).toHaveBeenCalledWith('survived');

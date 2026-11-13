@@ -37,6 +37,18 @@ describe('resolveOutcomePhase (BUG-02)', () => {
     ).toBe('decision');
   });
 
+  it('keeps a playing discharge on screen while the snapshot still says VoltageTest', () => {
+    expect(
+      resolveOutcomePhase({
+        roomState: 'VoltageTest',
+        hasTraceReveal: false,
+        hasQueuedDischarge: false,
+        hasDischargeCinematic: true,
+        awaitingDischarge: false,
+      })
+    ).toBe('discharge');
+  });
+
   it('enters discharge phase when discharge is playing or queued', () => {
     expect(
       resolveOutcomePhase({

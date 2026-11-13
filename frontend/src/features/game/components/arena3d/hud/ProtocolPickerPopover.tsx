@@ -43,7 +43,7 @@ export const ProtocolPickerPopover: React.FC<ProtocolPickerPopoverProps> = ({
       role="dialog"
       aria-label={t.hud.empPickerTitle}
       data-no-camera-drag
-      className="absolute bottom-full mb-2 right-0 w-60 p-3 rounded-xl border border-amber-400 bg-zinc-950/95 shadow-[0_0_24px_rgba(245,158,11,0.5)] text-[10px] text-zinc-300 pointer-events-auto"
+      className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-0 w-60 max-w-[calc(100vw-1.5rem)] p-3 rounded-xl border border-amber-400 bg-zinc-950/95 shadow-[0_0_24px_rgba(245,158,11,0.5)] text-[10px] text-zinc-300 pointer-events-auto"
     >
       <div className="font-black text-amber-300 tracking-wider">{t.hud.empPickerTitle}</div>
       <p className="mt-1 text-zinc-400">{t.hud.empPickerHint}</p>

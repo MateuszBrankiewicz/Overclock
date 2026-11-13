@@ -24,7 +24,7 @@ class FakeSpeechSynthesisUtterance {
   public rate = 1;
   public volume = 1;
   public lang = 'en-US';
-  public voice: unknown = null;
+  public voice: { lang: string; name: string } | null = null;
   public onend: (() => void) | null = null;
   public onerror: (() => void) | null = null;
 
@@ -279,5 +279,22 @@ describe('Robot Voice System (ADR 0016)', () => {
     expect(en.playCards(1, 'Alpha')).toBe('one alpha');
     expect(en.playCards(3, 'Beta')).toBe('three beta');
     expect(en.liar).toBe('LIAR!');
+  });
+
+  it('does not call synth.cancel on high-priority speech when idle', () => {
+    speakRobotVoice('volt', 'KŁAMCA!', { priority: 'high' });
+    expect(fakeSynth.cancelCount).toBe(0);
+    expect(fakeSynth.spoken).toHaveLength(1);
+    expect(fakeSynth.spoken[0].text).toBe('KŁAMCA!');
+  });
+
+  it('falls back to available desktop system voice when target language voice is missing', () => {
+    fakeSynth.voices = [
+      { lang: 'en-US', name: 'Google US English', default: true } as SpeechSynthesisVoice,
+    ];
+    speakRobotVoice('ghost', 'Jedna alfa');
+    expect(fakeSynth.spoken).toHaveLength(1);
+    expect(fakeSynth.spoken[0].voice?.name).toBe('Google US English');
+    expect(fakeSynth.spoken[0].lang).toBe('en-US');
   });
 });

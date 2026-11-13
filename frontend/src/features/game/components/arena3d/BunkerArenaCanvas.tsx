@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
@@ -18,14 +18,14 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useGfxSettings } from '../../stores/useGfxSettings';
 import { useRulesModalStore } from '../../stores/useRulesModalStore';
 import { type CharacterId, resolveSeatCharacter } from '../../utils/characterCatalog';
-import { DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
+import { dischargeStrikeDelayMs, verdictVisibleAtMs } from '../../utils/cinematicTiming';
 import { EventFeed } from '../EventFeed';
 import { ArenaFallback } from './ArenaFallback';
+import { ArenaLighting3D } from './ArenaLighting3D';
 import { ArenaPostFx } from './ArenaPostFx';
 import { BunkerAtmosphere3D } from './BunkerAtmosphere3D';
 import { getBunkerFloorTexture, getTableAoTexture } from './bunkerFloorTexture';
 import { CameraController } from './CameraController';
-import { createDischargeBadgeTexture } from './dischargeBadgeTexture';
 import { ActionStrip } from './hud/ActionStrip';
 import { CameraPresetBar } from './hud/CameraPresetBar';
 import { CardMarkLegend } from './hud/CardMarkLegend';
@@ -40,13 +40,17 @@ import { YourTurnBanner } from './hud/TurnStatusHud';
 import { TurnUrgencyCountdown } from './hud/TurnUrgencyCountdown';
 import { useArenaHotkeys } from './hud/useArenaHotkeys';
 import { useExploitPicker } from './hud/useExploitPicker';
-import { VoltageControls } from './hud/VoltageControls';
 import { OperatorRig3D } from './OperatorRig3D';
 import { PovHandAndControls3D } from './PovHandAndControls3D';
+import { revealCardsSettledAtMs } from './revealCardPose';
 import { TableCenterpiece3D } from './TableCenterpiece3D';
 import { useArenaFrameloop } from './useArenaFrameloop';
 import { useCameraDrag } from './useCameraDrag';
+import { useReachedAt } from './useReachedAt';
 import { ParticleBurst } from './vfx/ParticleBurst';
+import { resolveCableTargetId } from './vfx/shockCables';
+import { ShockCables3D } from './vfx/ShockCables3D';
+import { TraceDuelBeam3D } from './vfx/TraceDuelBeam3D';
 import { emitDischargeImpactSparks } from './vfx/vfxEmitter';
 
 export interface BunkerArenaCanvasProps {
@@ -74,20 +78,26 @@ export interface BunkerArenaCanvasProps {
   onActivateExploit?: (exploit: ExploitType, newTargetProtocol?: CardProtocol) => void;
   topBarSlot?: React.ReactNode;
   children?: React.ReactNode;
-  isVoltageTestActive?: boolean;
+  /**
+   * Bluff showdown on screen (reveal, voltage test, discharge): hide the hand, action strip and
+   * turn HUD so the showdown panel is the only thing asking for attention.
+   */
+  isOutcomeCinematic?: boolean;
   dischargeCinematic?: DischargeCinematic | null;
-  pendingPlayerNickname?: string | null;
-  isLocalPlayerPending?: boolean;
-  canUseGroundWire?: boolean;
-  onDeployGroundWire?: () => void;
-  onTriggerDischarge?: () => void;
   onDismissDischarge?: () => void;
   /** Cards flipped face-up on the table after a trace. */
   revealedCards?: PlayerCard[] | null;
   revealDeclaredProtocol?: CardProtocol | null;
   revealStartedAtMs?: number | null;
-  bluffDetected?: boolean;
   revealLoserPlayerId?: string | null;
+  /**
+   * Operator facing the voltage test for the whole showdown (pending decision, queued or running
+   * discharge, or the trace loser while the server catches up); the leads stay clamped on them.
+   */
+  voltageTargetPlayerId?: string | null;
+  /** Who called TRACE and who is being traced, shown as a targeting beam until the verdict. */
+  revealAccuserPlayerId?: string | null;
+  revealAccusedPlayerId?: string | null;
   /**
    * `modal`: the centre panel (lobby, summary, intermission) takes touch input and scrolls on
    * small screens. `passive`: it only displays and the table stays draggable around it.
@@ -139,19 +149,16 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   onActivateExploit = () => {},
   topBarSlot,
   children,
-  isVoltageTestActive = false,
+  isOutcomeCinematic = false,
   dischargeCinematic = null,
-  pendingPlayerNickname = null,
-  isLocalPlayerPending = false,
-  canUseGroundWire = false,
-  onDeployGroundWire,
-  onTriggerDischarge,
   onDismissDischarge,
   revealedCards = null,
   revealDeclaredProtocol = null,
   revealStartedAtMs = null,
-  bluffDetected = false,
   revealLoserPlayerId = null,
+  voltageTargetPlayerId = null,
+  revealAccuserPlayerId = null,
+  revealAccusedPlayerId = null,
   overlayMode = 'passive',
 }) => {
   const { t } = useI18n();
@@ -208,7 +215,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     [opponents.length]
   );
 
-  const spindownDelayMs = prefersReducedMotion() ? 0 : DRUM_SPINDOWN_MS;
+  const spindownDelayMs = dischargeStrikeDelayMs(prefersReducedMotion());
   const [isShockActive, setIsShockActive] = useState<boolean>(() => {
     if (!dischargeCinematic) return false;
     return Date.now() - dischargeCinematic.startedAtMs >= spindownDelayMs;
@@ -243,6 +250,16 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   const isLocalShockTarget = Boolean(
     dischargeCinematic && dischargeCinematic.event.playerId === myPlayerId
   );
+  /**
+   * The server marks the loser Eliminated as soon as the discharge resolves, but on screen they
+   * must look alive until the current actually hits them (or until the discharge arrives at all).
+   */
+  const strikePendingPlayerId = dischargeCinematic
+    ? isShockActive
+      ? null
+      : dischargeCinematic.event.playerId
+    : pendingDischargePlayerId;
+  const isLocalEliminatedShown = isEliminated && strikePendingPlayerId !== myPlayerId;
   const isLocalOverloaded = Boolean(
     isLocalShockTarget && dischargeCinematic?.event.overloaded
   );
@@ -269,39 +286,6 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     }
   }, [isShockActive, shockTargetInfo.pos, shockTargetInfo.isOverloaded]);
 
-  const badgeTexture = useMemo(() => {
-    if (!dischargeCinematic) return null;
-    return createDischargeBadgeTexture(
-      dischargeCinematic.event.roll,
-      dischargeCinematic.event.riskLevel,
-      dischargeCinematic.event.overloaded,
-      dischargeCinematic.event.resultingRiskLevel,
-      {
-        overload: t.arena.badgeOverload,
-        stabilized: t.arena.badgeStabilized,
-        roll: t.arena.badgeRoll,
-        risk: t.arena.badgeRisk,
-        verdictOverload: t.arena.badgeVerdictOverload,
-        verdictSurvived: t.arena.badgeVerdictSurvived,
-      }
-    );
-  }, [dischargeCinematic, t]);
-
-  useEffect(() => {
-    return () => {
-      badgeTexture?.dispose();
-    };
-  }, [badgeTexture]);
-
-  const badgePosition = useMemo<[number, number, number] | null>(() => {
-    if (!shockTargetInfo.pos) return null;
-    const p = shockTargetInfo.pos;
-    if (dischargeCinematic?.event.playerId === myPlayerId) {
-      return [0, 1.62, 1.65];
-    }
-    return [p[0], p[1] + 0.95, p[2]];
-  }, [shockTargetInfo.pos, dischargeCinematic, myPlayerId]);
-
   const lastPlaySeatPosition = useMemo<[number, number, number] | null>(() => {
     if (!lastPlayedCards) return null;
     if (lastPlayedCards.playerId === myPlayerId) {
@@ -314,18 +298,85 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     return [0, 1.1, -2.4];
   }, [lastPlayedCards, myPlayerId, opponents, seatLayouts]);
 
+  /** Head height above an operator's seat, used to aim reveal effects at a player. */
+  const seatHeadPos = useCallback(
+    (playerId: string): [number, number, number] => {
+      if (playerId === myPlayerId) return [0, 1.35, 1.8];
+      const oppIdx = opponents.findIndex((o) => o.playerId === playerId);
+      if (oppIdx >= 0 && seatLayouts[oppIdx]) {
+        const p = seatLayouts[oppIdx].position;
+        return [p[0], 1.35, p[2]];
+      }
+      return [0, 1.35, -2.4];
+    },
+    [myPlayerId, opponents, seatLayouts]
+  );
+
+  const revealVerdictAtMs =
+    revealStartedAtMs !== null && revealedCards && revealedCards.length > 0
+      ? verdictVisibleAtMs(revealedCards.length, revealStartedAtMs)
+      : null;
+  // Until the cards are face-up nothing may hint at the loser (camera, lightning).
+  const isVerdictReached = useReachedAt(revealVerdictAtMs);
+
   const revealLoserPos = useMemo<[number, number, number] | null>(() => {
-    if (!revealLoserPlayerId) return null;
-    if (revealLoserPlayerId === myPlayerId) {
-      return [0, 1.35, 1.8];
+    if (!revealLoserPlayerId || !isVerdictReached) return null;
+    return seatHeadPos(revealLoserPlayerId);
+  }, [revealLoserPlayerId, isVerdictReached, seatHeadPos]);
+
+  /** Chest of an operator, where the voltage-test leads clamp on. */
+  const seatChestPos = useCallback(
+    (playerId: string): [number, number, number] => {
+      if (playerId === myPlayerId) return [0, 1.0, 1.85];
+      const oppIdx = opponents.findIndex((o) => o.playerId === playerId);
+      if (oppIdx >= 0 && seatLayouts[oppIdx]) {
+        const [x, , z] = seatLayouts[oppIdx].position;
+        const r = Math.hypot(x, z);
+        const k = r > 0.1 ? (r - 0.1) / r : 1;
+        return [x * k, 1.15, z * k];
+      }
+      return [0, 1.15, -2.3];
+    },
+    [myPlayerId, opponents, seatLayouts]
+  );
+
+  // Leads clamp on the loser only once the last reveal card has stopped turning, and stay on while
+  // the table waits for the discharge and through it.
+  const revealCardsSettledAt =
+    revealStartedAtMs !== null && revealedCards && revealedCards.length > 0
+      ? revealCardsSettledAtMs(revealedCards.length, revealStartedAtMs, prefersReducedMotion())
+      : null;
+  const areRevealCardsSettled = useReachedAt(revealCardsSettledAt);
+  const cableTargetId = resolveCableTargetId({
+    dischargePlayerId: dischargeCinematic?.event.playerId ?? null,
+    voltageTargetPlayerId: voltageTargetPlayerId ?? pendingDischargePlayerId,
+    isRevealOnScreen: revealCardsSettledAt !== null,
+    areRevealCardsSettled,
+  });
+  const cableTargetPos = useMemo(
+    () => (cableTargetId ? seatChestPos(cableTargetId) : null),
+    [cableTargetId, seatChestPos]
+  );
+
+  const traceDuel = useMemo(() => {
+    if (revealVerdictAtMs === null || isVerdictReached) return null;
+    if (!revealAccuserPlayerId || !revealAccusedPlayerId) return null;
+    const from = seatHeadPos(revealAccuserPlayerId);
+    const to = seatHeadPos(revealAccusedPlayerId);
+    // The local seat sits right under the camera: start the beam lower, in front of the player.
+    if (revealAccuserPlayerId === myPlayerId) {
+      from[1] = 1.05;
+      from[2] = 1.45;
     }
-    const oppIdx = opponents.findIndex((o) => o.playerId === revealLoserPlayerId);
-    if (oppIdx >= 0 && seatLayouts[oppIdx]) {
-      const p = seatLayouts[oppIdx].position;
-      return [p[0], 1.35, p[2]];
-    }
-    return [0, 1.35, -2.4];
-  }, [revealLoserPlayerId, myPlayerId, opponents, seatLayouts]);
+    return { from, to, accusedIsLocal: revealAccusedPlayerId === myPlayerId };
+  }, [
+    revealVerdictAtMs,
+    isVerdictReached,
+    revealAccuserPlayerId,
+    revealAccusedPlayerId,
+    seatHeadPos,
+    myPlayerId,
+  ]);
 
   const subjectInfo = useMemo<{
     pos: [number, number, number] | null;
@@ -333,6 +384,9 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   }>(() => {
     if (revealLoserPos) {
       return { pos: revealLoserPos, isLocal: revealLoserPlayerId === myPlayerId };
+    }
+    if (traceDuel) {
+      return { pos: traceDuel.to, isLocal: traceDuel.accusedIsLocal };
     }
     if (dischargeCinematic) {
       const pid = dischargeCinematic.event.playerId;
@@ -380,6 +434,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   }, [
     revealLoserPos,
     revealLoserPlayerId,
+    traceDuel,
     myPlayerId,
     dischargeCinematic,
     pendingDischargePlayerId,
@@ -428,26 +483,31 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       className="relative w-full h-full min-h-[100dvh] bg-black overflow-hidden select-none font-mono"
     >
       {/* Top In-Bounds Visor Bar */}
-      <div className="absolute top-3 left-3 right-3 z-30 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto flex flex-col items-start gap-2 max-w-[min(90vw,20rem)]">
-          <div className="flex items-center gap-2">{topBarSlot}</div>
-          <PhaseTimers roomState={roomState} />
-          {roomState !== 'Lobby' && <EventFeed />}
+      <div className="absolute top-3 left-3 right-3 z-30 flex flex-col gap-1.5 pointer-events-none">
+        <div className="relative z-20 flex flex-wrap items-start justify-between gap-2">
+          <div className="pointer-events-auto flex items-center gap-2 max-w-full">{topBarSlot}</div>
+
+          <CameraPresetBar
+            cameraFocus={cameraFocus}
+            showDismiss={Boolean(dischargeCinematic)}
+            onDismissDischarge={onDismissDischarge}
+            onSelect={(focus, yaw, pitch) => {
+              cameraDrag.reset(yaw, pitch);
+              wake();
+              onCameraFocusChange(focus);
+            }}
+          />
         </div>
 
-        <CameraPresetBar
-          cameraFocus={cameraFocus}
-          showDismiss={Boolean(dischargeCinematic)}
-          onDismissDischarge={onDismissDischarge}
-          onSelect={(focus, yaw, pitch) => {
-            cameraDrag.reset(yaw, pitch);
-            wake();
-            onCameraFocusChange(focus);
-          }}
-        />
+        <div className="relative z-10 flex flex-col items-start gap-1.5 max-w-[min(78vw,20rem)] sm:max-w-[min(90vw,20rem)]">
+          <div className="pointer-events-auto">
+            <PhaseTimers roomState={isOutcomeCinematic ? null : roomState} />
+          </div>
+          {roomState !== 'Lobby' && <EventFeed />}
+        </div>
       </div>
 
-      <YourTurnBanner isMyTurn={isMyTurn} />
+      <YourTurnBanner isMyTurn={isMyTurn && !isOutcomeCinematic} />
 
       {/* Fullscreen WebGL 3D First-Person POV Scene */}
       {webGLSupported ? (
@@ -463,14 +523,14 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
             camera={{ position: [0, 1.94, 3.15], fov: 50 }}
           >
             {gfxQuality === 'high' && <ArenaPostFx />}
-            <color attach="background" args={['#040406']} />
-            <fog attach="fog" args={['#040406', 5.2, 12.5]} />
+            <color attach="background" args={['#05060a']} />
+            <fog attach="fog" args={['#05060a', 7.5, 19]} />
 
             <CameraController
               focus={cameraFocus}
               roomState={roomState}
               offsetsRef={cameraDrag.offsetsRef}
-              isLocalEliminated={isEliminated}
+              isLocalEliminated={isLocalEliminatedShown}
               isLocalOverloaded={isLocalOverloaded && isShockActive}
               cinematicStartTimeMs={effectiveShockStartTimeMs}
               subjectPosition={subjectInfo.pos}
@@ -478,12 +538,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               isOpponentShock={isOpponentShock}
             />
 
-            <ambientLight intensity={0.15} />
-            <hemisphereLight args={['#1e293b', '#020617', 0.28]} />
-
-            <pointLight position={[0, 2.0, 2.7]} intensity={1.2} color="#ffffff" />
-            <pointLight position={[-2.5, 2.2, -2]} intensity={0.55} color="#06b6d4" />
-            <pointLight position={[2.5, 2.2, -2]} intensity={0.55} color="#f59e0b" />
+            <ArenaLighting3D />
 
             {/* Procedural Concrete Bunker Floor */}
             {floorTexture && (
@@ -491,8 +546,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
                 <planeGeometry args={[18, 18]} />
                 <meshStandardMaterial
                   map={floorTexture}
-                  roughness={0.88}
-                  metalness={0.12}
+                  roughness={0.72}
+                  metalness={0.2}
                 />
               </mesh>
             )}
@@ -512,15 +567,6 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
 
             <BunkerAtmosphere3D accentColor={stageAccentColor} />
 
-            {isShockActive && shockTargetInfo.pos && (
-              <pointLight
-                position={shockTargetInfo.pos}
-                color={shockTargetInfo.isOverloaded ? '#f97316' : '#38bdf8'}
-                intensity={7.5}
-                distance={5}
-              />
-            )}
-
             <ParticleBurst />
 
             <TableCenterpiece3D
@@ -532,28 +578,29 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               flightToken={lastPlayedCards}
               isMyTurn={isMyTurn}
               activePlayerNickname={activePlayerNickname}
-              shockTargetPos={shockTargetInfo.pos}
-              isOverloadedShock={shockTargetInfo.isOverloaded}
-              testedRiskLevel={dischargeCinematic?.event.riskLevel ?? 1}
               dischargeStartedAtMs={dischargeCinematic?.startedAtMs ?? null}
-              dischargeRoll={dischargeCinematic?.event.roll ?? null}
               revealedCards={revealedCards}
               revealDeclaredProtocol={revealDeclaredProtocol}
               revealStartedAtMs={revealStartedAtMs}
-              bluffDetected={bluffDetected}
-              revealLoserPos={revealLoserPos}
+              hideStatusPill={isOutcomeCinematic}
             />
 
-            {dischargeCinematic && isShockActive && badgeTexture && badgePosition && (
-              <mesh position={badgePosition}>
-                <planeGeometry args={[1.4, 0.7]} />
-                <meshBasicMaterial
-                  map={badgeTexture}
-                  transparent
-                  opacity={0.96}
-                  depthWrite={false}
-                />
-              </mesh>
+            {cableTargetPos && (
+              <ShockCables3D
+                target={cableTargetPos}
+                chargeStartedAtMs={dischargeCinematic?.startedAtMs ?? null}
+                strikeAtMs={effectiveShockStartTimeMs}
+                overloaded={isShockActive && Boolean(dischargeCinematic?.event.overloaded)}
+              />
+            )}
+
+            {traceDuel && revealStartedAtMs !== null && revealVerdictAtMs !== null && (
+              <TraceDuelBeam3D
+                from={traceDuel.from}
+                to={traceDuel.to}
+                startedAtMs={revealStartedAtMs}
+                endsAtMs={revealVerdictAtMs}
+              />
             )}
 
             {opponents.map((opp, idx) => {
@@ -574,9 +621,9 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
                   position={layout.position}
                   rotationY={layout.rotationY}
                   isActiveTurn={activePlayerId === opp.playerId}
-                  isPendingVoltage={pendingDischargePlayerId === opp.playerId}
                   isBeingShocked={isBeingShocked && isShockActive}
                   isOverloaded={isOverloadDeath && isShockActive}
+                  isStrikePending={strikePendingPlayerId === opp.playerId}
                   isWinner={roomState === 'GameOver' && opp.status === 'Active'}
                   cinematicStartTimeMs={
                     isTargetOfCinematic ? effectiveShockStartTimeMs : null
@@ -585,7 +632,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
               );
             })}
 
-            {roomState !== 'Lobby' && (
+            {roomState !== 'Lobby' && !isOutcomeCinematic && (
               <PovHandAndControls3D
                 myCards={myCards}
                 selectedCardIds={selectedCardIds}
@@ -626,7 +673,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         className="absolute inset-0 pointer-events-none z-10 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(4,4,6,0.65)_100%)]"
       />
 
-      {roomState !== 'Lobby' && !isEliminated && (
+      {roomState !== 'Lobby' && !isEliminated && !isOutcomeCinematic && (
         <ActionStrip
           canTrace={canTrace}
           canTransmit={canTransmit}
@@ -643,7 +690,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         />
       )}
 
-      {roomState !== 'Lobby' && isEliminated && roomState !== 'GameOver' && (
+      {roomState !== 'Lobby' && isEliminated && roomState !== 'GameOver' && !isOutcomeCinematic && (
         <SpectatorHud
           livingOpponents={opponents.filter((p) => p.status === 'Active')}
           currentTargetId={spectatorTargetPlayerId}
@@ -653,24 +700,17 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         />
       )}
 
-      {roomState !== 'Lobby' && myCards.length > 0 && !isEliminated && <CardMarkLegend />}
+      {roomState !== 'Lobby' &&
+        !isOutcomeCinematic &&
+        myCards.length > 0 &&
+        !isEliminated && <CardMarkLegend />}
       <FirstTurnHint
-        visible={firstTurnHint.visible && selectedCardIds.length === 0}
+        visible={firstTurnHint.visible && selectedCardIds.length === 0 && !isOutcomeCinematic}
         onDismiss={firstTurnHint.dismiss}
       />
       <HotkeyCheatSheet open={hotkeys.helpOpen} onClose={hotkeys.closeHelp} />
 
       {roomState === 'TurnActive' && <TurnUrgencyCountdown isMyTurn={isMyTurn && !isEliminated} />}
-
-      {isVoltageTestActive && (
-        <VoltageControls
-          isLocalPlayerPending={isLocalPlayerPending}
-          pendingPlayerNickname={pendingPlayerNickname}
-          canUseGroundWire={canUseGroundWire}
-          onDeployGroundWire={onDeployGroundWire}
-          onTriggerDischarge={onTriggerDischarge}
-        />
-      )}
 
       {isLocalOverloaded && isShockActive && <OverloadVignette />}
 

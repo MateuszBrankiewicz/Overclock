@@ -169,12 +169,6 @@ export interface Translations {
     visorLocked: string;
     visorHighVoltage: string;
     visorSynthesis: string;
-    badgeOverload: string;
-    badgeStabilized: string;
-    badgeRoll: string;
-    badgeRisk: string;
-    badgeVerdictOverload: (roll: number, risk: number) => string;
-    badgeVerdictSurvived: (roll: number, risk: number, resulting: number) => string;
     cardReady: string;
     cardSelectHint: string;
     cardBack: string;
@@ -216,6 +210,33 @@ export interface Translations {
     cleanTransmission: string;
     loserVoltageTest: (nickname: string) => string;
     youVoltageTest: string;
+    traceTitle: string;
+    traces: string;
+    you: string;
+    claim: (count: number, protocol: string) => string;
+    scanning: string;
+    showdownTitle: string;
+    voltageTitle: string;
+    steps: readonly [string, string, string, string];
+    roleAccused: string;
+    tagToTest: string;
+    tagSafe: string;
+    bluffReason: (bluffCount: number, total: number, protocol: string) => string;
+    cleanReason: (protocol: string) => string;
+    deciding: (nickname: string) => string;
+    yourDecision: string;
+    awaiting: string;
+    skipHint: string;
+    groundWireShort: string;
+    dischargeShort: string;
+  };
+  discharge: {
+    charging: string;
+    rolling: string;
+    rule: (risk: number) => string;
+    held: string;
+    shorted: string;
+    riskNow: (risk: number) => string;
   };
   controls: {
     hotkeysTitle: string;
@@ -457,13 +478,6 @@ export const translations: Record<Language, Translations> = {
       visorLocked: 'ZABLOKOWANY',
       visorHighVoltage: '⚡ RDZEŃ WYSOKIEGO NAPIĘCIA ⚡',
       visorSynthesis: 'SYNTEZA // ŁĄCZE NEURONOWE',
-      badgeOverload: '⚡ WYKRYTO PRZECIĄŻENIE DIELEKTRYKA',
-      badgeStabilized: '🛡️ WYŁADOWANIE DIELEKTRYKA ZSTABILIZOWANE',
-      badgeRoll: 'RZUT K6',
-      badgeRisk: 'RYZYKO',
-      badgeVerdictOverload: (roll, risk) => `RZUT ${roll} ≤ ${risk} // ZWARCIE // WYELIMINOWANY`,
-      badgeVerdictSurvived: (roll, risk, resulting) =>
-        `RZUT ${roll} > ${risk} // PRZETRWAŁ // RYZYKO: ${resulting}/6`,
       cardReady: '▲ GOTOWA DO ZAGRANIA ▲',
       cardSelectHint: 'KLIKNIJ ABY WYBRAĆ',
       cardBack: 'ZASZYFROWANY PAKIET',
@@ -538,6 +552,34 @@ export const translations: Record<Language, Translations> = {
       cleanTransmission: 'CZYSTA TRANSMISJA',
       loserVoltageTest: (nickname) => `${nickname} idzie na test napięcia`,
       youVoltageTest: 'TY idziesz na test napięcia',
+      traceTitle: 'CALL TRACE',
+      traces: 'SPRAWDZA',
+      you: 'TY',
+      claim: (count, protocol) => `deklaracja: ${count}× ${protocol.toUpperCase()}`,
+      scanning: 'SKANOWANIE KART…',
+      showdownTitle: 'SPRAWDZENIE BLEFU',
+      voltageTitle: 'TEST NAPIĘCIA',
+      steps: ['SPRAWDZENIE', 'WERDYKT', 'TEST NAPIĘCIA', 'WYŁADOWANIE'],
+      roleAccused: 'SPRAWDZANY',
+      tagToTest: 'NA TEST NAPIĘCIA',
+      tagSafe: 'BEZPIECZNY',
+      bluffReason: (bluffCount, total, protocol) =>
+        `${bluffCount} z ${total} kart to nie ${protocol.toUpperCase()}`,
+      cleanReason: (protocol) => `wszystkie karty pasują do ${protocol.toUpperCase()}`,
+      deciding: (nickname) => `${nickname} decyduje…`,
+      yourDecision: 'TWOJA DECYZJA',
+      awaiting: 'UZBRAJANIE KONDENSATORA…',
+      skipHint: 'SPACJA / DOTKNIJ, ABY POMINĄĆ',
+      groundWireShort: 'UZIEMIENIE −50%',
+      dischargeShort: 'ROZŁADUJ',
+    },
+    discharge: {
+      charging: 'ŁADOWANIE KONDENSATORA',
+      rolling: 'RZUT K6',
+      rule: (risk) => `zwarcie przy wyniku ≤ ${risk}`,
+      held: 'IZOLACJA WYTRZYMAŁA',
+      shorted: 'ZWARCIE // ELIMINACJA',
+      riskNow: (risk) => `ryzyko teraz ${risk}/6`,
     },
     controls: {
       hotkeysTitle: 'SKRÓTY KLAWISZOWE',
@@ -778,13 +820,6 @@ export const translations: Record<Language, Translations> = {
       visorLocked: 'LOCKED',
       visorHighVoltage: '⚡ HIGH VOLTAGE CORE ⚡',
       visorSynthesis: 'SYNTHESIS // NEURAL LINK',
-      badgeOverload: '⚡ DIELECTRIC OVERLOAD DETECTED',
-      badgeStabilized: '🛡️ DIELECTRIC DISCHARGE STABILIZED',
-      badgeRoll: 'D6 ROLL',
-      badgeRisk: 'RISK',
-      badgeVerdictOverload: (roll, risk) => `ROLL ${roll} ≤ ${risk} // SHORT CIRCUIT // ELIMINATED`,
-      badgeVerdictSurvived: (roll, risk, resulting) =>
-        `ROLL ${roll} > ${risk} // SURVIVED // RISK: ${resulting}/6`,
       cardReady: '▲ READY TO PLAY ▲',
       cardSelectHint: 'CLICK TO SELECT',
       cardBack: 'ENCRYPTED PACKET',
@@ -830,6 +865,34 @@ export const translations: Record<Language, Translations> = {
       cleanTransmission: 'CLEAN TRANSMISSION',
       loserVoltageTest: (nickname) => `${nickname} goes to voltage test`,
       youVoltageTest: 'YOU go to voltage test',
+      traceTitle: 'CALL TRACE',
+      traces: 'TRACES',
+      you: 'YOU',
+      claim: (count, protocol) => `claimed: ${count}× ${protocol.toUpperCase()}`,
+      scanning: 'SCANNING CARDS…',
+      showdownTitle: 'BLUFF CHECK',
+      voltageTitle: 'VOLTAGE TEST',
+      steps: ['TRACE', 'VERDICT', 'VOLTAGE TEST', 'DISCHARGE'],
+      roleAccused: 'TRACED',
+      tagToTest: 'TO VOLTAGE TEST',
+      tagSafe: 'SAFE',
+      bluffReason: (bluffCount, total, protocol) =>
+        `${bluffCount} of ${total} cards are not ${protocol.toUpperCase()}`,
+      cleanReason: (protocol) => `every card matches ${protocol.toUpperCase()}`,
+      deciding: (nickname) => `${nickname} is deciding…`,
+      yourDecision: 'YOUR CALL',
+      awaiting: 'ARMING CAPACITOR…',
+      skipHint: 'SPACE / TAP TO SKIP',
+      groundWireShort: 'GROUND WIRE −50%',
+      dischargeShort: 'DISCHARGE',
+    },
+    discharge: {
+      charging: 'CHARGING CAPACITOR',
+      rolling: 'D6 ROLL',
+      rule: (risk) => `short circuit on ≤ ${risk}`,
+      held: 'INSULATION HELD',
+      shorted: 'SHORT CIRCUIT // ELIMINATED',
+      riskNow: (risk) => `risk now ${risk}/6`,
     },
     controls: {
       hotkeysTitle: 'KEYBOARD SHORTCUTS',

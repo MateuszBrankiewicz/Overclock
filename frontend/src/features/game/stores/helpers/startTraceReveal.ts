@@ -12,6 +12,7 @@ export function startTraceReveal(
   const seq = resolution.sequenceNumber ?? null;
   return {
     lastTraceResolution: resolution,
+    showdownTrace: resolution,
     tablePileCount: 0,
     turnDeadlineUtc: null,
     traceReveal: {

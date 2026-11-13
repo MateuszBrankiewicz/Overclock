@@ -8,13 +8,12 @@ import * as THREE from 'three';
 import { useI18n } from '../../../../shared/i18n';
 import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
-import { DRUM_SPINDOWN_MS } from '../../utils/cinematicTiming';
+import { BunkerTable3D } from './BunkerTable3D';
 import { prefersReducedMotion } from './hud/motion';
-import { LightningArc3D } from './LightningArc3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
 import { RevealedCards3D } from './RevealedCards3D';
 import { ServerRackDiodes3D } from './ServerRackDiodes3D';
-import { ProtocolHologram3D } from './vfx/ProtocolHologram3D';
+import { RoundProtocolCard3D } from './vfx/RoundProtocolCard3D';
 import { emitCardLandingSparks, emitCardTrail } from './vfx/vfxEmitter';
 
 export interface TableCenterpiece3DProps {
@@ -27,16 +26,12 @@ export interface TableCenterpiece3DProps {
   flightToken?: object | null;
   isMyTurn?: boolean;
   activePlayerNickname?: string;
-  shockTargetPos?: [number, number, number] | null;
-  isOverloadedShock?: boolean;
-  testedRiskLevel?: number;
   dischargeStartedAtMs?: number | null;
-  dischargeRoll?: number | null;
   revealedCards?: PlayerCard[] | null;
   revealDeclaredProtocol?: CardProtocol | null;
   revealStartedAtMs?: number | null;
-  bluffDetected?: boolean;
-  revealLoserPos?: [number, number, number] | null;
+  /** Hide the pile / turn pill while a cinematic owns the screen. */
+  hideStatusPill?: boolean;
 }
 
 export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
@@ -48,24 +43,17 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   flightToken = null,
   isMyTurn = false,
   activePlayerNickname,
-  shockTargetPos,
-  isOverloadedShock = false,
-  testedRiskLevel = 1,
   dischargeStartedAtMs = null,
-  dischargeRoll = null,
   revealedCards = null,
   revealDeclaredProtocol = null,
   revealStartedAtMs = null,
-  bluffDetected = false,
-  revealLoserPos = null,
+  hideStatusPill = false,
 }) => {
   const { t } = useI18n();
   const lampGroupRef = useRef<Group>(null);
   const spotLightRef = useRef<SpotLight>(null);
-  const capacitorDrumRef = useRef<Group>(null);
   const laserScannerRef = useRef<Mesh>(null);
   const flyingGroupRef = useRef<Group>(null);
-  const hotChamberMaterialRef = useRef<THREE.MeshStandardMaterial>(null);
   const stackGroupRef = useRef<Group>(null);
   const landingBounceRef = useRef<number>(0);
 
@@ -85,7 +73,9 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
   const isGameOver = roomState === 'GameOver';
   const protocolColor = PROTOCOL_HEX[currentTargetProtocol ?? 'Alpha'] ?? '#10b981';
   const isBluffCheck = roomState === 'BluffCheck';
-  const isVoltageTest = roomState === 'VoltageTest' || Boolean(shockTargetPos);
+  // The discharge sequence usually plays after the server already moved on to RoundOver, so the
+  // amber stage light has to last for the whole cinematic, not just the VoltageTest state.
+  const isVoltageTest = roomState === 'VoltageTest' || Boolean(dischargeStartedAtMs);
 
   const stageAccentColor = isGameOver
     ? '#f59e0b'
@@ -95,7 +85,11 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
     ? '#f59e0b'
     : protocolColor;
 
-  const targetAccentColor = useMemo(() => new THREE.Color(stageAccentColor), [stageAccentColor]);
+  // Tungsten key light, only tinted by the stage accent: operators and cards keep their own colours.
+  const keyLightColor = useMemo(
+    () => new THREE.Color('#ffe6c4').lerp(new THREE.Color(stageAccentColor), 0.3),
+    [stageAccentColor]
+  );
 
   // The snapshot already counts the cards in flight: hold them back until they land.
   const visiblePileCount = isFlying
@@ -128,56 +122,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
     }
 
     if (spotLightRef.current) {
-      spotLightRef.current.color.lerp(targetAccentColor, delta * 3.5);
-    }
-
-    if (capacitorDrumRef.current && isVoltageTest) {
-      if (shockTargetPos) {
-        // Aim capacitor turret directly at the target operator
-        const aimAngle = Math.atan2(shockTargetPos[0], shockTargetPos[2]);
-        capacitorDrumRef.current.rotation.y = aimAngle;
-        capacitorDrumRef.current.position.y = 1.35;
-      } else if (dischargeStartedAtMs && dischargeRoll !== null && dischargeRoll !== undefined) {
-        // Spin-down deceleration phase ending on roll chamber
-        const spindownDuration = reducedMotion ? 0 : DRUM_SPINDOWN_MS;
-        const elapsedSinceDischarge = Date.now() - dischargeStartedAtMs;
-        const targetAngle = -((dischargeRoll - 1) * Math.PI * 2) / 6;
-
-        if (spindownDuration > 0 && elapsedSinceDischarge < spindownDuration) {
-          const t = Math.max(0, Math.min(1, elapsedSinceDischarge / spindownDuration));
-          // Ease-out cubic deceleration
-          const easeOut = 1 - Math.pow(1 - t, 3);
-          const totalSpins = Math.PI * 2 * 3;
-          capacitorDrumRef.current.rotation.y = totalSpins * (1 - easeOut) + targetAngle;
-          capacitorDrumRef.current.position.y = 1.25 + (1 - easeOut) * Math.sin(elapsed * 28) * 0.04;
-        } else {
-          // Settled on target roll chamber
-          capacitorDrumRef.current.rotation.y = targetAngle;
-          capacitorDrumRef.current.position.y = 1.25;
-        }
-      } else {
-        if (reducedMotion) {
-          capacitorDrumRef.current.position.y = 1.25;
-        } else {
-          capacitorDrumRef.current.rotation.y += delta * 3.5;
-          capacitorDrumRef.current.position.y = 1.25 + Math.sin(elapsed * 4) * 0.03;
-        }
-      }
-    }
-
-    if (hotChamberMaterialRef.current) {
-      if (reducedMotion) {
-        hotChamberMaterialRef.current.emissiveIntensity = 2.0;
-      } else {
-        let pulseSpeed = 4;
-        if (dischargeStartedAtMs && dischargeRoll !== null) {
-          const elapsedSinceDischarge = Date.now() - dischargeStartedAtMs;
-          const t = Math.max(0, Math.min(1, elapsedSinceDischarge / DRUM_SPINDOWN_MS));
-          pulseSpeed = 6 + t * 24;
-        }
-        const pulse = 1.6 + Math.sin(elapsed * pulseSpeed) * 0.8;
-        hotChamberMaterialRef.current.emissiveIntensity = pulse;
-      }
+      spotLightRef.current.color.lerp(keyLightColor, Math.min(1, delta * 3.5));
     }
 
     if (laserScannerRef.current && isBluffCheck) {
@@ -226,91 +171,63 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
 
   return (
     <group>
-      {/* Background Underground Bunker Server Racks with Instanced Diode Matrix */}
-      {[-3.8, -1.9, 1.9, 3.8].map((rx, idx) => (
-        <mesh key={idx} position={[rx, 1.5, -4.4]} castShadow receiveShadow>
-          <boxGeometry args={[1.1, 3.0, 0.7]} />
-          <meshStandardMaterial color="#09090b" metalness={0.8} roughness={0.35} />
-        </mesh>
-      ))}
       <ServerRackDiodes3D
         isBluffCheck={isBluffCheck}
         isVoltageTest={isVoltageTest}
         stageAccentColor={stageAccentColor}
       />
 
-      {/* Overhead Swinging Bunker Lamp & Dynamic Key Spotlight */}
+      {/* Overhead Swinging Bunker Lamp & Key Spotlight */}
       <group ref={lampGroupRef} position={[0, 3.85, 0]}>
         <mesh position={[0, 0.25, 0]}>
           <cylinderGeometry args={[0.03, 0.03, 0.6, 8]} />
           <meshStandardMaterial color="#27272a" metalness={0.8} roughness={0.3} />
         </mesh>
-        <mesh>
-          <coneGeometry args={[0.48, 0.28, 16]} />
-          <meshStandardMaterial color="#18181b" metalness={0.85} roughness={0.2} />
-        </mesh>
-        <mesh position={[0, -0.1, 0]}>
-          <sphereGeometry args={[0.14, 12, 12]} />
+        {/* Enamel shade: open underneath so the lit interior is visible from the table */}
+        <mesh position={[0, 0.02, 0]}>
+          <coneGeometry args={[0.56, 0.3, 24, 1, true]} />
           <meshStandardMaterial
-            color={stageAccentColor}
-            emissive={stageAccentColor}
-            emissiveIntensity={2.0}
+            color="#1d2027"
+            metalness={0.85}
+            roughness={0.3}
+            side={THREE.DoubleSide}
           />
+        </mesh>
+        <mesh position={[0, -0.128, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.52, 0.57, 24]} />
+          <meshStandardMaterial
+            color="#000000"
+            emissive={stageAccentColor}
+            emissiveIntensity={2.2}
+            toneMapped={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+        <mesh position={[0, -0.06, 0]}>
+          <sphereGeometry args={[0.1, 16, 12]} />
+          <meshBasicMaterial color="#fff1d6" toneMapped={false} />
         </mesh>
         <spotLight
           ref={spotLightRef}
           position={[0, -0.15, 0]}
-          angle={0.78}
-          penumbra={0.65}
-          intensity={5.4}
+          angle={1.02}
+          penumbra={0.85}
+          intensity={62}
           castShadow
           shadow-mapSize={[1024, 1024]}
           shadow-bias={-0.0005}
-          color={stageAccentColor}
+          shadow-normalBias={0.02}
+          color="#ffe6c4"
         />
       </group>
 
-      {/* Main Octagonal Bunker Table Top */}
-      <mesh position={[0, 0.68, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[2.22, 2.34, 0.14, 8]} />
-        <meshStandardMaterial color="#09090b" metalness={0.82} roughness={0.24} />
-      </mesh>
+      <BunkerTable3D accentColor={stageAccentColor} />
 
-      {/* Inner Dielectric Glass Surface */}
-      <mesh position={[0, 0.755, 0]} receiveShadow>
-        <cylinderGeometry args={[1.9, 1.9, 0.02, 8]} />
-        <meshStandardMaterial color="#041f14" metalness={0.9} roughness={0.14} />
-      </mesh>
-
-      {/* Glowing Protocol Circuit Rings on Table Surface */}
-      <mesh position={[0, 0.768, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1.22, 1.28, 32]} />
-        <meshStandardMaterial
-          color={stageAccentColor}
-          emissive={stageAccentColor}
-          emissiveIntensity={1.9}
-        />
-      </mesh>
-      <mesh position={[0, 0.768, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.52, 0.56, 24]} />
-        <meshStandardMaterial
-          color={stageAccentColor}
-          emissive={stageAccentColor}
-          emissiveIntensity={1.5}
-        />
-      </mesh>
-
-      {/* Heavy Table Pedestal */}
-      <mesh position={[0, 0.34, 0]} castShadow>
-        <cylinderGeometry args={[0.58, 0.88, 0.68, 8]} />
-        <meshStandardMaterial color="#18181b" metalness={0.7} roughness={0.4} />
-      </mesh>
-
-      {/* 3D Diegetic Hologram Symbol Above Table Center */}
-      {roomState !== 'Lobby' && <ProtocolHologram3D protocol={currentTargetProtocol} />}
+      {/* Round-start protocol card: flips face-up in the middle of the table, then sinks away */}
+      {roomState !== 'Lobby' && <RoundProtocolCard3D />}
 
       {/* Pile Counter & Turn Status Info Pill next to Hologram */}
-      {roomState !== 'Lobby' && (
+      {roomState !== 'Lobby' && !hideStatusPill && (
         <Html position={[0, 0.98, -0.32]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
           <div className="px-3 py-1 rounded-full border border-zinc-700/80 bg-black/85 backdrop-blur-md font-mono text-[10px] flex items-center gap-2.5 shadow-[0_0_25px_rgba(0,0,0,0.9)] select-none pointer-events-none whitespace-nowrap">
             <span className="text-zinc-300 font-bold">{t.arena.hologramPile}: {tablePileCount}</span>
@@ -381,61 +298,6 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
             emissiveIntensity={2.0}
           />
         </mesh>
-      )}
-
-      {/* 3D 6-Chamber High-Voltage Dielectric Revolver Cylinder during VoltageTest & Shock */}
-      {isVoltageTest && (
-        <group ref={capacitorDrumRef} position={[0, 1.25, 0]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.42, 0.42, 0.48, 18]} />
-            <meshStandardMaterial color="#18181b" metalness={0.9} roughness={0.15} />
-          </mesh>
-          {Array.from({ length: 6 }).map((_, i) => {
-            const angle = (i * Math.PI * 2) / 6;
-            const cx = Math.cos(angle) * 0.28;
-            const cz = Math.sin(angle) * 0.28;
-            const isHotChamber = i < Math.max(1, Math.min(6, testedRiskLevel));
-            return (
-              <mesh key={i} position={[cx, 0, cz]}>
-                <cylinderGeometry args={[0.08, 0.08, 0.52, 12]} />
-                <meshStandardMaterial
-                  ref={isHotChamber ? hotChamberMaterialRef : undefined}
-                  color={isHotChamber ? '#ef4444' : '#f59e0b'}
-                  emissive={isHotChamber ? '#ef4444' : '#f59e0b'}
-                  emissiveIntensity={isHotChamber ? 2.2 : 1.2}
-                />
-              </mesh>
-            );
-          })}
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.56, 0.02, 12, 32]} />
-            <meshStandardMaterial
-              color="#ef4444"
-              emissive="#ef4444"
-              emissiveIntensity={1.8}
-            />
-          </mesh>
-        </group>
-      )}
-
-      {/* Short 3D Lightning Bolt fired from Table Center towards loser during trace verdict */}
-      {isRevealing && revealLoserPos && (
-        <LightningArc3D
-          start={[0, 1.1, 0]}
-          end={revealLoserPos}
-          color={bluffDetected ? '#ef4444' : '#38bdf8'}
-          intensity={4.5}
-        />
-      )}
-
-      {/* 3D Crackling Lightning Bolt fired from Cylinder directly into Target Operator */}
-      {shockTargetPos && (
-        <LightningArc3D
-          start={[0, 1.35, 0]}
-          end={shockTargetPos}
-          color={isOverloadedShock ? '#ef4444' : '#38bdf8'}
-          intensity={isOverloadedShock ? 6 : 4}
-        />
       )}
     </group>
   );

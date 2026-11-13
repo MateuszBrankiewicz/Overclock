@@ -2,6 +2,7 @@ import { HelpCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { checkWebGLAvailable } from '../../../shared/lib/webgl';
 import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
@@ -24,7 +25,8 @@ import { MatchSummary } from './MatchSummary';
 import { RoomCodeBadge } from './RoomCodeBadge';
 import { RoundIntermissionBanner } from './RoundIntermissionBanner';
 import { RoundIntroBanner } from './RoundIntroBanner';
-import { TraceVerdictBanner } from './TraceVerdictBanner';
+import { BluffShowdown } from './showdown/BluffShowdown';
+import type { ShowdownOperator } from './showdown/showdownParts';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
 export interface OperatingTableProps {
@@ -35,6 +37,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   const session = useGameSession();
   const { t } = useI18n();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Same check as BunkerArenaCanvas: without WebGL the showdown bar shows the cards itself.
+  const [webGLSupported] = useState<boolean>(() => checkWebGLAvailable());
 
   const openRules = useRulesModalStore((s) => s.open);
 
@@ -53,6 +57,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   const toggleCardSelection = useGameStore((s) => s.toggleCardSelection);
   const lastPlayedCards = useGameStore((s) => s.lastPlayedCards);
   const traceReveal = useGameStore((s) => s.traceReveal);
+  const showdownTrace = useGameStore((s) => s.showdownTrace);
+  const dischargeDeadlineUtc = useGameStore((s) => s.dischargeDeadlineUtc);
   const finishTraceReveal = useGameStore((s) => s.finishTraceReveal);
   const roundIntro = useGameStore((s) => s.roundIntro);
   const clearRoundIntro = useGameStore((s) => s.clearRoundIntro);
@@ -134,7 +140,6 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   const players = traceReveal?.seatsAtReveal ?? livePlayers;
 
   const me = players.find((p) => p.playerId === playerId);
-  const pendingPlayer = players.find((p) => p.playerId === pendingDischargePlayerId);
   const isLocalPlayerPending = Boolean(playerId && pendingDischargePlayerId === playerId);
   const canUseGroundWire = Boolean(
     isLocalPlayerPending && me?.exploit?.type === 'GroundWire' && !me.exploit.isBurned
@@ -155,6 +160,23 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
     roomState,
     phase,
   });
+  // Reveal, voltage test decision and discharge are one sequence shown by one panel.
+  const isShowdown = phase === 'reveal' || phase === 'decision' || phase === 'discharge';
+  const showdownTargetId =
+    dischargeCinematic?.event.playerId ??
+    pendingDischargePlayerId ??
+    queuedDischarge?.playerId ??
+    showdownTrace?.loserPlayerId ??
+    null;
+  const toOperator = (id: string): ShowdownOperator => {
+    const seat = players.find((p) => p.playerId === id);
+    return {
+      nickname: seat?.nickname ?? t.common.operator,
+      isLocal: id === playerId,
+      characterId: seat?.characterId,
+      riskLevel: seat?.riskLevel ?? 1,
+    };
+  };
   if (!roomCode) {
     return <LobbyScreen onOpenTerminal={onOpenTerminal} />;
   }
@@ -164,7 +186,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
     <div className="fixed inset-0 z-40 w-screen h-[100dvh] bg-black overflow-hidden font-mono">
       {/* Packet Sniffer Visor HUD Alert */}
       {sniffedCard && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-950/90 border border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.6)] text-xs text-cyan-200 pointer-events-none">
+        <div className="fixed top-24 sm:top-16 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center justify-center gap-2 w-max max-w-[92vw] px-3 py-1 sm:px-4 sm:py-1.5 rounded-full bg-cyan-950/90 border border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.6)] text-[11px] sm:text-xs text-cyan-200 text-center pointer-events-none">
           <span>⚡ {t.table.packetSnifferAlert}</span>
           <span className="px-2 py-0.5 rounded font-black text-black bg-cyan-400">
             {sniffedCard.protocol}
@@ -182,32 +204,52 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
         />
       )}
 
-      {traceReveal && revealResolution && (
-        <TraceVerdictBanner
-          key={`verdict:${revealResolution.sequenceNumber}:${traceReveal.startedAtMs}`}
-          bluffDetected={revealResolution.bluffDetected}
-          accuserNickname={
-            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.accuserPlayerId)
-              ?.nickname ?? t.common.operator
+      {isShowdown && (
+        <BluffShowdown
+          trace={
+            showdownTrace
+              ? {
+                  accuser: toOperator(showdownTrace.accuserPlayerId),
+                  accused: toOperator(showdownTrace.accusedPlayerId),
+                  declaredProtocol: showdownTrace.declaredProtocol,
+                  cards: showdownTrace.revealedCards,
+                  bluffDetected: showdownTrace.bluffDetected,
+                }
+              : null
           }
-          accusedNickname={
-            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.accusedPlayerId)
-              ?.nickname ?? t.common.operator
+          revealStartedAtMs={traceReveal?.startedAtMs ?? null}
+          discharge={
+            dischargeCinematic
+              ? {
+                  startedAtMs: dischargeCinematic.startedAtMs,
+                  roll: dischargeCinematic.event.roll,
+                  riskLevel: dischargeCinematic.event.riskLevel,
+                  overloaded: dischargeCinematic.event.overloaded,
+                  resultingRiskLevel: dischargeCinematic.event.resultingRiskLevel,
+                }
+              : null
           }
-          loserNickname={
-            traceReveal.seatsAtReveal.find((s) => s.playerId === revealResolution.loserPlayerId)
-              ?.nickname ?? t.common.operator
+          target={showdownTargetId ? toOperator(showdownTargetId) : null}
+          decision={
+            phase === 'decision'
+              ? {
+                  deadlineUtc: dischargeDeadlineUtc,
+                  canUseGroundWire,
+                  onDeployGroundWire: () => void session.activateExploit('GroundWire'),
+                  onTriggerDischarge: () => void session.triggerDischarge(),
+                }
+              : null
           }
-          isLocalLoser={revealResolution.loserPlayerId === playerId}
-          declaredProtocol={revealResolution.declaredProtocol}
-          startedAtMs={traceReveal.startedAtMs}
-          cardCount={revealResolution.revealedCards.length}
-          onSkip={finishTraceReveal}
+          onSkip={
+            traceReveal ? finishTraceReveal : dischargeCinematic ? clearDischargeCinematic : undefined
+          }
+          variant={webGLSupported ? 'bar' : 'expanded'}
         />
       )}
 
       <BunkerArenaCanvas
         players={players}
+        isOutcomeCinematic={isShowdown}
         myPlayerId={playerId}
         activePlayerId={activePlayerId}
         pendingDischargePlayerId={pendingDischargePlayerId}
@@ -218,7 +260,6 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
         revealedCards={revealResolution?.revealedCards ?? null}
         revealDeclaredProtocol={revealResolution?.declaredProtocol ?? null}
         revealStartedAtMs={traceReveal?.startedAtMs ?? null}
-        bluffDetected={revealResolution?.bluffDetected ?? false}
         revealLoserPlayerId={
           revealResolution
             ? revealResolution.bluffDetected
@@ -226,6 +267,9 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
               : revealResolution.accuserPlayerId
             : null
         }
+        voltageTargetPlayerId={showdownTargetId}
+        revealAccuserPlayerId={revealResolution?.accuserPlayerId ?? null}
+        revealAccusedPlayerId={revealResolution?.accusedPlayerId ?? null}
         lastPlayedCards={lastPlayedCards}
         cameraFocus={cameraFocus}
         onCameraFocusChange={setCameraFocus}
@@ -240,14 +284,8 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
         onPlayCards={() => void session.playCards()}
         onCallTrace={() => void session.callTrace()}
         onActivateExploit={(exp, newTarget) => void session.activateExploit(exp, newTarget)}
-        isVoltageTestActive={phase === 'decision'}
         overlayMode={centerOverlay !== null ? 'modal' : 'passive'}
         dischargeCinematic={dischargeCinematic}
-        pendingPlayerNickname={pendingPlayer?.nickname ?? t.common.operator}
-        isLocalPlayerPending={isLocalPlayerPending}
-        canUseGroundWire={canUseGroundWire}
-        onDeployGroundWire={() => void session.activateExploit('GroundWire')}
-        onTriggerDischarge={() => void session.triggerDischarge()}
         onDismissDischarge={clearDischargeCinematic}
         topBarSlot={
           <div className="relative flex items-center gap-2 bg-black/80 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl text-xs">

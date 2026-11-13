@@ -141,6 +141,53 @@ describe('trace -> reveal -> discharge sequencing', () => {
   });
 });
 
+describe('showdownTrace (bluff showdown panel)', () => {
+  beforeEach(() => {
+    useGameStore.getState().leaveRoom();
+    useGameStore.getState().applyRoomSnapshot(snapshot());
+  });
+
+  it('is set when the reveal starts and kept through the reveal into the discharge', () => {
+    useGameStore.getState().applyTraceResolution(resolution);
+    expect(useGameStore.getState().showdownTrace).toEqual(resolution);
+
+    useGameStore.getState().applyCapacitorDischarged(discharge);
+    useGameStore.getState().finishTraceReveal();
+    expect(useGameStore.getState().dischargeCinematic).not.toBeNull();
+    expect(useGameStore.getState().showdownTrace).toEqual(resolution);
+  });
+
+  it('is cleared once the discharge sequence is over', () => {
+    useGameStore.getState().applyTraceResolution(resolution);
+    useGameStore.getState().applyCapacitorDischarged(discharge);
+    useGameStore.getState().finishTraceReveal();
+
+    useGameStore.getState().clearDischargeCinematic();
+    expect(useGameStore.getState().showdownTrace).toBeNull();
+  });
+
+  it('is cleared when the discharge watchdog gives up', () => {
+    useGameStore.getState().applyTraceResolution(resolution);
+    useGameStore.getState().clearAwaitingDischarge();
+    expect(useGameStore.getState().showdownTrace).toBeNull();
+  });
+
+  it('is cleared on a new round and when leaving the room', () => {
+    useGameStore.getState().applyTraceResolution(resolution);
+    useGameStore.getState().applyRoundStarted({
+      roomCode: 'CYBER-1',
+      roundNumber: 2,
+      leadProtocol: 'Beta',
+    });
+    expect(useGameStore.getState().showdownTrace).toBeNull();
+
+    useGameStore.getState().applyTraceResolution({ ...resolution, sequenceNumber: 20 });
+    expect(useGameStore.getState().showdownTrace).not.toBeNull();
+    useGameStore.getState().leaveRoom();
+    expect(useGameStore.getState().showdownTrace).toBeNull();
+  });
+});
+
 describe('snapshots during a round', () => {
   beforeEach(() => {
     useGameStore.getState().leaveRoom();

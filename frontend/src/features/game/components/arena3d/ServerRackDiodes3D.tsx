@@ -84,7 +84,28 @@ export const ServerRackDiodes3D: React.FC<ServerRackDiodes3DProps> = ({
   });
 
   return (
-    <instancedMesh
+    <group>
+      {RACK_X_POSITIONS.map((rx) => (
+        <group key={rx} position={[rx, 1.5, -4.4]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[1.1, 3.0, 0.7]} />
+            <meshStandardMaterial color="#15171c" metalness={0.8} roughness={0.42} />
+          </mesh>
+          {/* Recessed front bay holding the diode matrix */}
+          <mesh position={[0, 0, 0.351]}>
+            <planeGeometry args={[0.86, 1.72]} />
+            <meshStandardMaterial color="#050608" metalness={0.4} roughness={0.7} />
+          </mesh>
+          {/* Vent slats above and below the bay */}
+          {[-1.2, -1.08, 1.08, 1.2].map((y) => (
+            <mesh key={y} position={[0, y, 0.352]}>
+              <planeGeometry args={[0.8, 0.05]} />
+              <meshStandardMaterial color="#2c313b" metalness={0.85} roughness={0.35} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      <instancedMesh
       ref={meshRef}
       args={[undefined, undefined, TOTAL_DIODES]}
       castShadow={false}
@@ -96,6 +117,7 @@ export const ServerRackDiodes3D: React.FC<ServerRackDiodes3DProps> = ({
         roughness={0.15}
         toneMapped={false}
       />
-    </instancedMesh>
+      </instancedMesh>
+    </group>
   );
 };
