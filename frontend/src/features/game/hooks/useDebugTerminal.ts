@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
-import { playSfx, setGameAudioHum, speakRobotVoice } from '../../../shared/lib/audio';
+import {
+  playSfx,
+  setGameAudioHum,
+  speakRobotVoice,
+  useAudioSettings,
+} from '../../../shared/lib/audio';
 import { vibrate } from '../../../shared/lib/haptics';
 import {
   clearGameSession,
@@ -32,6 +37,9 @@ import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalo
 import { dischargeStrikeDelayMs } from '../utils/cinematicTiming';
 import { feedEntryDelayMs } from '../utils/feedRevealDelay';
 import { type FeedSource, formatFeedEvent } from '../utils/formatFeedEvent';
+
+/** Delay before the trace siren plays so it does not drown out the "LIAR!" robot voice. */
+export const TRACE_SIREN_DELAY_MS = 900;
 
 let sharedConnection: GameConnectionManager | null = null;
 let startupResumeAttempted = false;
@@ -112,7 +120,6 @@ export function recordGameEvent(source: FeedSource): void {
       break;
     }
     case 'TraceCalled': {
-      playSfx('traceSiren');
       const accuser = players.find((p) => p.playerId === source.event.accuserPlayerId);
       const character = resolveSeatCharacter(accuser?.characterId).id;
       const t = useI18n.getState().t;
@@ -120,6 +127,12 @@ export function recordGameEvent(source: FeedSource): void {
         priority: 'high',
         sequenceNumber: source.event.sequenceNumber,
       });
+      const sirenDelayMs = useAudioSettings.getState().voiceEnabled ? TRACE_SIREN_DELAY_MS : 0;
+      if (sirenDelayMs > 0) {
+        setTimeout(() => playSfx('traceSiren'), sirenDelayMs);
+      } else {
+        playSfx('traceSiren');
+      }
       break;
     }
     case 'CapacitorDischarged': {
