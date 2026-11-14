@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useDebugTerminal } from '../hooks/useDebugTerminal';
 import type { CardProtocol } from '../schemas/gameEvents';
 import { useGameStore } from '../stores/useGameStore';
+import { useUiStore } from '../stores/useUiStore';
 import { LobbyControls } from './LobbyControls';
 import { StateJsonMirror } from './StateJsonMirror';
 import { TraceResolutionBanner } from './TraceResolutionBanner';
@@ -22,6 +23,9 @@ export function DebugTerminal() {
   const myCards = useGameStore((state) => state.myCards);
   const selectedCardIds = useGameStore((state) => state.selectedCardIds);
   const toggleCardSelection = useGameStore((state) => state.toggleCardSelection);
+  const holdToRevealCards = useUiStore((state) => state.holdToRevealCards);
+  const isHandRevealed = useUiStore((state) => state.isHandRevealed);
+  const isConcealed = holdToRevealCards && !isHandRevealed;
 
   const terminal = useDebugTerminal();
 
@@ -90,7 +94,7 @@ export function DebugTerminal() {
                     }`}
                     onClick={() => toggleCardSelection(card.id)}
                   >
-                    {card.protocol} [{card.id.slice(0, 4)}]
+                    {isConcealed ? 'HIDDEN [****]' : `${card.protocol} [${card.id.slice(0, 4)}]`}
                   </button>
                 ))
               )}

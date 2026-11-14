@@ -1,7 +1,12 @@
 import { useGameStore } from '../stores/useGameStore';
+import { formatDisplayRoomCode, useUiStore } from '../stores/useUiStore';
 
 export function StateJsonMirror() {
   const gameState = useGameStore((state) => state);
+  const maskRoomCode = useUiStore((state) => state.maskRoomCode);
+  const holdToRevealCards = useUiStore((state) => state.holdToRevealCards);
+  const isHandRevealed = useUiStore((state) => state.isHandRevealed);
+  const isConcealed = holdToRevealCards && !isHandRevealed;
 
   return (
     <div className="space-y-1">
@@ -15,7 +20,7 @@ export function StateJsonMirror() {
       >
         {JSON.stringify(
           {
-            roomCode: gameState.roomCode,
+            roomCode: gameState.roomCode ? formatDisplayRoomCode(gameState.roomCode, maskRoomCode) : null,
             roomState: gameState.roomState,
             hostId: gameState.hostId,
             playerId: gameState.playerId,
@@ -24,7 +29,7 @@ export function StateJsonMirror() {
             tablePileCount: gameState.tablePileCount,
             roundNumber: gameState.roundNumber,
             seats: gameState.players,
-            myCards: gameState.myCards,
+            myCards: isConcealed ? { concealed: true, count: gameState.myCards.length } : gameState.myCards,
             selectedCardIds: gameState.selectedCardIds,
             lastTraceResolution: gameState.lastTraceResolution,
           },
@@ -35,4 +40,3 @@ export function StateJsonMirror() {
     </div>
   );
 }
-

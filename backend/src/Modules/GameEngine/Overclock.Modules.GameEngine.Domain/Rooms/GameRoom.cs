@@ -38,6 +38,8 @@ public sealed class GameRoom
     public DischargeOutcome? LastDischargeOutcome { get; private set; }
     public long? LastInjectedTurnSequenceId { get; private set; }
     public int RoundNumber { get; private set; }
+    public int MatchRoundCount { get; private set; }
+    public DateTimeOffset? MatchStartedAtUtc { get; private set; }
     public long EventSequenceNumber => _eventSequenceNumberInternal;
 
     public long NextEventSequence() => Interlocked.Increment(ref _eventSequenceNumberInternal);
@@ -313,6 +315,8 @@ public sealed class GameRoom
         // All guards passed: perform state mutations
         if (isNewMatch)
         {
+            MatchStartedAtUtc = DateTimeOffset.UtcNow;
+            MatchRoundCount = 0;
             // Reset seats for new match: assign fresh exploit and reset risk to 1/6
             foreach (var seat in _seats)
             {
@@ -358,6 +362,7 @@ public sealed class GameRoom
         CurrentTurnDeadlineUtc = null;
         IntermissionDeadlineUtc = null;
         RoundNumber++;
+        MatchRoundCount++;
         TurnSequenceId++;
 
         // Determine starting player
@@ -421,6 +426,7 @@ public sealed class GameRoom
         CurrentTurnDeadlineUtc = null;
         IntermissionDeadlineUtc = null;
         RoundNumber++;
+        MatchRoundCount++;
         TurnSequenceId++;
 
         var startingPlayerIndex = (RoundNumber - 1) % prospectiveActiveSeats.Count;

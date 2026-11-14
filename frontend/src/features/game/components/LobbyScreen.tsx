@@ -41,7 +41,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [hasWebGL] = useState<boolean>(() => checkWebGLAvailable());
   const [nickname, setNickname] = useState(() => loadNickname());
   const initialRoomParam = useMemo(
-    () => (typeof window === 'undefined' ? '' : readRoomParam(window.location.search)),
+    () =>
+      typeof window === 'undefined'
+        ? ''
+        : readRoomParam(window.location.search, window.location.pathname),
     []
   );
   const [targetCode, setTargetCode] = useState(initialRoomParam);

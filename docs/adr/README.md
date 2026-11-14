@@ -33,3 +33,4 @@ We follow the [Michael Nygard / MADR](https://adr.github.io/madr/) format to cap
 | [0014](0014-game-audio-engine-on-the-web-audio-api.md) | [Game Audio Engine on the Web Audio API](0014-game-audio-engine-on-the-web-audio-api.md) | **Accepted** | 2026-11-12 |
 | [0015](0015-authoritative-turn-deadline-in-room-snapshots.md) | [Authoritative turn deadline in room snapshots](0015-authoritative-turn-deadline-in-room-snapshots.md) | **Accepted** | 2026-11-12 |
 | [0016](0016-robot-voice-lines-via-web-speech-api.md) | [Robot voice lines via Web Speech API](0016-robot-voice-lines-via-web-speech-api.md) | **Accepted** | 2026-11-12 |
+| [0017](0017-production-scalability-signalr-redis-backplane-rate-limiting-and-stats-persistence.md) | [Production Scalability SignalR Redis Backplane Rate Limiting and Stats Persistence](0017-production-scalability-signalr-redis-backplane-rate-limiting-and-stats-persistence.md) | **Proposed** | 2026-11-13 |

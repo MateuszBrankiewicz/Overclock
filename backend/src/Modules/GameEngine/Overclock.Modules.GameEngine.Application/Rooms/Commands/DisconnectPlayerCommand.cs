@@ -18,6 +18,7 @@ internal sealed class DisconnectPlayerCommandHandler(
     IDisconnectGraceManager graceManager,
     ITurnTimerEngine turnTimer,
     IGameStateProjector projector,
+    IMatchFinishedDispatcher? matchFinishedDispatcher = null,
     TimeProvider? timeProvider = null)
     : IRequestHandler<DisconnectPlayerCommand, Result>
 {
@@ -102,6 +103,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                         {
                             var wasCurrentTurnPlayer = activeRoom.CurrentTurnPlayerId == info.PlayerId;
                             var wasRoundOver = activeRoom.State == RoomState.RoundOver;
+                            var wasGameOver = activeRoom.State == RoomState.GameOver;
                             var eliminateResult = activeRoom.EliminatePlayer(info.PlayerId);
                             if (!eliminateResult.IsSuccess)
                             {
@@ -111,6 +113,10 @@ internal sealed class DisconnectPlayerCommandHandler(
                             if (activeRoom.State == RoomState.GameOver)
                             {
                                 turnTimer.Cancel(activeRoom.Id.Value);
+                                if (!wasGameOver)
+                                {
+                                    matchFinishedDispatcher?.Dispatch(MatchFinishedEventFactory.FromRoom(activeRoom));
+                                }
                             }
                             else if (!wasRoundOver && activeRoom.State == RoomState.RoundOver)
                             {

@@ -4,6 +4,7 @@ import React from 'react';
 
 import { useI18n } from '../../../shared/i18n';
 import type { PlayerSeat } from '../schemas/gameEvents';
+import { formatDisplayRoomCode, useUiStore } from '../stores/useUiStore';
 import type { CharacterId } from '../utils/characterCatalog';
 import { getCharacterText, resolveSeatCharacter } from '../utils/characterCatalog';
 import { CharacterSelector } from './CharacterSelector';
@@ -33,6 +34,8 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
   onStartRound,
 }) => {
   const { t, language } = useI18n();
+  const maskRoomCode = useUiStore((s) => s.maskRoomCode);
+  const displayCode = formatDisplayRoomCode(roomCode, maskRoomCode);
 
   const me = players.find((p) => p.playerId === myPlayerId);
   const isMeReady = Boolean(me?.isReady);
@@ -59,7 +62,7 @@ export const LobbyPlayerList: React.FC<LobbyPlayerListProps> = ({
         <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 px-3 py-1.5 rounded-lg">
           <span className="text-xs text-zinc-400">{t.lobby.invitePrompt}</span>
           <span className="select-text font-black text-emerald-300 text-sm tracking-wider">
-            {roomCode}
+            {displayCode}
           </span>
           <InviteButton roomCode={roomCode} />
         </div>

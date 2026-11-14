@@ -6,6 +6,7 @@ import type {
   PlayerCard,
   PlayerSeat,
 } from '../../schemas/gameEvents';
+import { useUiStore } from '../../stores/useUiStore';
 import type { CharacterId, CharacterProfile } from '../../utils/characterCatalog';
 import { resolveSeatCharacter } from '../../utils/characterCatalog';
 import { PcbCard } from '../PcbCard';
@@ -35,7 +36,12 @@ export const ArenaFallback: React.FC<ArenaFallbackProps> = ({
   myCards,
   selectedCardIds,
   onToggleCard,
-}) => (
+}) => {
+  const holdToRevealCards = useUiStore((s) => s.holdToRevealCards);
+  const isHandRevealed = useUiStore((s) => s.isHandRevealed);
+  const isConcealed = holdToRevealCards && !isHandRevealed;
+
+  return (
   <div
     data-testid="bunker-arena-fallback"
     className="relative z-10 flex flex-col justify-between p-4 pt-16 pb-20 min-h-[100dvh] table-grid"
@@ -81,12 +87,14 @@ export const ArenaFallback: React.FC<ArenaFallbackProps> = ({
             id={c.id}
             protocol={c.protocol}
             visualSeed={c.visualSeed}
+            faceDown={isConcealed}
             selected={selectedCardIds.includes(c.id)}
-            badge={classifyCard(c.protocol, currentTargetProtocol)}
+            badge={isConcealed ? null : classifyCard(c.protocol, currentTargetProtocol)}
             onClick={() => onToggleCard(c.id)}
           />
         ))}
       </div>
     </div>
   </div>
-);
+  );
+};

@@ -27,6 +27,7 @@ import { RoundIntermissionBanner } from './RoundIntermissionBanner';
 import { RoundIntroBanner } from './RoundIntroBanner';
 import { BluffShowdown } from './showdown/BluffShowdown';
 import type { ShowdownOperator } from './showdown/showdownParts';
+import { StreamerSettings } from './StreamerSettings';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
 export interface OperatingTableProps {
@@ -296,6 +297,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
               <AudioMuteButton />
               <VoiceToggleButton />
               <GfxQualityButton />
+              <StreamerSettings />
               <button
                 type="button"
                 onClick={openRules}

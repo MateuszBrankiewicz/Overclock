@@ -245,14 +245,15 @@ export async function joinRoomOn(
 }
 
 /**
- * Joins the room named by the `?room=` invite link. With a saved nickname the join is immediate;
+ * Joins the room named by the `?room=` or `/join/:roomId` invite link. With a saved nickname the join is immediate;
  * without one the lobby is asked to prompt for a nickname first (`inviteJoin.needsNickname`).
  */
 export async function autoJoinFromInvite(
   conn: Pick<GameConnectionManager, 'invokeHubMethod' | 'saveSession'>,
-  search: string = typeof window === 'undefined' ? '' : window.location.search
+  search: string = typeof window === 'undefined' ? '' : window.location.search,
+  pathname: string = typeof window === 'undefined' ? '' : window.location.pathname
 ): Promise<void> {
-  const roomCode = readRoomParam(search);
+  const roomCode = readRoomParam(search, pathname);
   if (!roomCode || useGameStore.getState().isInRoom) return;
   const { setInviteJoin } = useUiStore.getState();
   const nickname = loadSavedNickname();
