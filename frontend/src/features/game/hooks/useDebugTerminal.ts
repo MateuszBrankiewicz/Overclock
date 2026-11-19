@@ -164,16 +164,8 @@ export function recordGameEvent(source: FeedSource): void {
     case 'RoundStarted':
       playSfx('roundStart');
       break;
-    case 'PlayerEliminated': {
-      playSfx('eliminated');
-      const eliminatedPlayer = players.find((p) => p.playerId === source.event.playerId);
-      const character = resolveSeatCharacter(eliminatedPlayer?.characterId).id;
-      const t = useI18n.getState().t;
-      speakRobotVoice(character, t.voice.eliminated, {
-        sequenceNumber: source.event.sequenceNumber,
-      });
-      break;
-    }
+    // PlayerEliminated is intentionally silent: the discharge strike already carries the death,
+    // and a dead operator must not make any further sound.
   }
 }
 
@@ -245,14 +237,15 @@ export async function joinRoomOn(
 }
 
 /**
- * Joins the room named by the `?room=` invite link. With a saved nickname the join is immediate;
+ * Joins the room named by the `?room=` or `/join/:roomId` invite link. With a saved nickname the join is immediate;
  * without one the lobby is asked to prompt for a nickname first (`inviteJoin.needsNickname`).
  */
 export async function autoJoinFromInvite(
   conn: Pick<GameConnectionManager, 'invokeHubMethod' | 'saveSession'>,
-  search: string = typeof window === 'undefined' ? '' : window.location.search
+  search: string = typeof window === 'undefined' ? '' : window.location.search,
+  pathname: string = typeof window === 'undefined' ? '' : window.location.pathname
 ): Promise<void> {
-  const roomCode = readRoomParam(search);
+  const roomCode = readRoomParam(search, pathname);
   if (!roomCode || useGameStore.getState().isInRoom) return;
   const { setInviteJoin } = useUiStore.getState();
   const nickname = loadSavedNickname();
@@ -673,13 +666,6 @@ export function useGameSession() {
     }
   };
 
-  const simulateDisconnect = async () => {
-    if (!sharedConnection) return;
-    await sharedConnection.stop();
-    setConnectionStatus('Disconnected');
-    logMessage('Simulated socket disconnection');
-  };
-
   const reconnect = async () => {
     if (!sharedConnection) return;
     if (!sharedConnection.getSession()) {
@@ -749,11 +735,8 @@ export function useGameSession() {
     callTrace,
     activateExploit,
     triggerDischarge,
-    simulateDisconnect,
     reconnect,
     leaveRoom,
     isInRoom,
   };
 }
-
-export const useDebugTerminal = useGameSession;

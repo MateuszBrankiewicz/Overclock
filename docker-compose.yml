@@ -1,14 +1,20 @@
+# Dev stack: backend, Postgres and Redis are published on 127.0.0.1 only (the default password is
+# public in this file). The frontend on :3000 proxies /hubs and /api to the backend over the Docker network.
 services:
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Database=Host=postgres;Port=5432;Database=overclock;Username=overclock;Password=overclock_secret
       - ConnectionStrings__Redis=redis:6379
+      # Trust X-Forwarded-For from the nginx container so per-client limits see real player IPs.
+      - ForwardedHeaders__KnownNetworks__0=172.16.0.0/12
+      - ForwardedHeaders__KnownNetworks__1=192.168.0.0/16
+      - ForwardedHeaders__KnownNetworks__2=10.0.0.0/8
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,7 +41,7 @@ services:
       POSTGRES_USER: overclock
       POSTGRES_PASSWORD: overclock_secret
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -49,7 +55,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:

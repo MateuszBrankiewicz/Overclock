@@ -60,3 +60,13 @@ W grze turowej opartej na blefie kluczowe jest zachowanie odpowiedniego stosunku
 
 ### Rola Kart Odrzuconych (Burned Pile)
 Na początku każdej rundy określa się losowo pulę kart odrzuconych (niewidocznych dla nikogo). Zapobiega to sytuacji, w której gracz posiadający komplet kart danego typu ma 100% pewności co do stanu stołu, wymuszając element szacowania ryzyka statystycznego.
+---
+
+## 4. Zasada Ostatniego Posiadacza Kart (Last Holder Rule)
+
+Gracz, który wyłoży ostatnie karty z ręki, jest pomijany w kolejnych turach rundy. Jeśli **wszyscy rywale** (nie licząc wyeliminowanych) mają już puste ręce, ostatni gracz, który ma jeszcze karty, **nie może dalej zagrywać** — nikt nie mógłby go już sprawdzić. Jego jedynym legalnym ruchem jest `TRACE` na poprzednim zagraniu.
+
+* Zasada obowiązuje przy każdej liczbie graczy, najczęściej jednak w pojedynku 1 na 1.
+* Próba zagrania kart zwraca błąd `Turn.MustCallTrace`; interfejs blokuje przycisk wykładania i wskazuje `TRACE`.
+* Jeśli czas tury minie, serwer automatycznie wykonuje `TRACE` (standardowa reakcja na timeout, gdy na stole leży pakiet).
+* Wynik sprawdzenia przechodzi do standardowego testu napięcia (Voltage Test), więc runda zawsze kończy się karą dla jednej ze stron.

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using Ardalis.Result;
 
@@ -14,6 +15,20 @@ public readonly partial record struct RoomId
     {
         Value = value.ToUpperInvariant();
     }
+
+    /// <summary>
+    /// Characters used for generated room codes: uppercase alphanumerics without look-alikes (0/O, 1/I/L).
+    /// </summary>
+    private const string GeneratedAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+
+    public const int GeneratedLength = 8;
+
+    /// <summary>
+    /// Creates a short, unguessable room code (e.g. <c>7KQ4MZ2X</c>) from a cryptographic RNG
+    /// (31^8 ≈ 8.5e11 combinations), so lobbies cannot be found by enumerating codes.
+    /// </summary>
+    public static RoomId Generate() =>
+        new(RandomNumberGenerator.GetString(GeneratedAlphabet, GeneratedLength));
 
     public static bool IsValid(string? value)
     {

@@ -2,6 +2,7 @@ import { Check, Copy } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { formatDisplayRoomCode, useUiStore } from '../stores/useUiStore';
 import { InviteButton } from './InviteButton';
 
 export interface RoomCodeBadgeProps {
@@ -18,6 +19,8 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
 }) => {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const maskRoomCode = useUiStore((s) => s.maskRoomCode);
+  const displayCode = formatDisplayRoomCode(roomCode, maskRoomCode);
 
   const copyCode = async () => {
     try {
@@ -37,7 +40,7 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
           className="select-text font-black text-emerald-300 tracking-wider text-sm cursor-text selection:bg-emerald-500 selection:text-black"
           title={t.common.room}
         >
-          {roomCode}
+          {displayCode}
         </span>
       </div>
 

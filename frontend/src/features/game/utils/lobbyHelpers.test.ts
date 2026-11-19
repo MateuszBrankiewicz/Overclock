@@ -62,6 +62,8 @@ describe('invite url helpers', () => {
 
   it('reads the room param upper-cased for prefilling the join field', () => {
     expect(readRoomParam('?room=cyber-7x9')).toBe('CYBER-7X9');
+    expect(readRoomParam('', '/join/cyber-7x9')).toBe('CYBER-7X9');
+    expect(readRoomParam('', '/join/CYBER-7X9/')).toBe('CYBER-7X9');
     expect(readRoomParam('')).toBe('');
   });
 });

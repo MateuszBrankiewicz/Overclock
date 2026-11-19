@@ -1,4 +1,4 @@
-import { Globe, HelpCircle, LogIn, PlusCircle, Terminal } from 'lucide-react';
+import { Globe, HelpCircle, LogIn, PlusCircle } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 
 import heroUrl from '../../../assets/hero.png';
@@ -21,12 +21,10 @@ import { InviteNicknameModal } from './InviteNicknameModal';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
 export interface LobbyScreenProps {
-  onOpenTerminal?: () => void;
   initialJoinOpen?: boolean;
 }
 
 export const LobbyScreen: React.FC<LobbyScreenProps> = ({
-  onOpenTerminal,
   initialJoinOpen = false,
 }) => {
   const session = useGameSession();
@@ -41,7 +39,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [hasWebGL] = useState<boolean>(() => checkWebGLAvailable());
   const [nickname, setNickname] = useState(() => loadNickname());
   const initialRoomParam = useMemo(
-    () => (typeof window === 'undefined' ? '' : readRoomParam(window.location.search)),
+    () =>
+      typeof window === 'undefined'
+        ? ''
+        : readRoomParam(window.location.search, window.location.pathname),
     []
   );
   const [targetCode, setTargetCode] = useState(initialRoomParam);
@@ -116,7 +117,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         className="absolute inset-0 pointer-events-none z-10 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(4,4,6,0.75)_100%)]"
       />
 
-      {/* Discreet Corner Bar: Rules, Language, Audio, Dev Terminal */}
+      {/* Discreet Corner Bar: Rules, Language, Audio */}
       <header className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
         <button
           type="button"
@@ -153,17 +154,6 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
         <AudioMuteButton />
         <VoiceToggleButton />
         <GfxQualityButton />
-
-        {onOpenTerminal && (
-          <button
-            type="button"
-            onClick={onOpenTerminal}
-            className="p-1.5 bg-black/80 hover:bg-zinc-800 border border-zinc-700/80 rounded text-zinc-400 hover:text-emerald-300 transition-colors cursor-pointer backdrop-blur-sm shadow-md"
-            title={t.home.debugToggle}
-          >
-            <Terminal className="w-3.5 h-3.5" />
-          </button>
-        )}
       </header>
 
       {/* Main Form Panel — Left-docked on desktop, bottom/center on mobile (fits 360x740) */}
@@ -208,7 +198,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
           </div>
 
           {/* Dual Action CTAs: Create / Join */}
-          <div className="space-y-2 pt-1 border-t border-zinc-800/80">
+          <div className="lobby-cta space-y-2 pt-1 border-t border-zinc-800/80">
             <div className="grid grid-cols-2 gap-2">
               <HudButton
                 type="button"

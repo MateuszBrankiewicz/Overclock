@@ -4,7 +4,6 @@ export type Language = 'pl' | 'en';
 
 export interface Translations {
   common: {
-    appTitle: string;
     gameRules: string;
     copied: string;
     copyCode: string;
@@ -69,9 +68,6 @@ export interface Translations {
     leaveConfirm: string;
     leaveYes: string;
     leaveNo: string;
-    footer: string;
-    debugToggle: string;
-    backToGame: string;
   };
   summary: {
     title: string;
@@ -106,6 +102,7 @@ export interface Translations {
     transmitCards: string;
     callTrace: string;
     callTraceHelp: string;
+    mustCallTrace: string;
     selectCardsPrompt: string;
     matchCard: string;
     wildCard: string;
@@ -317,7 +314,6 @@ export interface Translations {
 export const translations: Record<Language, Translations> = {
   pl: {
     common: {
-      appTitle: 'PROJECT: OVERCLOCK // DEAD CIRCUIT',
       gameRules: 'Zasady gry',
       copied: 'Skopiowano!',
       copyCode: 'Kopiuj kod',
@@ -331,11 +327,11 @@ export const translations: Record<Language, Translations> = {
       status: 'STATUS',
     },
     lobby: {
-      title: 'DEAD CIRCUIT',
-      subtitle: 'Dead Circuit — cyberpunkowa gra blefu, zarządzania ryzykiem i przeciążeń obwodów.',
+      title: 'OVERVOLT',
+      subtitle: 'Overvolt — cyberpunkowa gra blefu, zarządzania ryzykiem i przeciążeń obwodów.',
       operatorNick: 'TWÓJ IDENTYFIKATOR (NICK):',
       roomCode: 'KOD POKOJU:',
-      roomCodePlaceholder: 'NP. CYBER-7X9',
+      roomCodePlaceholder: 'NP. 7KQ4MZ2X',
       createTable: 'STWÓRZ NOWY STÓŁ',
       createTableSub: '[INITIALIZE TABLE]',
       connectTable: 'DOŁĄCZ DO STOŁU',
@@ -366,8 +362,8 @@ export const translations: Record<Language, Translations> = {
       joinCta: 'Dołącz',
       characterHeading: 'Wybierz postać',
       invite: 'Zaproś',
-      inviteShareTitle: 'Dead Circuit',
-      inviteShareText: 'Dołącz do mojego stołu w Dead Circuit!',
+      inviteShareTitle: 'Overvolt',
+      inviteShareText: 'Dołącz do mojego stołu w Overvolt!',
       inviteCopied: 'Link do stołu skopiowany.',
       inviteFailed: 'Nie udało się skopiować linku.',
       inviteNicknameTitle: 'Podaj nick',
@@ -382,9 +378,6 @@ export const translations: Record<Language, Translations> = {
       leaveConfirm: 'Opuścić stół?',
       leaveYes: 'Tak',
       leaveNo: 'Nie',
-      footer: 'DEAD CIRCUIT',
-      debugToggle: 'Konsola dev',
-      backToGame: 'Wróć do gry',
     },
     summary: {
       title: 'KONIEC ROZGRYWKI',
@@ -419,6 +412,7 @@ export const translations: Record<Language, Translations> = {
       transmitCards: 'WYŁÓŻ KARTY',
       callTrace: 'SPRAWDŹ BLEF (CALL TRACE)',
       callTraceHelp: 'Oskarż poprzednika o wyłożenie nieprawidłowych kart.',
+      mustCallTrace: 'Rywale nie mają już kart — musisz sprawdzić blef.',
       selectCardsPrompt: 'Wybierz przynajmniej jedną kartę z ręki',
       matchCard: 'ZGODNA',
       wildCard: 'DZIKA KARTA',
@@ -605,7 +599,7 @@ export const translations: Record<Language, Translations> = {
       legendBluff: 'blef',
     },
     rules: {
-      modalTitle: 'ZASADY GRY // DEAD CIRCUIT',
+      modalTitle: 'ZASADY GRY // OVERVOLT',
       shortSummary: 'Cyberpunkowa gra blefu i zarządzania ryzykiem oparta o mechanikę Oszusta (Liar\'s Dice / Cheat).',
       coreGoalTitle: '1. Cel rozgrywki',
       coreGoalText: 'Pozbądź się wszystkich swoich kart lub doprowadź do sytuacji, w której wszyscy przeciwnicy odpadną przez przeciążenie swoich kondensatorów.',
@@ -663,7 +657,6 @@ export const translations: Record<Language, Translations> = {
   },
   en: {
     common: {
-      appTitle: 'PROJECT: OVERCLOCK // DEAD CIRCUIT',
       gameRules: 'Game Rules',
       copied: 'Copied!',
       copyCode: 'Copy Code',
@@ -677,11 +670,11 @@ export const translations: Record<Language, Translations> = {
       status: 'STATUS',
     },
     lobby: {
-      title: 'DEAD CIRCUIT',
-      subtitle: 'Dead Circuit — a cyberpunk game of bluffing, hardware risks, and capacitor overloads.',
+      title: 'OVERVOLT',
+      subtitle: 'Overvolt — a cyberpunk game of bluffing, hardware risks, and capacitor overloads.',
       operatorNick: 'OPERATOR IDENTIFIER (NICKNAME):',
       roomCode: 'ROOM CODE:',
-      roomCodePlaceholder: 'E.G. CYBER-7X9',
+      roomCodePlaceholder: 'E.G. 7KQ4MZ2X',
       createTable: 'CREATE TABLE',
       createTableSub: '[INITIALIZE TABLE]',
       connectTable: 'JOIN TABLE',
@@ -712,8 +705,8 @@ export const translations: Record<Language, Translations> = {
       joinCta: 'Join',
       characterHeading: 'Pick your character',
       invite: 'Invite',
-      inviteShareTitle: 'Dead Circuit',
-      inviteShareText: 'Join my table in Dead Circuit!',
+      inviteShareTitle: 'Overvolt',
+      inviteShareText: 'Join my table in Overvolt!',
       inviteCopied: 'Table link copied.',
       inviteFailed: 'Could not copy the link.',
       inviteNicknameTitle: 'Choose a nickname',
@@ -728,9 +721,6 @@ export const translations: Record<Language, Translations> = {
       leaveConfirm: 'Leave table?',
       leaveYes: 'Yes',
       leaveNo: 'No',
-      footer: 'DEAD CIRCUIT',
-      debugToggle: 'Dev console',
-      backToGame: 'Back to game',
     },
     summary: {
       title: 'MATCH OVER',
@@ -765,6 +755,7 @@ export const translations: Record<Language, Translations> = {
       transmitCards: 'TRANSMIT PACKETS',
       callTrace: 'CALL TRACE (CALL BLUFF)',
       callTraceHelp: 'Accuse previous operator of transmitting fraudulent packets.',
+      mustCallTrace: 'Rivals are out of packets — you must call TRACE.',
       selectCardsPrompt: 'Select at least 1 packet from your hand',
       matchCard: 'MATCH',
       wildCard: 'WILD',
@@ -922,7 +913,7 @@ export const translations: Record<Language, Translations> = {
       legendBluff: 'bluff',
     },
     rules: {
-      modalTitle: 'OPERATIONAL MANUAL // DEAD CIRCUIT',
+      modalTitle: 'OPERATIONAL MANUAL // OVERVOLT',
       shortSummary: 'Cyberpunk bluffing & risk management card game built upon Cheat / Liar\'s Dice.',
       coreGoalTitle: '1. Objective',
       coreGoalText: 'Empty your packet buffer or outlast all other operators as they suffer capacitor short-circuits.',

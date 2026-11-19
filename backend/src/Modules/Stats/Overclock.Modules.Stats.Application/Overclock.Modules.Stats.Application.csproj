@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\Overclock.SharedKernel\Overclock.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\GameEngine\Overclock.Modules.GameEngine.Contracts\Overclock.Modules.GameEngine.Contracts.csproj" />
     <ProjectReference Include="..\Overclock.Modules.Stats.Domain\Overclock.Modules.Stats.Domain.csproj" />
     <ProjectReference Include="..\Overclock.Modules.Stats.Contracts\Overclock.Modules.Stats.Contracts.csproj" />
   </ItemGroup>

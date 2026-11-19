@@ -27,13 +27,10 @@ import { RoundIntermissionBanner } from './RoundIntermissionBanner';
 import { RoundIntroBanner } from './RoundIntroBanner';
 import { BluffShowdown } from './showdown/BluffShowdown';
 import type { ShowdownOperator } from './showdown/showdownParts';
+import { StreamerSettings } from './StreamerSettings';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
-export interface OperatingTableProps {
-  onOpenTerminal?: () => void;
-}
-
-export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }) => {
+export const OperatingTable: React.FC = () => {
   const session = useGameSession();
   const { t } = useI18n();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -178,7 +175,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
     };
   };
   if (!roomCode) {
-    return <LobbyScreen onOpenTerminal={onOpenTerminal} />;
+    return <LobbyScreen />;
   }
 
   /* Fullscreen First-Person 3D POV Table View (Zero Website Clutter) */
@@ -296,6 +293,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
               <AudioMuteButton />
               <VoiceToggleButton />
               <GfxQualityButton />
+              <StreamerSettings />
               <button
                 type="button"
                 onClick={openRules}

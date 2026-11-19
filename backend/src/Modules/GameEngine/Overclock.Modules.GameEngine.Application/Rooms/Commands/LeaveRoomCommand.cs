@@ -17,6 +17,7 @@ internal sealed class LeaveRoomCommandHandler(
     IDisconnectGraceManager graceManager,
     ITurnTimerEngine turnTimer,
     IGameStateProjector projector,
+    IMatchFinishedDispatcher? matchFinishedDispatcher = null,
     TimeProvider? timeProvider = null)
     : IRequestHandler<LeaveRoomCommand, Result>
 {
@@ -41,6 +42,7 @@ internal sealed class LeaveRoomCommandHandler(
             var sessionToken = seat.SessionToken;
             var wasCurrentTurnPlayer = room.CurrentTurnPlayerId?.Value == request.PlayerId;
             var wasRoundOver = room.State == RoomState.RoundOver;
+            var wasGameOver = room.State == RoomState.GameOver;
 
             var leaveResult = room.Leave(new PlayerId(request.PlayerId));
             if (!leaveResult.IsSuccess)
@@ -53,6 +55,10 @@ internal sealed class LeaveRoomCommandHandler(
             if (room.State == RoomState.GameOver)
             {
                 turnTimer.Cancel(room.Id.Value);
+                if (!wasGameOver)
+                {
+                    matchFinishedDispatcher?.Dispatch(MatchFinishedEventFactory.FromRoom(room));
+                }
             }
             else if (!wasRoundOver && room.State == RoomState.RoundOver)
             {
@@ -70,6 +76,10 @@ internal sealed class LeaveRoomCommandHandler(
 
             var snapshots = projector.ProjectForActiveConnections(room);
             var sequenceNumber = room.NextEventSequence();
+            if (!room.IsEmpty)
+            {
+                registry.RefreshMetadata(room);
+            }
 
             return Result<LeaveRoomOutcome>.Success(
                 new LeaveRoomOutcome(

@@ -38,6 +38,8 @@ public sealed class GameRoom
     public DischargeOutcome? LastDischargeOutcome { get; private set; }
     public long? LastInjectedTurnSequenceId { get; private set; }
     public int RoundNumber { get; private set; }
+    public int MatchRoundCount { get; private set; }
+    public DateTimeOffset? MatchStartedAtUtc { get; private set; }
     public long EventSequenceNumber => _eventSequenceNumberInternal;
 
     public long NextEventSequence() => Interlocked.Increment(ref _eventSequenceNumberInternal);
@@ -70,16 +72,17 @@ public sealed class GameRoom
             return Result<GameRoom>.Invalid(new ValidationError("Room.InvalidId", "Room identifier cannot be empty."));
         }
 
-        if (string.IsNullOrWhiteSpace(hostNickname))
+        var nicknameResult = PlayerNickname.Normalize(hostNickname);
+        if (!nicknameResult.IsSuccess)
         {
-            return Result<GameRoom>.Invalid(new ValidationError("Room.InvalidNickname", "Host nickname cannot be empty."));
+            return nicknameResult.ToResult<GameRoom>();
         }
 
         var characterId = CharacterCatalog.IsValid(preferredCharacterId)
             ? preferredCharacterId!
             : CharacterCatalog.DefaultId;
 
-        var hostSeat = new PlayerSeat(hostId, hostNickname, connectionId, sessionToken, characterId);
+        var hostSeat = new PlayerSeat(hostId, nicknameResult.Value, connectionId, sessionToken, characterId);
         var room = new GameRoom(id, hostId, hostSeat);
         return Result<GameRoom>.Success(room);
     }
@@ -117,15 +120,14 @@ public sealed class GameRoom
                 "A player with this session token already exists in the room."));
         }
 
-        if (string.IsNullOrWhiteSpace(nickname))
+        var nicknameResult = PlayerNickname.Normalize(nickname);
+        if (!nicknameResult.IsSuccess)
         {
-            return Result<PlayerSeat>.Invalid(new ValidationError(
-                "Room.InvalidNickname",
-                "Player nickname cannot be empty."));
+            return nicknameResult.ToResult<PlayerSeat>();
         }
 
         var characterId = ResolveAvailableCharacterId(preferredCharacterId);
-        var seat = new PlayerSeat(playerId, nickname, connectionId, sessionToken, characterId);
+        var seat = new PlayerSeat(playerId, nicknameResult.Value, connectionId, sessionToken, characterId);
         if (_seats.Count == 0)
         {
             HostId = playerId;
@@ -313,6 +315,8 @@ public sealed class GameRoom
         // All guards passed: perform state mutations
         if (isNewMatch)
         {
+            MatchStartedAtUtc = DateTimeOffset.UtcNow;
+            MatchRoundCount = 0;
             // Reset seats for new match: assign fresh exploit and reset risk to 1/6
             foreach (var seat in _seats)
             {
@@ -358,6 +362,7 @@ public sealed class GameRoom
         CurrentTurnDeadlineUtc = null;
         IntermissionDeadlineUtc = null;
         RoundNumber++;
+        MatchRoundCount++;
         TurnSequenceId++;
 
         // Determine starting player
@@ -421,6 +426,7 @@ public sealed class GameRoom
         CurrentTurnDeadlineUtc = null;
         IntermissionDeadlineUtc = null;
         RoundNumber++;
+        MatchRoundCount++;
         TurnSequenceId++;
 
         var startingPlayerIndex = (RoundNumber - 1) % prospectiveActiveSeats.Count;
@@ -469,6 +475,15 @@ public sealed class GameRoom
         if (playerSeat is null || playerSeat.Status == PlayerStatus.Eliminated)
         {
             return Result.NotFound("Turn.PlayerNotFound", $"Player seat for '{playerId}' was not found or is eliminated.");
+        }
+
+        // Last holder rule: once every rival has emptied their hand, nobody could ever challenge
+        // another play, so the last player still holding cards must call TRACE on the previous play.
+        if (LastPlay is not null && LastPlay.PlayerId != playerId && !AnyRivalHoldsCards(playerId))
+        {
+            return Result.Invalid(new ValidationError(
+                "Turn.MustCallTrace",
+                "Every rival has emptied their hand; the last player holding cards must call TRACE."));
         }
 
         // Validation guard: player must hold all declared cards
@@ -900,6 +915,23 @@ public sealed class GameRoom
         }
     }
 
+    /// <summary>True when a seat other than <paramref name="playerId"/> is still in the room and connected.</summary>
+    public bool HasOtherLiveSeat(PlayerId playerId)
+    {
+        return _seats.Any(seat => seat.Id != playerId && !seat.HasLeft && seat.Status != PlayerStatus.Disconnected);
+    }
+
+    /// <summary>
+    /// A room is abandoned when no seat holds a live connection and every disconnect is older than
+    /// <paramref name="idleFor"/>. Abandoned rooms can be evicted without affecting any player.
+    /// </summary>
+    public bool IsAbandoned(DateTimeOffset nowUtc, TimeSpan idleFor)
+    {
+        return _seats.All(seat =>
+            seat.HasLeft ||
+            (seat.DisconnectedAtUtc is { } disconnectedAt && nowUtc - disconnectedAt >= idleFor));
+    }
+
     public Result HandleDisconnect(string connectionId)
     {
         var seat = _seats.Find(s => s.ConnectionId == connectionId);
@@ -1003,6 +1035,9 @@ public sealed class GameRoom
 
         return Result.Success();
     }
+
+    private bool AnyRivalHoldsCards(PlayerId playerId) =>
+        _seats.Exists(s => s.Id != playerId && s.Status != PlayerStatus.Eliminated && s.Hand.Count > 0);
 
     private PlayerId? GetNextTurnPlayerId(PlayerId currentPlayerId)
     {

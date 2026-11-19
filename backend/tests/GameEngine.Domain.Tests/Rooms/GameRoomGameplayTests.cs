@@ -188,7 +188,7 @@ public class GameRoomGameplayTests
     }
 
     [Fact]
-    public void PlayCards_SkipsPlayersWithEmptyHands_AndEndsRoundWhenAllHandsEmpty()
+    public void PlayCards_Fails_WhenEveryRivalHasEmptiedTheirHand_LastHolderMustCallTrace()
     {
         var (room, hostId, p2Id) = CreateReadyRoom();
         room.StartRound(hostId, new ConstantRandomSource(0));
@@ -196,26 +196,70 @@ public class GameRoomGameplayTests
         var hostSeat = room.Seats[0];
         var p2Seat = room.Seats[1];
 
-        // Give each player exactly 2 cards for a compact test
         var hCards = hostSeat.Hand.Take(2).ToList();
         var p2Cards = p2Seat.Hand.Take(2).ToList();
         hostSeat.AssignHand(hCards);
         p2Seat.AssignHand(p2Cards);
 
-        // Turn 1: Host plays all 2 cards (Host hand is now empty)
+        // Host plays their last cards; P2 is now the only player holding cards.
         var t1 = room.PlayCards(hostId, hCards.Select(c => c.Id).ToList(), CardProtocol.Alpha);
         Assert.True(t1.IsSuccess);
         Assert.Empty(hostSeat.Hand);
         Assert.Equal(p2Id, room.CurrentTurnPlayerId);
 
-        // Turn 2: P2 decides to play rather than call TRACE. P2 plays all 2 cards (now both hands empty)
+        // P2 cannot keep playing alone — nobody would be left to challenge them.
         var t2 = room.PlayCards(p2Id, p2Cards.Select(c => c.Id).ToList(), CardProtocol.Alpha);
-        Assert.True(t2.IsSuccess);
-        Assert.Empty(p2Seat.Hand);
+        Assert.False(t2.IsSuccess);
+        Assert.Contains(t2.ValidationErrors, e => e.Identifier == "Turn.MustCallTrace");
+        Assert.Equal(2, p2Seat.Hand.Count);
+        Assert.Equal(RoomState.TurnActive, room.State);
 
-        // Deadlock prevented: round cleanly transitions to RoundOver with no soft-lock!
-        Assert.Equal(RoomState.RoundOver, room.State);
-        Assert.Null(room.CurrentTurnPlayerId);
+        // TRACE is the only way forward and resolves into a voltage test.
+        var trace = room.CallTrace(p2Id);
+        Assert.True(trace.IsSuccess);
+        Assert.Equal(RoomState.BluffCheck, room.State);
+    }
+
+    [Fact]
+    public void ExpireTurn_AutoTraces_WhenLastHolderRunsOutOfTime()
+    {
+        var (room, hostId, p2Id) = CreateReadyRoom();
+        room.StartRound(hostId, new ConstantRandomSource(0));
+
+        var hCards = room.Seats[0].Hand.Take(1).ToList();
+        room.Seats[0].AssignHand(hCards);
+        room.PlayCards(hostId, hCards.Select(c => c.Id).ToList(), CardProtocol.Alpha);
+
+        var expired = room.ExpireTurn(p2Id, room.TurnSequenceId);
+
+        Assert.True(expired.IsSuccess);
+        Assert.IsType<TurnExpiredOutcome.AutoTrace>(expired.Value);
+        Assert.Equal(RoomState.BluffCheck, room.State);
+    }
+
+    [Fact]
+    public void PlayCards_StillAllowed_WhenAnotherRivalHoldsCards()
+    {
+        var hostId = PlayerId.New();
+        var p2Id = PlayerId.New();
+        var p3Id = PlayerId.New();
+        var room = GameRoom.Create(RoomId.New("CYBER-209"), hostId, "Host", "conn-1", Guid.NewGuid()).Value;
+        room.AddPlayer(p2Id, "Player2", "conn-2", Guid.NewGuid());
+        room.AddPlayer(p3Id, "Player3", "conn-3", Guid.NewGuid());
+        room.SetReady(hostId, true);
+        room.SetReady(p2Id, true);
+        room.SetReady(p3Id, true);
+        room.StartRound(hostId, new ConstantRandomSource(0));
+
+        var hCards = room.Seats[0].Hand.Take(1).ToList();
+        room.Seats[0].AssignHand(hCards);
+        room.PlayCards(hostId, hCards.Select(c => c.Id).ToList(), CardProtocol.Alpha);
+
+        // P3 still holds cards, so P2 may keep bluffing instead of tracing.
+        var t2 = room.PlayCards(p2Id, [room.Seats[1].Hand[0].Id], CardProtocol.Alpha);
+
+        Assert.True(t2.IsSuccess);
+        Assert.Equal(p3Id, room.CurrentTurnPlayerId);
     }
 
     [Fact]

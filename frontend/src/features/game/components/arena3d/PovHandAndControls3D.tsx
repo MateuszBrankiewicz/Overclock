@@ -9,6 +9,7 @@ import type {
   ExploitType,
   PlayerCard,
 } from '../../schemas/gameEvents';
+import { useUiStore } from '../../stores/useUiStore';
 import type { CharacterProfile } from '../../utils/characterCatalog';
 import { classifyCard, MARK_COLOR } from './hud/cardMarks';
 import { prefersReducedMotion } from './hud/motion';
@@ -53,12 +54,15 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
   const { t } = useI18n();
   const groupRef = useRef<Group>(null);
   const [hovered, setHovered] = useState(false);
+  const holdToRevealCards = useUiStore((s) => s.holdToRevealCards);
+  const isHandRevealed = useUiStore((s) => s.isHandRevealed);
+  const isConcealed = holdToRevealCards && !isHandRevealed;
 
   const badge = useMemo(
     () => classifyCard(card.protocol, currentTargetProtocol),
     [card.protocol, currentTargetProtocol]
   );
-  const markColor = MARK_COLOR[badge];
+  const markColor = isConcealed ? '#3f3f46' : MARK_COLOR[badge];
 
   const frontTexture = useMemo(
     () =>
@@ -159,7 +163,7 @@ const HandCard3D: React.FC<Card3DItemProps> = ({
       <mesh position={[0, 0, 0.007]}>
         <planeGeometry args={[0.31, 0.44]} />
         <meshStandardMaterial
-          map={frontTexture ?? undefined}
+          map={(isConcealed ? backTexture : frontTexture) ?? undefined}
           roughness={0.25}
           metalness={0.15}
           emissive={isSelected ? '#10b981' : hovered ? '#34d399' : '#000000'}
