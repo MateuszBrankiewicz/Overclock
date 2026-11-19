@@ -1,5 +1,6 @@
 import React from 'react';
 
+import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import type {
   CardProtocol,
   CardsPlayedEvent,
@@ -10,7 +11,6 @@ import type { CharacterId, CharacterProfile } from '../../utils/characterCatalog
 import { resolveSeatCharacter } from '../../utils/characterCatalog';
 import { PcbCard } from '../PcbCard';
 import { classifyCard } from './hud/cardMarks';
-import { prefersReducedMotion } from './hud/motion';
 
 export interface ArenaFallbackProps {
   opponents: PlayerSeat[];

@@ -3,6 +3,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import type { Group, Mesh } from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
+import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import type {
   CardProtocol,
   ExploitModule,
@@ -11,7 +12,6 @@ import type {
 } from '../../schemas/gameEvents';
 import type { CharacterProfile } from '../../utils/characterCatalog';
 import { classifyCard, MARK_COLOR } from './hud/cardMarks';
-import { prefersReducedMotion } from './hud/motion';
 import { createPcbCardBackTexture, createPcbCardTexture } from './pcbCardTexture';
 
 export interface PovHandAndControls3DProps {

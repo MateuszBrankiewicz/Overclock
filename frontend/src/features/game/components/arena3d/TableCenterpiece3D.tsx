@@ -6,10 +6,10 @@ import type { Group, Mesh, SpotLight } from 'three';
 import * as THREE from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
+import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
 import { BunkerTable3D } from './BunkerTable3D';
-import { prefersReducedMotion } from './hud/motion';
 import { createPcbCardBackTexture } from './pcbCardTexture';
 import { RevealedCards3D } from './RevealedCards3D';
 import { ServerRackDiodes3D } from './ServerRackDiodes3D';

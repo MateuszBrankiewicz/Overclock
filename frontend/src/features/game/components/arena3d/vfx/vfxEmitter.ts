@@ -1,5 +1,5 @@
+import { prefersReducedMotion } from '../../../../../shared/lib/motion';
 import { useGfxSettings } from '../../../stores/useGfxSettings';
-import { prefersReducedMotion } from '../hud/motion';
 import {
   createParticlePool,
   emitParticleBurst,

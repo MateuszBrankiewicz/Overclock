@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
+import { prefersReducedMotion, useFinePointer } from '../../../../shared/lib/motion';
 import { checkWebGLAvailable } from '../../../../shared/lib/webgl';
 import type {
   CardProtocol,
@@ -32,7 +33,6 @@ import { CardMarkLegend } from './hud/CardMarkLegend';
 import { FirstTurnHint } from './hud/FirstTurnHint';
 import { useFirstTurnHint } from './hud/firstTurnHint';
 import { HotkeyCheatSheet } from './hud/HotkeyCheatSheet';
-import { prefersReducedMotion, useFinePointer } from './hud/motion';
 import { OverloadVignette } from './hud/OverloadVignette';
 import { PhaseTimers } from './hud/PhaseTimers';
 import { SpectatorHud } from './hud/SpectatorHud';

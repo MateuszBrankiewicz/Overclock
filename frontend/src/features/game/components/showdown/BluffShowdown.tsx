@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import React, { useMemo, useState } from 'react';
 
 import { useI18n } from '../../../../shared/i18n';
+import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import { HudButton } from '../../../../shared/ui';
 import { useCountdown } from '../../hooks/useCountdown';
@@ -14,7 +15,6 @@ import {
   verdictVisibleAtMs,
 } from '../../utils/cinematicTiming';
 import { classifyCard } from '../arena3d/hud/cardMarks';
-import { prefersReducedMotion } from '../arena3d/hud/motion';
 import {
   ChamberRow,
   OperatorChip,

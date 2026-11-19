@@ -2,6 +2,7 @@ import { HelpCircle } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { prefersReducedMotion } from '../../../shared/lib/motion';
 import { checkWebGLAvailable } from '../../../shared/lib/webgl';
 import { useGameSession } from '../hooks/useDebugTerminal';
 import { useGameStore } from '../stores/useGameStore';
@@ -14,7 +15,6 @@ import {
 } from '../utils/cinematicTiming';
 import { resolveOutcomePhase } from '../utils/outcomePhase';
 import { BunkerArenaCanvas } from './arena3d/BunkerArenaCanvas';
-import { prefersReducedMotion } from './arena3d/hud/motion';
 import { AudioMuteButton } from './AudioMuteButton';
 import { ConnectionStatusPill } from './ConnectionStatusPill';
 import { GfxQualityButton } from './GfxQualityButton';

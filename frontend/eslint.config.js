@@ -58,10 +58,33 @@ export default tseslint.config(
     },
   },
   {
+    // Shared code sits below features: it must never depend on a feature.
+    files: ['src/shared/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{ name: 'axios', message: 'Use generated TanStack Query hooks (ADR 0007).' }],
+        patterns: [{ group: ['**/features/**'], message: 'Shared code must not import from features.' }],
+      }],
+    },
+  },
+  {
+    // Non-UI layers of a feature must not reach into its components.
+    files: ['src/features/*/{hooks,session,stores,utils,schemas}/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{ name: 'axios', message: 'Use generated TanStack Query hooks (ADR 0007).' }],
+        patterns: [
+          { group: ['**/features/*/**', '!./**'], message: 'Features must not import other features.' },
+          { group: ['**/components/**'], message: 'Hooks, stores, utils and schemas must not import components.' },
+        ],
+      }],
+    },
+  },
+  {
     files: ['src/shared/api/**', 'src/shared/lib/**'],
     rules: {
       'no-restricted-globals': 'off',
-      'no-restricted-imports': 'off',
     },
   },
   {

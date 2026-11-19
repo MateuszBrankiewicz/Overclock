@@ -8,12 +8,12 @@ import {
   useAudioSettings,
 } from '../../../shared/lib/audio';
 import { vibrate } from '../../../shared/lib/haptics';
+import { prefersReducedMotion } from '../../../shared/lib/motion';
 import {
   clearGameSession,
   createGameConnection,
   GameConnectionManager,
 } from '../../../shared/realtime/gameConnection';
-import { prefersReducedMotion } from '../components/arena3d/hud/motion';
 import {
   CapacitorDischargedEventSchema,
   type CardProtocol,

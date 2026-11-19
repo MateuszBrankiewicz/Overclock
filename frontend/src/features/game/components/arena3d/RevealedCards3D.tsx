@@ -13,10 +13,10 @@ import {
 } from 'three';
 
 import { useI18n } from '../../../../shared/i18n';
+import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import type { CardProtocol, PlayerCard } from '../../schemas/gameEvents';
 import { revealCardFlipAtMs } from '../../utils/cinematicTiming';
 import { type CardMark, classifyCard, MARK_COLOR } from './hud/cardMarks';
-import { prefersReducedMotion } from './hud/motion';
 import { createPcbCardBackTexture, createPcbCardTexture } from './pcbCardTexture';
 import {
   presentationLayout,
