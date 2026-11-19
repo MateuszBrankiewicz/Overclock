@@ -1,3 +1,4 @@
+using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -27,18 +28,34 @@ if (args.Contains("--healthcheck", StringComparer.Ordinal))
 
 var builder = WebApplication.CreateBuilder(args);
 
+// X-Forwarded-* is honoured only from trusted proxies. Defaults to loopback; deployments behind a reverse
+// proxy list its address/network under ForwardedHeaders:KnownProxies / ForwardedHeaders:KnownNetworks.
+// Trusting every sender would let any client spoof its IP and bypass the per-IP limits.
+var trustedProxies = builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [];
+var trustedNetworks = builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [];
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
+    foreach (var proxy in trustedProxies)
+    {
+        options.KnownProxies.Add(IPAddress.Parse(proxy));
+    }
+
+    foreach (var network in trustedNetworks)
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+    }
 });
 
+// Cross-origin access is limited to Cors:AllowedOrigins. The bundled nginx serves the SPA and proxies
+// /hubs on the same origin, so production needs no entries; Development additionally allows localhost.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var allowLocalhostOrigins = builder.Environment.IsDevelopment();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.SetIsOriginAllowed(_ => true)
+        policy.SetIsOriginAllowed(origin => IsAllowedOrigin(origin, allowedOrigins, allowLocalhostOrigins))
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -46,6 +63,7 @@ builder.Services.AddCors(options =>
 });
 builder.Services.AddOpenApi("overclock");
 
+builder.Services.Configure<SignalRLimitsOptions>(builder.Configuration.GetSection(SignalRLimitsOptions.SectionName));
 builder.Services.AddSingleton<SignalRRateLimitHubFilter>();
 var signalRBuilder = builder.Services.AddSignalR(options =>
 {
@@ -102,6 +120,7 @@ builder.Services.AddStatsModule(builder.Configuration);
 builder.Services.AddSingleton<IConnectionTracker, InMemoryConnectionTracker>();
 builder.Services.AddSingleton<IGameNotifier, SignalRGameNotifier>();
 builder.Services.AddGameEngineInfrastructure();
+builder.Services.AddHostedService<AbandonedRoomSweeper>();
 
 var app = builder.Build();
 
@@ -133,5 +152,17 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "Healthy" }))
 
 await app.RunAsync();
 return 0;
+
+static bool IsAllowedOrigin(string origin, string[] allowedOrigins, bool allowLocalhost)
+{
+    if (allowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return allowLocalhost &&
+        Uri.TryCreate(origin, UriKind.Absolute, out var uri) &&
+        (uri.IsLoopback || string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase));
+}
 
 public partial class Program { }

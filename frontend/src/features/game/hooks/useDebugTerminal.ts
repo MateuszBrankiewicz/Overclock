@@ -666,13 +666,6 @@ export function useGameSession() {
     }
   };
 
-  const simulateDisconnect = async () => {
-    if (!sharedConnection) return;
-    await sharedConnection.stop();
-    setConnectionStatus('Disconnected');
-    logMessage('Simulated socket disconnection');
-  };
-
   const reconnect = async () => {
     if (!sharedConnection) return;
     if (!sharedConnection.getSession()) {
@@ -742,11 +735,8 @@ export function useGameSession() {
     callTrace,
     activateExploit,
     triggerDischarge,
-    simulateDisconnect,
     reconnect,
     leaveRoom,
     isInRoom,
   };
 }
-
-export const useDebugTerminal = useGameSession;

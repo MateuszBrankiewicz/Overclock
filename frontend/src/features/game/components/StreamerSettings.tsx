@@ -5,7 +5,7 @@ import { useUiStore } from '../stores/useUiStore';
 
 /**
  * Streamer Safe Mode controls:
- * - Mask Room Code (renders `CYBER-***` in HUD/Lobby)
+ * - Mask Room Code (renders `***` in HUD/Lobby)
  * - Hold to Reveal Cards (cards remain face down until holding `H` or the reveal button)
  */
 export const StreamerSettings: React.FC = () => {
@@ -100,7 +100,7 @@ export const StreamerSettings: React.FC = () => {
           </div>
 
           <label className="flex items-center justify-between gap-2 cursor-pointer text-zinc-200">
-            <span>Mask Room Code (CYBER-***)</span>
+            <span>Mask Room Code (***)</span>
             <input
               type="checkbox"
               checked={maskRoomCode}

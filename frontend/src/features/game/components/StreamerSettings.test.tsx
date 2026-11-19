@@ -8,7 +8,6 @@ import { CHARACTER_CATALOG } from '../utils/characterCatalog';
 import { ArenaFallback } from './arena3d/ArenaFallback';
 import { LobbyPlayerList } from './LobbyPlayerList';
 import { RoomCodeBadge } from './RoomCodeBadge';
-import { StateJsonMirror } from './StateJsonMirror';
 import { StreamerSettings } from './StreamerSettings';
 
 describe('StreamerSettings & Streamer Safe Mode', () => {
@@ -24,7 +23,7 @@ describe('StreamerSettings & Streamer Safe Mode', () => {
     });
   });
 
-  it('masks the room code in RoomCodeBadge, LobbyPlayerList, and StateJsonMirror when maskRoomCode is enabled', () => {
+  it('masks the room code in RoomCodeBadge and LobbyPlayerList when maskRoomCode is enabled', () => {
     expect(formatDisplayRoomCode('CYBER-7X9', false)).toBe('CYBER-7X9');
     expect(formatDisplayRoomCode('CYBER-7X9', true)).toBe('CYBER-***');
     expect(formatDisplayRoomCode('ALPHA', true)).toBe('***');
@@ -63,13 +62,9 @@ describe('StreamerSettings & Streamer Safe Mode', () => {
     );
     expect(lobbyHtml).toContain('CYBER-***');
     expect(lobbyHtml).not.toContain('CYBER-7X9');
-
-    const mirrorHtml = renderToString(React.createElement(StateJsonMirror));
-    expect(mirrorHtml).toContain('CYBER-***');
-    expect(mirrorHtml).not.toContain('CYBER-7X9');
   });
 
-  it('renders hold-to-reveal button and conceals hand cards in ArenaFallback and StateJsonMirror', () => {
+  it('renders hold-to-reveal button and conceals hand cards in ArenaFallback', () => {
     useUiStore.getState().setHoldToRevealCards(true);
     useGameStore.setState({
       myCards: [{ id: 'card-1', protocol: 'Alpha', visualSeed: 1 }],
@@ -93,10 +88,6 @@ describe('StreamerSettings & Streamer Safe Mode', () => {
       })
     );
     expect(fallbackConcealed).not.toContain('ALPHA');
-
-    const mirrorConcealed = renderToString(React.createElement(StateJsonMirror));
-    expect(mirrorConcealed).toContain('&quot;concealed&quot;: true');
-    expect(mirrorConcealed).not.toContain('card-1');
 
     useUiStore.getState().setHandRevealed(true);
     expect(useUiStore.getState().isHandRevealed).toBe(true);

@@ -13,7 +13,7 @@ const TONE_CLASS: Record<FeedTone, string> = {
   info: 'border-amber-500/60 text-amber-200',
 };
 
-/** Mount once under the top bar of the in-game HUD. */
+/** Mount once under the top bar of the in-game HUD. Hidden on phone-sized viewports (`.phone-hidden`). */
 export function EventFeed() {
   const feed = useUiStore((s) => s.feed);
   const { t } = useI18n();
@@ -28,7 +28,7 @@ export function EventFeedList({ entries, label }: { entries: FeedEntry[]; label:
       aria-live="polite"
       aria-label={label}
       data-testid="event-feed"
-      className="pointer-events-none flex w-full max-w-[min(85vw,18rem)] sm:max-w-xs flex-col gap-1"
+      className="phone-hidden pointer-events-none flex w-full max-w-[min(85vw,18rem)] sm:max-w-xs flex-col gap-1"
     >
       {visible.map((entry, index) => {
         const isOlderThan3 = visible.length > 3 && index < visible.length - 3;

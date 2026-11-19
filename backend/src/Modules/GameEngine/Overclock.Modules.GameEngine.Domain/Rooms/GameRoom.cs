@@ -72,16 +72,17 @@ public sealed class GameRoom
             return Result<GameRoom>.Invalid(new ValidationError("Room.InvalidId", "Room identifier cannot be empty."));
         }
 
-        if (string.IsNullOrWhiteSpace(hostNickname))
+        var nicknameResult = PlayerNickname.Normalize(hostNickname);
+        if (!nicknameResult.IsSuccess)
         {
-            return Result<GameRoom>.Invalid(new ValidationError("Room.InvalidNickname", "Host nickname cannot be empty."));
+            return nicknameResult.ToResult<GameRoom>();
         }
 
         var characterId = CharacterCatalog.IsValid(preferredCharacterId)
             ? preferredCharacterId!
             : CharacterCatalog.DefaultId;
 
-        var hostSeat = new PlayerSeat(hostId, hostNickname, connectionId, sessionToken, characterId);
+        var hostSeat = new PlayerSeat(hostId, nicknameResult.Value, connectionId, sessionToken, characterId);
         var room = new GameRoom(id, hostId, hostSeat);
         return Result<GameRoom>.Success(room);
     }
@@ -119,15 +120,14 @@ public sealed class GameRoom
                 "A player with this session token already exists in the room."));
         }
 
-        if (string.IsNullOrWhiteSpace(nickname))
+        var nicknameResult = PlayerNickname.Normalize(nickname);
+        if (!nicknameResult.IsSuccess)
         {
-            return Result<PlayerSeat>.Invalid(new ValidationError(
-                "Room.InvalidNickname",
-                "Player nickname cannot be empty."));
+            return nicknameResult.ToResult<PlayerSeat>();
         }
 
         var characterId = ResolveAvailableCharacterId(preferredCharacterId);
-        var seat = new PlayerSeat(playerId, nickname, connectionId, sessionToken, characterId);
+        var seat = new PlayerSeat(playerId, nicknameResult.Value, connectionId, sessionToken, characterId);
         if (_seats.Count == 0)
         {
             HostId = playerId;
@@ -913,6 +913,23 @@ public sealed class GameRoom
                     "Exploit.Unsupported",
                     $"Exploit '{exploit}' is not supported."));
         }
+    }
+
+    /// <summary>True when a seat other than <paramref name="playerId"/> is still in the room and connected.</summary>
+    public bool HasOtherLiveSeat(PlayerId playerId)
+    {
+        return _seats.Any(seat => seat.Id != playerId && !seat.HasLeft && seat.Status != PlayerStatus.Disconnected);
+    }
+
+    /// <summary>
+    /// A room is abandoned when no seat holds a live connection and every disconnect is older than
+    /// <paramref name="idleFor"/>. Abandoned rooms can be evicted without affecting any player.
+    /// </summary>
+    public bool IsAbandoned(DateTimeOffset nowUtc, TimeSpan idleFor)
+    {
+        return _seats.All(seat =>
+            seat.HasLeft ||
+            (seat.DisconnectedAtUtc is { } disconnectedAt && nowUtc - disconnectedAt >= idleFor));
     }
 
     public Result HandleDisconnect(string connectionId)

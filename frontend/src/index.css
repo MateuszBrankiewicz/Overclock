@@ -15,19 +15,37 @@
     @apply bg-zinc-950 text-emerald-400 font-mono antialiased min-h-screen selection:bg-emerald-500 selection:text-black;
   }
 }
+/* Phone-sized viewports (portrait phones, or landscape phones with little height):
+   shrink the rem-based HUD chrome and drop secondary overlays such as the event feed. */
+@media (max-width: 639px), (max-height: 500px) {
+  html {
+    font-size: 14px;
+  }
 
-.scanlines {
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.12) 50%
-  ), linear-gradient(
-    90deg,
-    rgba(255, 0, 0, 0.03),
-    rgba(0, 255, 0, 0.01),
-    rgba(0, 255, 0, 0.03)
-  );
-  background-size: 100% 2px, 3px 100%;
-  pointer-events: none;
+  .phone-hidden {
+    display: none;
+  }
+}
+
+/* Short viewports (landscape phones): the lobby panel scrolls, so pin its
+   create/join actions to the bottom edge where they stay reachable. */
+@media (max-height: 500px) {
+  .lobby-cta {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin-inline: -1rem;
+    padding: 0.5rem 1rem 0;
+    background: rgb(9, 9, 11);
+    /* Sticky cannot enter the panel's bottom padding; the shadow covers that strip. */
+    box-shadow: 0 1.25rem 0 rgb(9, 9, 11);
+  }
+}
+
+@media (max-height: 420px) {
+  html {
+    font-size: 13px;
+  }
 }
 
 /* Diegetic Isometric Table Grid & Cyberpunk Glows */

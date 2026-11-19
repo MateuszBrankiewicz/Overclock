@@ -49,8 +49,7 @@ public class Phase4ProductionReadinessTests
     [Fact]
     public async Task RedisBackplane_RelaysEventsAcrossTwoInstances_AndStoresRoomMetadataWithTtl()
     {
-        await using var redisContainer = new RedisBuilder()
-            .WithImage("redis:7-alpine")
+        await using var redisContainer = new RedisBuilder("redis:7-alpine")
             .Build();
         await redisContainer.StartAsync();
 
@@ -127,8 +126,7 @@ public class Phase4ProductionReadinessTests
     [Fact]
     public async Task StatsModule_PersistsMatchRecordToPostgres_WhenMatchFinishedEventPublished()
     {
-        await using var postgres = new PostgreSqlBuilder()
-            .WithImage("postgres:17-alpine")
+        await using var postgres = new PostgreSqlBuilder("postgres:17-alpine")
             .Build();
         await postgres.StartAsync();
 

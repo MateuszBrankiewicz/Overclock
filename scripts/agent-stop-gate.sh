@@ -36,6 +36,11 @@ fi
 
 cd "$ROOT_DIR"
 
+# Hooks run without the user's shell profile; prefer the mise-managed .NET SDK
+# (ships ASP.NET Core) over a system dotnet that may lack it.
+MISE_DOTNET_ROOT="$HOME/.local/share/mise/dotnet-root"
+[ -d "$MISE_DOTNET_ROOT" ] && export PATH="$MISE_DOTNET_ROOT:$PATH"
+
 # Nothing changed -> nothing to verify (pure Q&A turns are never blocked).
 [ -z "$(git status --porcelain 2>/dev/null)" ] && allow_stop
 

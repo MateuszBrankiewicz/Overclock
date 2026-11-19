@@ -9,6 +9,13 @@ services:
       - ASPNETCORE_URLS=http://+:5000
       - ConnectionStrings__Database=Host=postgres;Port=5432;Database=${POSTGRES_DB:-overclock};Username=${POSTGRES_USER:-overclock};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       - ConnectionStrings__Redis=redis:6379
+      # Only the bundled nginx (on the private Docker network) may set X-Forwarded-For; the backend port is
+      # not published. If another proxy terminates TLS in front of nginx, configure nginx real_ip for it.
+      - ForwardedHeaders__KnownNetworks__0=172.16.0.0/12
+      - ForwardedHeaders__KnownNetworks__1=192.168.0.0/16
+      - ForwardedHeaders__KnownNetworks__2=10.0.0.0/8
+      # SPA and hub share one origin through nginx, so no CORS entries are needed. Add any other origin here:
+      # - Cors__AllowedOrigins__0=https://example.com
     depends_on:
       postgres:
         condition: service_healthy

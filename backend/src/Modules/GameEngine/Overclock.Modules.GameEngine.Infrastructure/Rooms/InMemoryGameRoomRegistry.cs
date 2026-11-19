@@ -68,6 +68,8 @@ public sealed class InMemoryGameRoomRegistry : IGameRoomRegistry, IAsyncDisposab
         return _rooms.TryGetValue(roomCode, out session);
     }
 
+    public IReadOnlyList<string> ListRoomCodes() => [.. _rooms.Keys];
+
     public bool Remove(string roomCode)
     {
         if (_rooms.TryRemove(roomCode, out var session))

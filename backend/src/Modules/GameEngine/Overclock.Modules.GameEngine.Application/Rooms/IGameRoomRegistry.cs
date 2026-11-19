@@ -12,5 +12,7 @@ public interface IGameRoomRegistry
 
     bool Remove(string roomCode);
 
+    IReadOnlyList<string> ListRoomCodes();
+
     void RefreshMetadata(GameRoom room) { }
 }

@@ -108,7 +108,7 @@ export const PcbCard: React.FC<PcbCardProps> = ({
         )}
       >
         <div className="flex justify-between items-center text-[8px] tracking-tighter z-10 font-bold text-zinc-400">
-          <span>DEAD CIRCUIT</span>
+          <span>OVERVOLT</span>
           <span>REV 1.4</span>
         </div>
         <svg viewBox="0 0 100 140" className="w-full h-full opacity-35 absolute inset-0">
