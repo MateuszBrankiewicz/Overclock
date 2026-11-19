@@ -4,7 +4,7 @@ import { playSfx, speakRobotVoice } from '../../../shared/lib/audio';
 import { useGameStore } from '../stores/useGameStore';
 import { useUiStore } from '../stores/useUiStore';
 import { dischargeStrikeDelayMs } from '../utils/cinematicTiming';
-import { recordGameEvent, TRACE_SIREN_DELAY_MS } from './useDebugTerminal';
+import { recordGameEvent, TRACE_SIREN_DELAY_MS } from './recordGameEvent';
 
 vi.mock('../../../shared/lib/audio', () => ({
   playSfx: vi.fn(),

@@ -6,7 +6,7 @@ import { useI18n } from '../../../shared/i18n';
 import { speakRobotVoice } from '../../../shared/lib/audio';
 import { checkWebGLAvailable } from '../../../shared/lib/webgl';
 import { HudButton, HudPanel } from '../../../shared/ui';
-import { useGameSession } from '../hooks/useDebugTerminal';
+import { useGameSession } from '../session/useGameSession';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
 import { useUiStore } from '../stores/useUiStore';

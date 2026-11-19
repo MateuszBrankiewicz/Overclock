@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useI18n } from '../../../shared/i18n';
 import { prefersReducedMotion } from '../../../shared/lib/motion';
 import { checkWebGLAvailable } from '../../../shared/lib/webgl';
-import { useGameSession } from '../hooks/useDebugTerminal';
+import { useGameSession } from '../session/useGameSession';
 import { useGameStore } from '../stores/useGameStore';
 import { useRulesModalStore } from '../stores/useRulesModalStore';
 import { resolveCenterOverlay } from '../utils/centerOverlay';

@@ -33,13 +33,15 @@ vi.mock('../../../shared/realtime/gameConnection', async (importOriginal) => {
   };
 });
 
-import {
-  autoJoinFromInvite,
-  getSharedConnection,
-  isSnapshotForCurrentRoom,
-  resetSessionHookForTests,
-  resumeSavedSession,
-} from './useDebugTerminal';
+import { isSnapshotForCurrentRoom } from './registerGameHandlers';
+import { autoJoinFromInvite, resumeSavedSession } from './roomSession';
+import { getSharedConnection, resetSharedConnectionForTests } from './sharedConnection';
+import { resetStartupForTests } from './startSession';
+
+function resetSessionHookForTests(): void {
+  resetSharedConnectionForTests();
+  resetStartupForTests();
+}
 
 const SESSION = { roomId: 'CYBER-1', sessionToken: '123e4567-e89b-12d3-a456-426614174000' };
 const ID = '123e4567-e89b-12d3-a456-426614174001';
