@@ -1,5 +1,9 @@
 # Project: Overclock (Dead Circuit)
 
+> [!WARNING]
+> **Work in progress.** Overclock is in active development: rules, balance, UI and APIs may still
+> change, and some features described below may be incomplete.
+
 > A browser-based, turn-based bluffing game for 2–4 players. Play face-down data packets, lie or
 > tell the truth, and whoever loses the challenge sits down for a voltage test: a neuro-capacitor
 > whose short-circuit risk climbs with every round survived. Setting: an underground bunker, CRT
