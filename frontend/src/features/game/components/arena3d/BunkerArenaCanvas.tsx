@@ -17,7 +17,7 @@ import type {
 import type { ArenaCameraFocus, DischargeCinematic } from '../../stores/types';
 import { useGameStore } from '../../stores/useGameStore';
 import { useGfxSettings } from '../../stores/useGfxSettings';
-import { useRulesModalStore } from '../../stores/useRulesModalStore';
+import { useUiStore } from '../../stores/useUiStore';
 import { type CharacterId, resolveSeatCharacter } from '../../utils/characterCatalog';
 import { dischargeStrikeDelayMs, verdictVisibleAtMs } from '../../utils/cinematicTiming';
 import { EventFeed } from '../EventFeed';
@@ -460,7 +460,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   const showKeyHints = useFinePointer();
   const firstTurnHint = useFirstTurnHint(isMyTurn && !isEliminated, roomState);
   const clearSelection = useGameStore((s) => s.clearSelection);
-  const rulesOpen = useRulesModalStore((s) => s.isOpen);
+  const rulesOpen = useUiStore((s) => s.isRulesOpen);
   const hotkeys = useArenaHotkeys({
     enabled: roomState !== 'Lobby' && roomState !== 'GameOver' && !isEliminated && !rulesOpen,
     canTransmit,

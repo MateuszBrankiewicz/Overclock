@@ -6,7 +6,7 @@ import { prefersReducedMotion } from '../../../shared/lib/motion';
 import { checkWebGLAvailable } from '../../../shared/lib/webgl';
 import { useGameSession } from '../session/useGameSession';
 import { useGameStore } from '../stores/useGameStore';
-import { useRulesModalStore } from '../stores/useRulesModalStore';
+import { useUiStore } from '../stores/useUiStore';
 import { resolveCenterOverlay } from '../utils/centerOverlay';
 import {
   AWAIT_DISCHARGE_TIMEOUT_MS,
@@ -40,7 +40,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   // Same check as BunkerArenaCanvas: without WebGL the showdown bar shows the cards itself.
   const [webGLSupported] = useState<boolean>(() => checkWebGLAvailable());
 
-  const openRules = useRulesModalStore((s) => s.open);
+  const openRules = useUiStore((s) => s.openRules);
 
   const roomCode = useGameStore((s) => s.roomCode);
   const roomState = useGameStore((s) => s.roomState);

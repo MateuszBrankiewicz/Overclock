@@ -8,7 +8,7 @@ import { GameRulesModal } from './features/game/components/GameRulesModal';
 import { OperatingTable } from './features/game/components/OperatingTable';
 import { ToastHost } from './features/game/components/ToastHost';
 import { useRoomUrlSync } from './features/game/hooks/useRoomUrlSync';
-import { useRulesModalStore } from './features/game/stores/useRulesModalStore';
+import { useUiStore } from './features/game/stores/useUiStore';
 import { useI18n } from './shared/i18n';
 
 const queryClient = new QueryClient();
@@ -16,9 +16,9 @@ const queryClient = new QueryClient();
 export function App() {
   const [activeView, setActiveView] = useState<'table' | 'terminal'>('table');
   const { language, setLanguage, t } = useI18n();
-  const isRulesOpen = useRulesModalStore((s) => s.isOpen);
-  const openRules = useRulesModalStore((s) => s.open);
-  const closeRules = useRulesModalStore((s) => s.close);
+  const isRulesOpen = useUiStore((s) => s.isRulesOpen);
+  const openRules = useUiStore((s) => s.openRules);
+  const closeRules = useUiStore((s) => s.closeRules);
   useRoomUrlSync();
 
   // The table (3D arena and 3D bunker lobby) manages its own fullscreen viewport.

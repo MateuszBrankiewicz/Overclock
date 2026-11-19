@@ -26,6 +26,9 @@ interface UiState {
   toasts: Toast[];
   feed: FeedEntry[];
   inviteJoin: InviteJoin | null;
+  isRulesOpen: boolean;
+  openRules: () => void;
+  closeRules: () => void;
   setInviteJoin: (inviteJoin: InviteJoin | null) => void;
   setConnectionStatus: (status: ConnectionStatus) => void;
   pushToast: (toast: { kind: ToastKind; message: string }) => number;
@@ -42,6 +45,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   toasts: [],
   feed: [],
   inviteJoin: null,
+  isRulesOpen: false,
+  openRules: () => set({ isRulesOpen: true }),
+  closeRules: () => set({ isRulesOpen: false }),
   setInviteJoin: (inviteJoin) => set({ inviteJoin }),
   setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
   pushToast: ({ kind, message }) => {

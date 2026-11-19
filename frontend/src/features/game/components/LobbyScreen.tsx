@@ -8,7 +8,6 @@ import { checkWebGLAvailable } from '../../../shared/lib/webgl';
 import { HudButton, HudPanel } from '../../../shared/ui';
 import { useGameSession } from '../session/useGameSession';
 import { useGameStore } from '../stores/useGameStore';
-import { useRulesModalStore } from '../stores/useRulesModalStore';
 import { useUiStore } from '../stores/useUiStore';
 import { type CharacterId, resolveSeatCharacter } from '../utils/characterCatalog';
 import { readRoomParam } from '../utils/invite';
@@ -31,7 +30,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({
 }) => {
   const session = useGameSession();
   const { language, setLanguage, t } = useI18n();
-  const openRules = useRulesModalStore((s) => s.open);
+  const openRules = useUiStore((s) => s.openRules);
   const selectedCharacterId = useGameStore((s) => s.selectedCharacterId);
   const setSelectedCharacter = useGameStore((s) => s.setSelectedCharacter);
   const inviteJoin = useUiStore((s) => s.inviteJoin);
