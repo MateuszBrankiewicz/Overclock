@@ -57,6 +57,10 @@ export interface Translations {
     inviteShareText: string;
     inviteCopied: string;
     inviteFailed: string;
+    inviteNicknameTitle: string;
+    inviteNicknameHint: (roomCode: string) => string;
+    inviteJoining: (roomCode: string) => string;
+    inviteCancel: string;
     leaveTable: string;
     characterPickerTitle: string;
     characterActive: string;
@@ -366,6 +370,10 @@ export const translations: Record<Language, Translations> = {
       inviteShareText: 'Dołącz do mojego stołu w Dead Circuit!',
       inviteCopied: 'Link do stołu skopiowany.',
       inviteFailed: 'Nie udało się skopiować linku.',
+      inviteNicknameTitle: 'Podaj nick',
+      inviteNicknameHint: (roomCode) => `Wpisz nick, żeby dołączyć do stołu ${roomCode}.`,
+      inviteJoining: (roomCode) => `Dołączanie do stołu ${roomCode}…`,
+      inviteCancel: 'Anuluj',
       leaveTable: 'Opuść stół',
       characterPickerTitle: 'WYBIERZ POSTAĆ OPERATORA (CYBER-RIG 3D):',
       characterActive: 'WYBRANY',
@@ -708,6 +716,10 @@ export const translations: Record<Language, Translations> = {
       inviteShareText: 'Join my table in Dead Circuit!',
       inviteCopied: 'Table link copied.',
       inviteFailed: 'Could not copy the link.',
+      inviteNicknameTitle: 'Choose a nickname',
+      inviteNicknameHint: (roomCode) => `Enter a nickname to join table ${roomCode}.`,
+      inviteJoining: (roomCode) => `Joining table ${roomCode}…`,
+      inviteCancel: 'Cancel',
       leaveTable: 'Leave table',
       characterPickerTitle: 'SELECT 3D OPERATOR RIG:',
       characterActive: 'ACTIVE',

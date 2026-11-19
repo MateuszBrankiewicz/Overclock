@@ -78,8 +78,9 @@ a błędy i stan sieci nie są w ogóle komunikowane graczowi w trakcie meczu.
 - [ ] **U8. Podpowiedź pierwszej tury** („zaznacz 1–3 karty”) + czytelniejsze oznaczenie match/wild/bluff w ręce.
 - [ ] **U9. Ekran startowy:** klimatyczny hero (nieużywany `assets/hero.png`), jedno główne CTA,
   usunięcie technicznych napisów (`NETARCHTEST + TESTCONTAINERS + ORVAL`, `SYS.VER`) z UI gracza.
-- [ ] **U10. Zaproszenia:** po utworzeniu pokoju ustawić `?room=KOD` w URL; jeden przycisk „Zaproś”
-  (Web Share API na mobile, kopiowanie linku na desktop).
+- [x] **U10. Zaproszenia:** po utworzeniu pokoju ustawić `?room=KOD` w URL; jeden przycisk „Zaproś”
+  (Web Share API na mobile, kopiowanie linku na desktop). Otwarcie linku dołącza do pokoju
+  automatycznie; bez zapisanego nicku najpierw pojawia się modal z polem na nick.
 - [ ] **U11. Ekran końca meczu:** podium wg `PlayerEliminated.placement`, krótkie statystyki, „Zagraj ponownie”.
 - [ ] **U12. Wydajność:** `frameloop="demand"` / throttling w lobby; offsety kamery na refach (B8).
 
