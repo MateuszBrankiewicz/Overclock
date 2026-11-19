@@ -33,6 +33,7 @@ import { FirstTurnHint } from './hud/FirstTurnHint';
 import { useFirstTurnHint } from './hud/firstTurnHint';
 import { HotkeyCheatSheet } from './hud/HotkeyCheatSheet';
 import { prefersReducedMotion, useFinePointer } from './hud/motion';
+import { mustCallTrace } from './hud/mustCallTrace';
 import { OverloadVignette } from './hud/OverloadVignette';
 import { PhaseTimers } from './hud/PhaseTimers';
 import { SpectatorHud } from './hud/SpectatorHud';
@@ -453,7 +454,9 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       dischargeCinematic.event.playerId !== myPlayerId
   );
 
-  const canTransmit = isMyTurn && !isEliminated && selectedCardIds.length > 0;
+  const isLastHolder =
+    isMyTurn && mustCallTrace(players, myPlayerId, lastPlayedCards?.playerId, tablePileCount);
+  const canTransmit = isMyTurn && !isEliminated && !isLastHolder && selectedCardIds.length > 0;
   const canTrace = isMyTurn && !isEliminated && tablePileCount > 0;
   const canUseChip = Boolean(canActivateExploit && exploit && !exploit.isBurned);
 
@@ -676,6 +679,7 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
       {roomState !== 'Lobby' && !isEliminated && !isOutcomeCinematic && (
         <ActionStrip
           canTrace={canTrace}
+          mustCallTrace={isLastHolder}
           canTransmit={canTransmit}
           canUseChip={canUseChip}
           exploit={exploit}

@@ -477,6 +477,15 @@ public sealed class GameRoom
             return Result.NotFound("Turn.PlayerNotFound", $"Player seat for '{playerId}' was not found or is eliminated.");
         }
 
+        // Last holder rule: once every rival has emptied their hand, nobody could ever challenge
+        // another play, so the last player still holding cards must call TRACE on the previous play.
+        if (LastPlay is not null && LastPlay.PlayerId != playerId && !AnyRivalHoldsCards(playerId))
+        {
+            return Result.Invalid(new ValidationError(
+                "Turn.MustCallTrace",
+                "Every rival has emptied their hand; the last player holding cards must call TRACE."));
+        }
+
         // Validation guard: player must hold all declared cards
         if (!playerSeat.HasCards(cardIds))
         {
@@ -1009,6 +1018,9 @@ public sealed class GameRoom
 
         return Result.Success();
     }
+
+    private bool AnyRivalHoldsCards(PlayerId playerId) =>
+        _seats.Exists(s => s.Id != playerId && s.Status != PlayerStatus.Eliminated && s.Hand.Count > 0);
 
     private PlayerId? GetNextTurnPlayerId(PlayerId currentPlayerId)
     {

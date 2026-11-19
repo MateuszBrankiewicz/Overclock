@@ -106,6 +106,7 @@ export interface Translations {
     transmitCards: string;
     callTrace: string;
     callTraceHelp: string;
+    mustCallTrace: string;
     selectCardsPrompt: string;
     matchCard: string;
     wildCard: string;
@@ -419,6 +420,7 @@ export const translations: Record<Language, Translations> = {
       transmitCards: 'WYŁÓŻ KARTY',
       callTrace: 'SPRAWDŹ BLEF (CALL TRACE)',
       callTraceHelp: 'Oskarż poprzednika o wyłożenie nieprawidłowych kart.',
+      mustCallTrace: 'Rywale nie mają już kart — musisz sprawdzić blef.',
       selectCardsPrompt: 'Wybierz przynajmniej jedną kartę z ręki',
       matchCard: 'ZGODNA',
       wildCard: 'DZIKA KARTA',
@@ -765,6 +767,7 @@ export const translations: Record<Language, Translations> = {
       transmitCards: 'TRANSMIT PACKETS',
       callTrace: 'CALL TRACE (CALL BLUFF)',
       callTraceHelp: 'Accuse previous operator of transmitting fraudulent packets.',
+      mustCallTrace: 'Rivals are out of packets — you must call TRACE.',
       selectCardsPrompt: 'Select at least 1 packet from your hand',
       matchCard: 'MATCH',
       wildCard: 'WILD',

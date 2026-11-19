@@ -11,6 +11,8 @@ import type { ExploitPicker } from './useExploitPicker';
 
 export interface ActionStripProps {
   canTrace: boolean;
+  /** Every rival emptied their hand — TRACE is the only legal move. */
+  mustCallTrace?: boolean;
   canTransmit: boolean;
   canUseChip: boolean;
   exploit: ExploitModule | null;
@@ -35,6 +37,7 @@ const KeyHint: React.FC<{ k: string }> = ({ k }) => (
 /** Locked bottom-edge tactical visor action strip. */
 export const ActionStrip: React.FC<ActionStripProps> = ({
   canTrace,
+  mustCallTrace = false,
   canTransmit,
   canUseChip,
   exploit,
@@ -91,6 +94,11 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
             {showKeyHints && <KeyHint k="E" />}
           </HudButton>
         )}
+        {mustCallTrace && (
+          <span data-testid="must-call-trace" className="font-bold text-red-400">
+            {t.table.mustCallTrace}
+          </span>
+        )}
         {picker.isOpen && canUseChip && (
           <ProtocolPickerPopover
             currentProtocol={currentTargetProtocol}
@@ -106,6 +114,7 @@ export const ActionStrip: React.FC<ActionStripProps> = ({
           size="lg"
           disabled={!canTrace}
           onClick={onCallTrace}
+          pulse={mustCallTrace && canTrace}
           className={clsx(
             'sm:order-1 pointer-events-auto w-full sm:w-auto min-w-0 min-h-[42px] sm:min-h-[48px] px-2.5 py-1.5 sm:px-6 sm:py-2.5 text-[11px] sm:text-sm tracking-tight sm:tracking-wider leading-tight',
             canTrace && 'shadow-[0_0_25px_rgba(239,68,68,0.75)]'

@@ -172,11 +172,16 @@ describe('recordGameEvent', () => {
     });
     expect(playSfx).toHaveBeenCalledWith('roundStart');
 
+    vi.mocked(playSfx).mockClear();
+    vi.mocked(speakRobotVoice).mockClear();
     recordGameEvent({
       kind: 'PlayerEliminated',
       event: { type: 'PlayerEliminated', roomCode: 'R', playerId: OTHER, placement: 2 },
     });
-    expect(playSfx).toHaveBeenCalledWith('eliminated');
+    vi.runAllTimers();
+    // A dead operator makes no sound: no SFX and no voice line on elimination.
+    expect(playSfx).not.toHaveBeenCalled();
+    expect(speakRobotVoice).not.toHaveBeenCalled();
 
     vi.useRealTimers();
   });

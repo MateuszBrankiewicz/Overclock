@@ -164,16 +164,8 @@ export function recordGameEvent(source: FeedSource): void {
     case 'RoundStarted':
       playSfx('roundStart');
       break;
-    case 'PlayerEliminated': {
-      playSfx('eliminated');
-      const eliminatedPlayer = players.find((p) => p.playerId === source.event.playerId);
-      const character = resolveSeatCharacter(eliminatedPlayer?.characterId).id;
-      const t = useI18n.getState().t;
-      speakRobotVoice(character, t.voice.eliminated, {
-        sequenceNumber: source.event.sequenceNumber,
-      });
-      break;
-    }
+    // PlayerEliminated is intentionally silent: the discharge strike already carries the death,
+    // and a dead operator must not make any further sound.
   }
 }
 
