@@ -4,10 +4,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Group } from 'three';
 
 import { useI18n } from '../../../../../shared/i18n';
+import { prefersReducedMotion } from '../../../../../shared/lib/motion';
 import { PROTOCOL_HEX } from '../../../../../shared/theme/protocols';
 import type { CardProtocol } from '../../../schemas/gameEvents';
 import { useGameStore } from '../../../stores/useGameStore';
-import { prefersReducedMotion } from '../hud/motion';
 import { createPcbCardTexture } from '../pcbCardTexture';
 import { ROUND_CARD_TOTAL_MS, roundCardPose } from '../roundCardPose';
 

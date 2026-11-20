@@ -1,4 +1,6 @@
-export type CharacterId = 'ghost' | 'volt' | 'proxy' | 'null';
+import type { CharacterId } from '../../../shared/domain/character';
+
+export type { CharacterId };
 
 export interface CharacterProfile {
   id: CharacterId;

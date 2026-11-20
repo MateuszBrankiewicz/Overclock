@@ -12,7 +12,7 @@ import {
   Vector3,
 } from 'three';
 
-import { prefersReducedMotion } from '../hud/motion';
+import { prefersReducedMotion } from '../../../../../shared/lib/motion';
 import { LightningArc3D } from '../LightningArc3D';
 import { shockCablePaths, shockCableState, type Vec3 } from './shockCables';
 

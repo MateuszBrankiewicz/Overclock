@@ -3,7 +3,7 @@ import React, { useMemo, useRef } from 'react';
 import type { Group, Mesh, MeshBasicMaterial } from 'three';
 import { Quaternion, Vector3 } from 'three';
 
-import { prefersReducedMotion } from '../hud/motion';
+import { prefersReducedMotion } from '../../../../../shared/lib/motion';
 
 export interface TraceDuelBeam3DProps {
   /** Seat of the operator who called TRACE. */

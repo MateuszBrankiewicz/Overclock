@@ -1,4 +1,4 @@
-import type { CharacterId } from '../../../features/game/utils/characterCatalog';
+import type { CharacterId } from '../../domain/character';
 import { useI18n } from '../../i18n';
 import { playSfx } from './playSfx';
 import { useAudioSettings } from './useAudioSettings';

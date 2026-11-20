@@ -2,9 +2,9 @@ import { useFrame, useThree } from '@react-three/fiber';
 import React, { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
 
+import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import type { RoomState } from '../../schemas/gameEvents';
 import type { ArenaCameraFocus } from '../../stores/types';
-import { prefersReducedMotion } from './hud/motion';
 import { resolveCameraTarget } from './resolveCameraTarget';
 import type { CameraOffsets } from './useCameraDrag';
 

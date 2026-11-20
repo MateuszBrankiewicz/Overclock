@@ -1,4 +1,4 @@
-import type { CharacterId } from '../../../features/game/utils/characterCatalog';
+import type { CharacterId } from '../../domain/character';
 import type { VoiceBlipType } from './types';
 
 export interface VoiceHint {

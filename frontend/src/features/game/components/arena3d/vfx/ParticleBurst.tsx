@@ -2,8 +2,8 @@ import { useFrame } from '@react-three/fiber';
 import React, { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 
+import { prefersReducedMotion } from '../../../../../shared/lib/motion';
 import { useGfxSettings } from '../../../stores/useGfxSettings';
-import { prefersReducedMotion } from '../hud/motion';
 import { resetParticlePool, stepParticlePool } from './particlePool';
 import { arenaVfxPool } from './vfxEmitter';
 
