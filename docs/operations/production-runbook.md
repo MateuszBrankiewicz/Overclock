@@ -27,7 +27,24 @@ HTTPS. Terminate TLS in front of it, one of:
    replace `nginx-real-ip.conf` with `real_ip_header X-Forwarded-For` plus `set_real_ip_from <proxy address>`.
    Without that, every player appears to share the proxy's IP and the per-IP rate limit hits them together.
 
+3. **Tailscale Funnel** (stable `https://<machine>.<tailnet>.ts.net`, players need no Tailscale): see below.
+
 `nginx-real-ip.conf` assumes Cloudflare. If you are not behind Cloudflare, change it before going live.
+
+### Tailscale Funnel
+
+The bundled nginx already serves the SPA, `/api/` and `/hubs/` on one port, which is what Funnel needs
+(it exposes a single public HTTPS port and supports WebSockets).
+
+1. In `.env`: `FRONTEND_PORT=3000` and `REAL_IP_CONF=./frontend/nginx-real-ip-tailscale.conf`. The second setting
+   is essential: the Cloudflare file reads `CF-Connecting-IP`, which Funnel never sends, so every player would
+   share one IP and one per-IP rate-limit bucket (e.g. 5 new rooms per minute for everybody).
+2. `docker compose -f docker-compose.prod.yml up -d --build`, wait until `backend` is `healthy`.
+3. Enable HTTPS and Funnel for the machine in the Tailscale admin console, then `sudo tailscale funnel 3000`.
+4. Check the real IP: open the game from a phone on mobile data, then
+   `docker compose -f docker-compose.prod.yml logs frontend | tail` must show the phone's public address, not
+   `127.0.0.1` or `172.x`. If it shows a local address, Funnel is not sending `X-Forwarded-For` as expected; fix
+   that before inviting players.
 
 ## Backup and restore (PostgreSQL)
 
