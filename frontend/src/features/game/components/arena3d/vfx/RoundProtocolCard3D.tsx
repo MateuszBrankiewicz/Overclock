@@ -1,4 +1,3 @@
-import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Group } from 'three';
@@ -8,6 +7,7 @@ import { prefersReducedMotion } from '../../../../../shared/lib/motion';
 import { PROTOCOL_HEX } from '../../../../../shared/theme/protocols';
 import type { CardProtocol } from '../../../schemas/gameEvents';
 import { useGameStore } from '../../../stores/useGameStore';
+import { AnchoredHtml } from '../AnchoredHtml';
 import { createPcbCardTexture } from '../pcbCardTexture';
 import { ROUND_CARD_TOTAL_MS, roundCardPose } from '../roundCardPose';
 
@@ -77,7 +77,7 @@ const LevitatingCard: React.FC<{ run: FlipRun; onDone: () => void }> = ({ run, o
         </group>
       </group>
       {/* Outside the scaled group, so the label stays above the card instead of shrinking into it. */}
-      <Html position={[0, LABEL_Y, 0]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
+      <AnchoredHtml position={[0, LABEL_Y, 0]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
         <div
           ref={labelRef}
           data-testid="round-protocol-label"
@@ -86,7 +86,7 @@ const LevitatingCard: React.FC<{ run: FlipRun; onDone: () => void }> = ({ run, o
         >
           {t.arena.hologramProtocol} {run.protocol}
         </div>
-      </Html>
+      </AnchoredHtml>
     </group>
   );
 };

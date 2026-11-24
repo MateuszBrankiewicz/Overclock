@@ -13,7 +13,8 @@ public sealed class VoltageTestCoordinator(
     ITurnTimerEngine timerEngine,
     IGameNotifier? notifier = null,
     IGameStateProjector? projector = null,
-    IRandomSource? randomSource = null)
+    IRandomSource? randomSource = null,
+    IMatchFinishedDispatcher? matchFinishedDispatcher = null)
 {
     public static readonly TimeSpan GroundWireDecisionDuration = TimeSpan.FromSeconds(5);
     private readonly IRandomSource _randomSource = randomSource ?? CryptoRandomSource.Instance;
@@ -105,6 +106,10 @@ public sealed class VoltageTestCoordinator(
             room.MarkIntermissionDeadline(deadlineUtc);
             timerEngine.StartIntermission(session, room.RoundNumber, timerEngine.IntermissionDuration);
             resolution = resolution with { Snapshots = ProjectSnapshots(room) };
+        }
+        else if (room.State == RoomState.GameOver)
+        {
+            matchFinishedDispatcher?.Dispatch(MatchFinishedEventFactory.FromRoom(room));
         }
 
         return resolution;

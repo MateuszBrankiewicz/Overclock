@@ -22,7 +22,7 @@ describe('GameRulesModal Component', () => {
         onClose: () => {},
       })
     );
-    expect(html).toContain('ZASADY GRY // DEAD CIRCUIT');
+    expect(html).toContain('ZASADY GRY // OVERVOLT');
     expect(html).toContain('1. Cel rozgrywki');
     expect(html).toContain('4. Sprawdzenie blefu');
     expect(html).toContain('Karty Specjalne w Talii');

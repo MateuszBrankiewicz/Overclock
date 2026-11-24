@@ -2,7 +2,6 @@ export type Language = "pl" | "en";
 
 export interface Translations {
   common: {
-    appTitle: string;
     gameRules: string;
     copied: string;
     copyCode: string;
@@ -67,9 +66,6 @@ export interface Translations {
     leaveConfirm: string;
     leaveYes: string;
     leaveNo: string;
-    footer: string;
-    debugToggle: string;
-    backToGame: string;
   };
   summary: {
     title: string;
@@ -104,6 +100,7 @@ export interface Translations {
     transmitCards: string;
     callTrace: string;
     callTraceHelp: string;
+    mustCallTrace: string;
     selectCardsPrompt: string;
     matchCard: string;
     wildCard: string;

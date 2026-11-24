@@ -157,6 +157,17 @@ describe('autoJoinFromInvite', () => {
     });
   });
 
+  it('reads the room code from a /join/:roomId invite path', async () => {
+    stubSavedNickname(null);
+
+    await autoJoinFromInvite(getSharedConnection(), '', '/join/cyber-1');
+
+    expect(useUiStore.getState().inviteJoin).toEqual({
+      roomCode: 'CYBER-1',
+      status: 'needsNickname',
+    });
+  });
+
   it('does nothing without a room parameter', async () => {
     stubSavedNickname('Volt');
 

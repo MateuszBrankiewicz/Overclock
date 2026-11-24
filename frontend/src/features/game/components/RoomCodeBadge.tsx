@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
 import { copyText } from '../../../shared/lib/clipboard';
+import { formatDisplayRoomCode, useUiStore } from '../stores/useUiStore';
 import { InviteButton } from './InviteButton';
 
 export interface RoomCodeBadgeProps {
@@ -26,6 +27,8 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     };
   }, []);
+  const maskRoomCode = useUiStore((s) => s.maskRoomCode);
+  const displayCode = formatDisplayRoomCode(roomCode, maskRoomCode);
 
   const copyCode = async () => {
     const ok = await copyText(roomCode);
@@ -46,7 +49,7 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
           className="select-text font-black text-emerald-300 tracking-wider text-sm cursor-text selection:bg-emerald-500 selection:text-black"
           title={t.common.room}
         >
-          {roomCode}
+          {displayCode}
         </span>
       </div>
 

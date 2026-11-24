@@ -42,6 +42,7 @@ internal sealed class JoinRoomCommandHandler(
             var seat = addResult.Value;
             var seatDto = new PlayerSeatDto(seat.Id.Value, seat.Nickname, seat.Status.ToString(), seat.IsReady, seat.Hand.Count, seat.CharacterId);
             var gameState = projector.Project(room, playerId);
+            registry.RefreshMetadata(room);
 
             var joinResultDto = new RoomJoinResultDto(
                 room.Id.Value,

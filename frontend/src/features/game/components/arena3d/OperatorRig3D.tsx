@@ -1,4 +1,4 @@
-import { Html, RoundedBox } from '@react-three/drei';
+import { RoundedBox } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import clsx from 'clsx';
 import React, { useEffect, useMemo, useRef } from 'react';
@@ -9,6 +9,7 @@ import { useI18n } from '../../../../shared/i18n';
 import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import type { PlayerSeat } from '../../schemas/gameEvents';
 import type { CharacterProfile } from '../../utils/characterCatalog';
+import { AnchoredHtml } from './AnchoredHtml';
 import { computeDeathPose, computeShockPose } from './deathPose';
 import { createOperatorVisorTexture } from './operatorVisorTexture';
 import { createPcbCardBackTexture } from './pcbCardTexture';
@@ -760,7 +761,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
 
       {/* In-Bounds Table Plaque Label (Hidden when completely eliminated) */}
       {!isEliminated && (
-        <Html position={[0, 1.04, 0.86]} center distanceFactor={6.2} zIndexRange={[10, 0]}>
+        <AnchoredHtml position={[0, 1.04, 0.86]} center distanceFactor={6.2} zIndexRange={[10, 0]}>
           <div
             className={clsx(
               'px-2 py-0.5 rounded-md border font-mono text-[9px] whitespace-nowrap backdrop-blur-md transition-all select-none pointer-events-none shadow-md',
@@ -778,7 +779,7 @@ export const OperatorRig3D: React.FC<OperatorRig3DProps> = ({
               ⚡{risk}/6
             </span>
           </div>
-        </Html>
+        </AnchoredHtml>
       )}
     </group>
   );

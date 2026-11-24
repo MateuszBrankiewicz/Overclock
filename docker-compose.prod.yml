@@ -1,0 +1,99 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__Database=Host=postgres;Port=5432;Database=${POSTGRES_DB:-overclock};Username=${POSTGRES_USER:-overclock};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - ConnectionStrings__Redis=redis:6379
+      # Only the bundled nginx (on the private Docker network) may set X-Forwarded-For; the backend port is
+      # not published. If another proxy terminates TLS in front of nginx, configure nginx real_ip for it.
+      - ForwardedHeaders__KnownNetworks__0=172.16.0.0/12
+      - ForwardedHeaders__KnownNetworks__1=192.168.0.0/16
+      - ForwardedHeaders__KnownNetworks__2=10.0.0.0/8
+      # SPA and hub share one origin through nginx, so no CORS entries are needed. Add any other origin here:
+      # - Cors__AllowedOrigins__0=https://example.com
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "dotnet", "Overclock.Host.dll", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: 450M
+    networks:
+      - overclock-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    networks:
+      - overclock-net
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-overclock}
+      POSTGRES_USER: ${POSTGRES_USER:-overclock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-overclock} -d ${POSTGRES_DB:-overclock}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - overclock-net
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_prod_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    networks:
+      - overclock-net
+
+volumes:
+  postgres_prod_data:
+  redis_prod_data:
+
+networks:
+  overclock-net:
+    driver: bridge

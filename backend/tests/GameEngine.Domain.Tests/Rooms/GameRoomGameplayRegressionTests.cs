@@ -88,7 +88,7 @@ public sealed class GameRoomGameplayRegressionTests
     // ---- Bug 2: turn returns to the player whose play is still pending (self-trace soft-lock) ----
 
     [Fact]
-    public void PlayCards_WhenOnlyThePlayerHimselfStillHasCards_PassesTurnToAnOpponentWhoCanTrace()
+    public void PlayCards_WhenEveryRivalHasEmptyHand_IsRejectedSoTheTurnCannotSoftLock()
     {
         var (room, ids) = StartGame(2);
         var a = Cards(CardProtocol.Alpha);
@@ -97,15 +97,18 @@ public sealed class GameRoomGameplayRegressionTests
         Seat(room, ids[1]).AssignHand(b);
 
         Play(room, ids[0], a[0]);   // A empties hand
-        Play(room, ids[1], b[0]);   // B plays instead of tracing; only B still holds cards
 
+        // Last holder rule: B is the only one with cards and must call TRACE, not play on.
+        var result = room.PlayCards(ids[1], [b[0].Id], CardProtocol.Alpha);
+
+        Assert.False(result.IsSuccess);
         Assert.Equal(RoomState.TurnActive, room.State);
-        Assert.NotEqual(ids[1], room.CurrentTurnPlayerId);
-        Assert.True(room.CallTrace(room.CurrentTurnPlayerId!.Value).IsSuccess);
+        Assert.Equal(ids[1], room.CurrentTurnPlayerId);
+        Assert.True(room.CallTrace(ids[1]).IsSuccess);
     }
 
     [Fact]
-    public void ExpireTurn_WhenOnlyOnePlayerHasCards_ResolvesInsteadOfSoftLocking()
+    public void ExpireTurn_WhenLastHolderMustTrace_ResolvesInsteadOfSoftLocking()
     {
         var (room, ids) = StartGame(2);
         var a = Cards(CardProtocol.Alpha);
@@ -113,7 +116,6 @@ public sealed class GameRoomGameplayRegressionTests
         Seat(room, ids[0]).AssignHand(a);
         Seat(room, ids[1]).AssignHand(b);
         Play(room, ids[0], a[0]);
-        Play(room, ids[1], b[0]);
 
         var expired = room.ExpireTurn(room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
 

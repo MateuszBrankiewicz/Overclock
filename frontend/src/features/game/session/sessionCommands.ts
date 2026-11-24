@@ -181,15 +181,6 @@ export async function leaveRoom(): Promise<void> {
   useUiStore.getState().clearFeed();
 }
 
-/** Debug: drops the socket without leaving the room. */
-export async function simulateDisconnect(): Promise<void> {
-  const conn = peekSharedConnection();
-  if (!conn) return;
-  await conn.stop();
-  setConnectionStatus('Disconnected');
-  logSession('Simulated socket disconnection');
-}
-
 /** Debug: restarts the socket and re-attaches the saved session. */
 export async function reconnect(): Promise<void> {
   const conn = peekSharedConnection();

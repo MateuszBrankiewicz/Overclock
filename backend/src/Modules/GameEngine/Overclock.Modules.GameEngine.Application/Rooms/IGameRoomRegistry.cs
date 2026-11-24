@@ -11,4 +11,8 @@ public interface IGameRoomRegistry
     bool TryGet(string roomCode, [NotNullWhen(true)] out GameRoomSession? session);
 
     bool Remove(string roomCode);
+
+    IReadOnlyList<string> ListRoomCodes();
+
+    void RefreshMetadata(GameRoom room) { }
 }

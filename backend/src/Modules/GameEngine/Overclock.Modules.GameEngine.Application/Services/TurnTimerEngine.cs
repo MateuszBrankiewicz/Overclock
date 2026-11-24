@@ -20,13 +20,14 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
     private readonly IGameNotifier? _notifier;
     private readonly IGameStateProjector? _projector;
     private readonly IRandomSource _randomSource;
+    private readonly IMatchFinishedDispatcher? _matchFinishedDispatcher;
     private readonly TimeSpan _turnDuration;
     private readonly TimeSpan _intermissionDuration;
 
     public TimeSpan IntermissionDuration => _intermissionDuration;
 
     public TurnTimerEngine(ITurnDelay delay, TimeSpan? turnDuration = null, TimeSpan? intermissionDuration = null)
-        : this(delay, null, null, null, turnDuration, intermissionDuration)
+        : this(delay, null, null, null, turnDuration, intermissionDuration, null)
     {
     }
 
@@ -35,7 +36,7 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
         IGameNotifier? notifier,
         TimeSpan? turnDuration = null,
         TimeSpan? intermissionDuration = null)
-        : this(delay, notifier, null, null, turnDuration, intermissionDuration)
+        : this(delay, notifier, null, null, turnDuration, intermissionDuration, null)
     {
     }
 
@@ -45,12 +46,14 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
         IGameStateProjector? projector,
         IRandomSource? randomSource = null,
         TimeSpan? turnDuration = null,
-        TimeSpan? intermissionDuration = null)
+        TimeSpan? intermissionDuration = null,
+        IMatchFinishedDispatcher? matchFinishedDispatcher = null)
     {
         _delay = delay;
         _notifier = notifier;
         _projector = projector;
         _randomSource = randomSource ?? CryptoRandomSource.Instance;
+        _matchFinishedDispatcher = matchFinishedDispatcher;
         _turnDuration = turnDuration ?? DefaultTurnDuration;
         _intermissionDuration = intermissionDuration ?? DefaultIntermissionDuration;
     }
@@ -321,6 +324,10 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
                     room.MarkIntermissionDeadline(deadlineUtc);
                     StartIntermission(entry.Session, room.RoundNumber, _intermissionDuration);
                 }
+                else if (room.State == RoomState.GameOver)
+                {
+                    _matchFinishedDispatcher?.Dispatch(MatchFinishedEventFactory.FromRoom(room));
+                }
 
                 var snapshots = _projector is not null
                     ? _projector.ProjectForActiveConnections(room)
@@ -430,6 +437,10 @@ public sealed class TurnTimerEngine : ITurnTimerEngine
                     var deadlineUtc = DateTime.UtcNow.Add(_intermissionDuration);
                     room.MarkIntermissionDeadline(deadlineUtc);
                     StartIntermission(entry.Session, room.RoundNumber, _intermissionDuration);
+                }
+                else if (room.State == RoomState.GameOver)
+                {
+                    _matchFinishedDispatcher?.Dispatch(MatchFinishedEventFactory.FromRoom(room));
                 }
 
                 var snapshots = _projector is not null

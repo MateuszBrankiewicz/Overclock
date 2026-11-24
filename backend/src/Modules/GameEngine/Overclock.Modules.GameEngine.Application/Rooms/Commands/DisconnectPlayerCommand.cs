@@ -18,11 +18,19 @@ internal sealed class DisconnectPlayerCommandHandler(
     IDisconnectGraceManager graceManager,
     ITurnTimerEngine turnTimer,
     IGameStateProjector projector,
+    IMatchFinishedDispatcher? matchFinishedDispatcher = null,
     TimeProvider? timeProvider = null)
     : IRequestHandler<DisconnectPlayerCommand, Result>
 {
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private static readonly TimeSpan DefaultGracePeriod = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Grace for the last live seat of a lobby. Removing it would delete the room, and mobile browsers drop
+    /// the socket of a backgrounded tab (e.g. while the host shares the invite), so the room is kept as long
+    /// as the abandoned-room sweeper would keep it.
+    /// </summary>
+    internal static readonly TimeSpan LastLobbySeatGracePeriod = TimeSpan.FromMinutes(5);
 
     public async ValueTask<Result> Handle(DisconnectPlayerCommand request, CancellationToken ct)
     {
@@ -42,6 +50,9 @@ internal sealed class DisconnectPlayerCommandHandler(
             var playerId = seat.Id;
             var sessionToken = seat.SessionToken;
             var roomCode = room.Id.Value;
+            var gracePeriod = room.State == RoomState.Lobby && !room.HasOtherLiveSeat(playerId)
+                ? LastLobbySeatGracePeriod
+                : DefaultGracePeriod;
 
             var result = room.HandleDisconnect(request.ConnectionId);
             if (!result.IsSuccess)
@@ -50,7 +61,7 @@ internal sealed class DisconnectPlayerCommandHandler(
             }
 
             var sequenceNumber = room.NextEventSequence();
-            return Result<DisconnectInfo>.Success(new DisconnectInfo(playerId, sessionToken, roomCode, sequenceNumber));
+            return Result<DisconnectInfo>.Success(new DisconnectInfo(playerId, sessionToken, roomCode, sequenceNumber, gracePeriod));
         }, ct);
 
         if (!outcome.IsSuccess)
@@ -67,12 +78,12 @@ internal sealed class DisconnectPlayerCommandHandler(
             info.SequenceNumber,
             CancellationToken.None);
 
-        // Start 30s grace timer before automatic removal or elimination
+        // Start the grace timer before automatic removal or elimination
         graceManager.StartGracePeriod(
             info.RoomCode,
             info.PlayerId,
             info.SessionToken,
-            DefaultGracePeriod,
+            info.GracePeriod,
             async () =>
             {
                 if (registry.TryGet(info.RoomCode, out var activeSession))
@@ -102,6 +113,7 @@ internal sealed class DisconnectPlayerCommandHandler(
                         {
                             var wasCurrentTurnPlayer = activeRoom.CurrentTurnPlayerId == info.PlayerId;
                             var wasRoundOver = activeRoom.State == RoomState.RoundOver;
+                            var wasGameOver = activeRoom.State == RoomState.GameOver;
                             var eliminateResult = activeRoom.EliminatePlayer(info.PlayerId);
                             if (!eliminateResult.IsSuccess)
                             {
@@ -111,6 +123,10 @@ internal sealed class DisconnectPlayerCommandHandler(
                             if (activeRoom.State == RoomState.GameOver)
                             {
                                 turnTimer.Cancel(activeRoom.Id.Value);
+                                if (!wasGameOver)
+                                {
+                                    matchFinishedDispatcher?.Dispatch(MatchFinishedEventFactory.FromRoom(activeRoom));
+                                }
                             }
                             else if (!wasRoundOver && activeRoom.State == RoomState.RoundOver)
                             {
@@ -177,7 +193,7 @@ internal sealed class DisconnectPlayerCommandHandler(
         Eliminated
     }
 
-    private sealed record DisconnectInfo(PlayerId PlayerId, Guid SessionToken, string RoomCode, long SequenceNumber);
+    private sealed record DisconnectInfo(PlayerId PlayerId, Guid SessionToken, string RoomCode, long SequenceNumber, TimeSpan GracePeriod);
 
     private sealed record GracePeriodOutcome(
         GraceAction Action,

@@ -252,7 +252,7 @@ export function createPcbCardBackTexture(caption: string): THREE.CanvasTexture |
   ctx.fillStyle = '#10b981';
   ctx.font = '900 40px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('DEAD CIRCUIT', 256, 345);
+  ctx.fillText('OVERVOLT', 256, 345);
   ctx.fillStyle = '#71717a';
   ctx.font = 'bold 26px monospace';
   ctx.fillText(caption, 256, 395);
