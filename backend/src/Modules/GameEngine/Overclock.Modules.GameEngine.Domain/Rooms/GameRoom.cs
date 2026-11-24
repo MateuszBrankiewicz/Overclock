@@ -282,7 +282,12 @@ public sealed class GameRoom
 
         if (isNewMatch)
         {
-            _seats.RemoveAll(s => s.HasLeft);
+            // An eliminated seat with no live connection (e.g. its grace period ran out) is a ghost:
+            // reviving it for a rematch would deal it cards and time out every turn. Seats that are
+            // merely Disconnected keep their place — their grace period still decides their fate.
+            var isRematch = State == RoomState.GameOver;
+            _seats.RemoveAll(s => s.HasLeft ||
+                (isRematch && s.IsDisconnected && s.Status == PlayerStatus.Eliminated));
         }
 
         // Determine prospective active seats without mutating state before validation
@@ -836,7 +841,8 @@ public sealed class GameRoom
         PlayerId playerId,
         ExploitType exploit,
         CardProtocol? newTargetProtocol = null,
-        IRandomSource? randomSource = null)
+        IRandomSource? randomSource = null,
+        DateTime? nowUtc = null)
     {
         var validation = ValidateExploitActivation(playerId, exploit, newTargetProtocol);
         if (!validation.IsSuccess)
@@ -890,7 +896,19 @@ public sealed class GameRoom
                     seat.BurnExploit();
                     LastInjectedTurnSequenceId = TurnSequenceId;
 
-                    return Result<ExploitEffect>.Success(new ExploitEffect.TurnTimerShortened(TurnSequenceId, ExploitCatalog.OverclockInjectorDuration));
+                    // The injector only ever shortens the clock: with less than the injector
+                    // duration left, the turn keeps its remaining time instead of gaining some.
+                    var duration = ExploitCatalog.OverclockInjectorDuration;
+                    if (CurrentTurnDeadlineUtc is { } deadline)
+                    {
+                        var remaining = deadline - (nowUtc ?? DateTime.UtcNow);
+                        if (remaining < duration)
+                        {
+                            duration = remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+                        }
+                    }
+
+                    return Result<ExploitEffect>.Success(new ExploitEffect.TurnTimerShortened(TurnSequenceId, duration));
                 }
 
             default:
@@ -965,6 +983,13 @@ public sealed class GameRoom
 
         seat.Eliminate();
 
+        // A play by a player who is no longer in the match can't be traced: its author
+        // can't take the capacitor test. Drop it so the next player leads a fresh packet.
+        if (LastPlay?.PlayerId == playerId)
+        {
+            LastPlay = null;
+        }
+
         if (HostId == playerId)
         {
             var nextHost = HostSuccession.NextHost(_seats, playerId);
@@ -1004,6 +1029,12 @@ public sealed class GameRoom
         return Result.Success();
     }
 
+    /// <summary>
+    /// Picks who acts next after <paramref name="currentPlayerId"/>, in seat order.
+    /// The author of the pending <see cref="LastPlay"/> never gets the turn (they can't trace
+    /// themselves, so the turn would soft-lock). Preference goes to a player who still holds cards;
+    /// if only the author does, the turn goes to an opponent with an empty hand, who can still trace.
+    /// </summary>
     private PlayerId? GetNextTurnPlayerId(PlayerId currentPlayerId)
     {
         var currentIndex = _seats.FindIndex(s => s.Id == currentPlayerId);
@@ -1012,16 +1043,25 @@ public sealed class GameRoom
             currentIndex = 0;
         }
 
+        var pendingAuthor = LastPlay?.PlayerId;
+        PlayerSeat? emptyHandedResponder = null;
+
         for (var offset = 1; offset <= _seats.Count; offset++)
         {
-            var nextIndex = (currentIndex + offset) % _seats.Count;
-            var candidate = _seats[nextIndex];
-            if (candidate.Status != PlayerStatus.Eliminated && candidate.Hand.Count > 0)
+            var candidate = _seats[(currentIndex + offset) % _seats.Count];
+            if (candidate.Status == PlayerStatus.Eliminated || candidate.Id == pendingAuthor)
+            {
+                continue;
+            }
+
+            if (candidate.Hand.Count > 0)
             {
                 return candidate.Id;
             }
+
+            emptyHandedResponder ??= candidate;
         }
 
-        return null;
+        return pendingAuthor is not null ? emptyHandedResponder?.Id : null;
     }
 }

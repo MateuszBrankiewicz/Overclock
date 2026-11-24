@@ -1,7 +1,8 @@
 import { Check, Copy } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '../../../shared/i18n';
+import { copyText } from '../../../shared/lib/clipboard';
 import { InviteButton } from './InviteButton';
 
 export interface RoomCodeBadgeProps {
@@ -18,15 +19,23 @@ export const RoomCodeBadge: React.FC<RoomCodeBadgeProps> = ({
 }) => {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
+  }, []);
 
   const copyCode = async () => {
-    try {
-      await navigator.clipboard.writeText(roomCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Ignore clipboard write failures gracefully
-    }
+    const ok = await copyText(roomCode);
+    if (!ok) return;
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    setCopied(true);
+    resetTimerRef.current = setTimeout(() => {
+      setCopied(false);
+      resetTimerRef.current = null;
+    }, 2000);
   };
 
   return (

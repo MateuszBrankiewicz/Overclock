@@ -1,38 +1,51 @@
+import { copyText, legacyCopyText } from '../../../shared/lib/clipboard';
+
 export type ShareOutcome = 'shared' | 'copied' | 'cancelled' | 'failed';
 
+export interface ShareData {
+  title: string;
+  text: string;
+  url: string;
+}
+
 export interface ShareEnv {
-  share?: (data: { title: string; text: string; url: string }) => Promise<void>;
+  canShare?: (data: ShareData) => boolean;
+  share?: (data: ShareData) => Promise<void>;
   writeText?: (text: string) => Promise<void>;
+  legacyCopy?: (text: string) => boolean;
+}
+
+function isAbortError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'name' in err && err.name === 'AbortError';
 }
 
 export function getShareEnv(): ShareEnv {
-  if (typeof navigator === 'undefined') return {};
-  const nav = navigator;
+  const nav = typeof navigator !== 'undefined' ? navigator : undefined;
   return {
-    share: typeof nav.share === 'function' ? (d) => nav.share(d) : undefined,
-    writeText: nav.clipboard?.writeText ? (text) => nav.clipboard.writeText(text) : undefined,
+    canShare: typeof nav?.canShare === 'function' ? (d) => nav.canShare(d) : undefined,
+    share: typeof nav?.share === 'function' ? (d) => nav.share(d) : undefined,
+    writeText: nav?.clipboard?.writeText ? (text) => nav.clipboard.writeText(text) : undefined,
+    legacyCopy: legacyCopyText,
   };
 }
 
 /** Uses the Web Share API when available, otherwise copies the invite link. */
 export async function shareInvite(
-  data: { title: string; text: string; url: string },
+  data: ShareData,
   env: ShareEnv = getShareEnv()
 ): Promise<ShareOutcome> {
-  if (env.share) {
+  if (env.share && (!env.canShare || env.canShare(data))) {
     try {
       await env.share(data);
       return 'shared';
     } catch (err) {
-      if (err instanceof Error && err.name === 'AbortError') return 'cancelled';
+      if (isAbortError(err)) return 'cancelled';
       // fall through to clipboard when sharing itself failed
     }
   }
-  if (!env.writeText) return 'failed';
-  try {
-    await env.writeText(data.url);
-    return 'copied';
-  } catch {
-    return 'failed';
-  }
+  const copied = await copyText(data.url, {
+    writeText: env.writeText,
+    legacyCopy: env.legacyCopy,
+  });
+  return copied ? 'copied' : 'failed';
 }

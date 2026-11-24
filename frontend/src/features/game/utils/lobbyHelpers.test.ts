@@ -90,6 +90,22 @@ describe('shareInvite', () => {
     expect(writeText).toHaveBeenCalledWith(data.url);
     expect(await shareInvite(data, {})).toBe('failed');
   });
+
+  it('skips Web Share when canShare returns false and falls back to legacy copy on non-secure origins', async () => {
+    const share = vi.fn();
+    const legacyCopy = vi.fn().mockReturnValue(true);
+    expect(await shareInvite(data, { canShare: () => false, share, legacyCopy })).toBe('copied');
+    expect(share).not.toHaveBeenCalled();
+    expect(legacyCopy).toHaveBeenCalledWith(data.url);
+  });
+
+  it('falls back to legacy copy when Web Share and Async Clipboard both reject', async () => {
+    const share = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+    const writeText = vi.fn().mockRejectedValue(new Error('NotAllowedError'));
+    const legacyCopy = vi.fn().mockReturnValue(true);
+    expect(await shareInvite(data, { share, writeText, legacyCopy })).toBe('copied');
+    expect(legacyCopy).toHaveBeenCalledWith(data.url);
+  });
 });
 
 describe('buildPodium', () => {

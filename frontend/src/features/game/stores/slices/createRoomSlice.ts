@@ -13,7 +13,7 @@ import {
   applyVoltageTestStartedReducer,
   finishTraceRevealReducer,
 } from '../reducers/roomReducers';
-import { applyRoomSnapshotReducer } from '../reducers/snapshotReducer';
+import { applyRoomSnapshotReducer, isStaleSnapshot } from '../reducers/snapshotReducer';
 import type { GameState, RoomSlice } from '../types';
 
 const getInitialCharacterId = (): CharacterId => {
@@ -42,6 +42,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set,
   pendingDischargePlayerId: null,
   dischargeDeadlineUtc: null,
   intermissionDeadlineUtc: null,
+  lastSnapshotSequence: null,
   canActivateExploit: false,
   lastDischargeOutcome: null,
   dischargeCinematic: null,
@@ -84,6 +85,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set,
 
   applyRoomSnapshot: (snapshot) => {
     const prevState = get();
+    if (isStaleSnapshot(prevState, snapshot)) return;
     const isLocalTurnStarting =
       snapshot.state === 'TurnActive' &&
       Boolean(snapshot.myPlayerId) &&
@@ -139,6 +141,7 @@ export const createRoomSlice: StateCreator<GameState, [], [], RoomSlice> = (set,
       pendingDischargePlayerId: null,
       dischargeDeadlineUtc: null,
       intermissionDeadlineUtc: null,
+      lastSnapshotSequence: null,
       canActivateExploit: false,
       lastDischargeOutcome: null,
       dischargeCinematic: null,

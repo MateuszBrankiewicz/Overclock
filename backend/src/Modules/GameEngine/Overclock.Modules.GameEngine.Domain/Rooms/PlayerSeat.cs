@@ -150,9 +150,18 @@ public sealed class PlayerSeat
         return Result<IReadOnlyList<Card>>.Success(removed);
     }
 
+    /// <summary>True while the seat has no live connection (set on disconnect, cleared on reconnect).</summary>
+    public bool IsDisconnected => DisconnectedAtUtc is not null;
+
     internal void Disconnect(DateTimeOffset? disconnectedAt = null)
     {
-        Status = PlayerStatus.Disconnected;
+        // Elimination is final for the match: losing the connection must not turn an
+        // eliminated seat back into a non-eliminated (and thus "active") one.
+        if (Status != PlayerStatus.Eliminated)
+        {
+            Status = PlayerStatus.Disconnected;
+        }
+
         DisconnectedAtUtc = disconnectedAt ?? DateTimeOffset.UtcNow;
     }
 
