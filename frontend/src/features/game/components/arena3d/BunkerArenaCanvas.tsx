@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 import { checkWebGLAvailable } from '../../../../shared/lib/webgl';
+import { ErrorBoundary } from '../../../../shared/ui/ErrorBoundary';
 import type {
   CardProtocol,
   CardsPlayedEvent,
@@ -114,6 +115,8 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
   overlayMode = 'passive',
 }) => {
   const [webGLSupported] = useState<boolean>(() => checkWebGLAvailable());
+  // A WebGL crash at render time (lost context, driver bug) degrades to the 2D table instead of a blank screen.
+  const [sceneFailed, setSceneFailed] = useState(false);
   const cameraDrag = useCameraDrag();
   const gfxQuality = useGfxSettings((s) => s.quality);
   const spectatorTargetPlayerId = useGameStore((s) => s.spectatorTargetPlayerId);
@@ -189,6 +192,21 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
     revealAccusedPlayerId,
   });
 
+  const fallbackScene = (
+    <ArenaFallback
+      opponents={opponents}
+      myPlayerId={myPlayerId}
+      myCharacter={myCharacter}
+      selectedCharacterId={selectedCharacterId}
+      tablePileCount={tablePileCount}
+      currentTargetProtocol={currentTargetProtocol}
+      lastPlayedCards={lastPlayedCards}
+      myCards={myCards}
+      selectedCardIds={selectedCardIds}
+      onToggleCard={onToggleCard}
+    />
+  );
+
   return (
     <div
       data-testid="bunker-arena-stage"
@@ -227,53 +245,44 @@ export const BunkerArenaCanvas: React.FC<BunkerArenaCanvasProps> = ({
         onCallTrace={onCallTrace}
       >
         {/* Fullscreen WebGL 3D First-Person POV Scene */}
-        {webGLSupported ? (
-          <ArenaScene3D
-            frameloop={frameloop}
-            shock={shock}
-            focus={focus}
-            cameraFocus={cameraFocus}
-            offsetsRef={cameraDrag.offsetsRef}
-            roomState={roomState}
-            stageAccentColor={stageAccentColor}
-            opponents={opponents}
-            seatLayouts={seatLayouts}
-            activePlayerId={activePlayerId}
-            activePlayerNickname={activePlayerNickname}
-            dischargeCinematic={dischargeCinematic}
-            tablePileCount={tablePileCount}
-            currentTargetProtocol={currentTargetProtocol}
-            lastPlayedCards={lastPlayedCards}
-            revealedCards={revealedCards}
-            revealDeclaredProtocol={revealDeclaredProtocol}
-            revealStartedAtMs={revealStartedAtMs}
-            isOutcomeCinematic={isOutcomeCinematic}
-            isMyTurn={isMyTurn}
-            isEliminated={isEliminated}
-            riskLevel={riskLevel}
-            exploit={exploit}
-            canActivateExploit={canActivateExploit}
-            myCards={myCards}
-            selectedCardIds={selectedCardIds}
-            myCharacter={myCharacter}
-            onToggleCard={onToggleCard}
-            onPlayCards={onPlayCards}
-            onCallTrace={onCallTrace}
-            onUseChip={exploitPicker.request}
-          />
+        {webGLSupported && !sceneFailed ? (
+          <ErrorBoundary fallback={fallbackScene} onError={() => setSceneFailed(true)}>
+            <ArenaScene3D
+              frameloop={frameloop}
+              shock={shock}
+              focus={focus}
+              cameraFocus={cameraFocus}
+              offsetsRef={cameraDrag.offsetsRef}
+              roomState={roomState}
+              stageAccentColor={stageAccentColor}
+              opponents={opponents}
+              seatLayouts={seatLayouts}
+              activePlayerId={activePlayerId}
+              activePlayerNickname={activePlayerNickname}
+              dischargeCinematic={dischargeCinematic}
+              tablePileCount={tablePileCount}
+              currentTargetProtocol={currentTargetProtocol}
+              lastPlayedCards={lastPlayedCards}
+              revealedCards={revealedCards}
+              revealDeclaredProtocol={revealDeclaredProtocol}
+              revealStartedAtMs={revealStartedAtMs}
+              isOutcomeCinematic={isOutcomeCinematic}
+              isMyTurn={isMyTurn}
+              isEliminated={isEliminated}
+              riskLevel={riskLevel}
+              exploit={exploit}
+              canActivateExploit={canActivateExploit}
+              myCards={myCards}
+              selectedCardIds={selectedCardIds}
+              myCharacter={myCharacter}
+              onToggleCard={onToggleCard}
+              onPlayCards={onPlayCards}
+              onCallTrace={onCallTrace}
+              onUseChip={exploitPicker.request}
+            />
+          </ErrorBoundary>
         ) : (
-          <ArenaFallback
-            opponents={opponents}
-            myPlayerId={myPlayerId}
-            myCharacter={myCharacter}
-            selectedCharacterId={selectedCharacterId}
-            tablePileCount={tablePileCount}
-            currentTargetProtocol={currentTargetProtocol}
-            lastPlayedCards={lastPlayedCards}
-            myCards={myCards}
-            selectedCardIds={selectedCardIds}
-            onToggleCard={onToggleCard}
-          />
+          fallbackScene
         )}
       </ArenaHud>
 

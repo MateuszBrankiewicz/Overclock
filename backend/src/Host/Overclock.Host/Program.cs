@@ -62,6 +62,7 @@ builder.Services.AddCors(options =>
     });
 });
 builder.Services.AddOpenApi("overclock");
+builder.Services.AddProblemDetails();
 
 builder.Services.Configure<SignalRLimitsOptions>(builder.Configuration.GetSection(SignalRLimitsOptions.SectionName));
 builder.Services.AddSingleton<SignalRRateLimitHubFilter>();
@@ -77,10 +78,16 @@ var signalRBuilder = builder.Services.AddSignalR(options =>
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis");
 if (!string.IsNullOrWhiteSpace(redisConnectionString))
 {
+    // AbortOnConnectFail=false: a Redis that is down at startup must not crash the host; the client keeps
+    // retrying in the background and /readyz reports the outage meanwhile.
+    var redisOptions = ConfigurationOptions.Parse(redisConnectionString);
+    redisOptions.AbortOnConnectFail = false;
     builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-        ConnectionMultiplexer.Connect(redisConnectionString));
-    signalRBuilder.AddStackExchangeRedis(redisConnectionString, options =>
+        ConnectionMultiplexer.Connect(redisOptions));
+    signalRBuilder.AddStackExchangeRedis(options =>
     {
+        options.Configuration = ConfigurationOptions.Parse(redisConnectionString);
+        options.Configuration.AbortOnConnectFail = false;
         options.Configuration.ChannelPrefix = RedisChannel.Literal("overclock:signalr");
     });
 }
@@ -127,9 +134,24 @@ var app = builder.Build();
 await app.Services.ApplyStatsMigrationsAsync();
 
 app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+{
+    // Unhandled exceptions become a bare 500 problem response without stack traces or internals.
+    app.UseExceptionHandler();
+}
+
 app.UseCors();
 app.UseRateLimiter();
-app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    // The API description and the hello-world route are development tooling, not a production surface.
+    app.MapOpenApi();
+    app.MapGet("/", () => "Hello World!")
+        .WithName("GetRoot")
+        .WithTags("Root")
+        .Produces<string>(StatusCodes.Status200OK);
+}
+
 app.MapHub<GameHub>("/hubs/game");
 app.MapHealthChecks("/healthz", new HealthCheckOptions
 {
@@ -139,11 +161,6 @@ app.MapHealthChecks("/readyz", new HealthCheckOptions
 {
     Predicate = registration => registration.Tags.Contains("ready")
 });
-
-app.MapGet("/", () => "Hello World!")
-    .WithName("GetRoot")
-    .WithTags("Root")
-    .Produces<string>(StatusCodes.Status200OK);
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "Healthy" }))
     .WithName("GetHealth")

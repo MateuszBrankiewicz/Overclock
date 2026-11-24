@@ -1,4 +1,5 @@
 services:
+  # Keep ONE backend replica: room state lives in process memory (ADR 0003), so never scale this service.
   backend:
     build:
       context: .

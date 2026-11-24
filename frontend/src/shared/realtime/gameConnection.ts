@@ -118,7 +118,7 @@ export class GameConnectionManager {
     this.connection = new HubConnectionBuilder()
       .withUrl(hubUrl)
       .withAutomaticReconnect(reconnectDelays)
-      .configureLogging(options.logLevel ?? LogLevel.Information)
+      .configureLogging(options.logLevel ?? (import.meta.env.PROD ? LogLevel.Warning : LogLevel.Information))
       .build();
 
     this.connection.onreconnecting((error) => {
