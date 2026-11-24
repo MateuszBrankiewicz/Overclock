@@ -54,6 +54,8 @@ export interface RoomSlice {
   pendingDischargePlayerId: string | null;
   dischargeDeadlineUtc: string | null;
   intermissionDeadlineUtc: string | null;
+  /** Sequence of the newest applied snapshot; older (reordered) snapshots are dropped. */
+  lastSnapshotSequence: number | null;
   canActivateExploit: boolean;
   lastDischargeOutcome: CapacitorDischargedEvent | null;
   dischargeCinematic: DischargeCinematic | null;

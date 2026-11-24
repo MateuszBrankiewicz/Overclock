@@ -20,6 +20,7 @@ import { CardMarkLegend } from './hud/CardMarkLegend';
 import { FirstTurnHint } from './hud/FirstTurnHint';
 import { useFirstTurnHint } from './hud/firstTurnHint';
 import { HotkeyCheatSheet } from './hud/HotkeyCheatSheet';
+import { mustCallTrace } from './hud/mustCallTrace';
 import { OverloadVignette } from './hud/OverloadVignette';
 import { PhaseTimers } from './hud/PhaseTimers';
 import { SpectatorHud } from './hud/SpectatorHud';
@@ -66,10 +67,15 @@ export const ArenaHud: React.FC<ArenaHudProps> = (p) => {
   const setSpectatorTarget = useGameStore((s) => s.setSpectatorTarget);
   const clearSelection = useGameStore((s) => s.clearSelection);
   const rulesOpen = useUiStore((s) => s.isRulesOpen);
+  const players = useGameStore((s) => s.players);
+  const myPlayerId = useGameStore((s) => s.playerId);
+  const lastPlayerId = useGameStore((s) => s.lastPlayedCards?.playerId);
   const showKeyHints = useFinePointer();
   const firstTurnHint = useFirstTurnHint(isMyTurn && !isEliminated, roomState);
 
-  const canTransmit = isMyTurn && !isEliminated && p.selectedCardIds.length > 0;
+  const isLastHolder =
+    isMyTurn && mustCallTrace(players, myPlayerId, lastPlayerId, p.tablePileCount);
+  const canTransmit = isMyTurn && !isEliminated && !isLastHolder && p.selectedCardIds.length > 0;
   const canTrace = isMyTurn && !isEliminated && p.tablePileCount > 0;
   const canUseChip = Boolean(p.canActivateExploit && p.exploit && !p.exploit.isBurned);
 
@@ -126,6 +132,7 @@ export const ArenaHud: React.FC<ArenaHudProps> = (p) => {
       {roomState !== 'Lobby' && !isEliminated && !isOutcomeCinematic && (
         <ActionStrip
           canTrace={canTrace}
+          mustCallTrace={isLastHolder}
           canTransmit={canTransmit}
           canUseChip={canUseChip}
           exploit={p.exploit}

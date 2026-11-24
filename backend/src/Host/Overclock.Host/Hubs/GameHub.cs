@@ -12,6 +12,11 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 {
     public async Task<HubResponse<RoomJoinResultDto>> CreateRoom(CreateRoomRequest request)
     {
+        if (connectionTracker.TryGet(Context.ConnectionId, out _))
+        {
+            return HubResponse<RoomJoinResultDto>.From(AlreadyInRoom<RoomJoinResultDto>());
+        }
+
         var command = new CreateRoomCommand(request.RoomCode, request.HostNickname, Context.ConnectionId, request.PreferredCharacterId);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
@@ -30,6 +35,11 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
     public async Task<HubResponse<RoomJoinResultDto>> JoinRoom(JoinRoomRequest request)
     {
+        if (connectionTracker.TryGet(Context.ConnectionId, out _))
+        {
+            return HubResponse<RoomJoinResultDto>.From(AlreadyInRoom<RoomJoinResultDto>());
+        }
+
         var command = new JoinRoomCommand(request.RoomCode, request.Nickname, Context.ConnectionId, request.PreferredCharacterId);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
@@ -118,6 +128,12 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
     public async Task<HubResponse<PlayerGameStateDto>> Reconnect(ReconnectRequest request)
     {
+        if (connectionTracker.TryGet(Context.ConnectionId, out var tracked) &&
+            tracked.SessionToken != request.SessionToken)
+        {
+            return HubResponse<PlayerGameStateDto>.From(AlreadyInRoom<PlayerGameStateDto>());
+        }
+
         var command = new ReconnectCommand(request.RoomCode, request.SessionToken, Context.ConnectionId);
         var result = await sender.Send(command, Context.ConnectionAborted);
 
@@ -203,6 +219,12 @@ public sealed class GameHub(ISender sender, IConnectionTracker connectionTracker
 
         await base.OnDisconnectedAsync(exception);
     }
+
+    /// <summary>
+    /// A connection may occupy at most one seat; it must leave before creating or joining another room.
+    /// </summary>
+    private static Result<T> AlreadyInRoom<T>() =>
+        Result<T>.Conflict("Connection.AlreadyInRoom", "This connection already occupies a seat. Leave the current room first.");
 
     private Result<(Guid PlayerId, string RoomCode)> ValidateCaller(string requestedRoomCode)
     {

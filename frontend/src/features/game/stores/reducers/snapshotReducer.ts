@@ -3,6 +3,19 @@ import { isCharacterId } from '../../utils/characterCatalog';
 import { startTraceReveal } from '../helpers/startTraceReveal';
 import type { GameState } from '../types';
 
+/**
+ * Snapshots can arrive out of order (a hub response racing a broadcast). One older than the
+ * newest already applied for the same room would roll the table back, so it is dropped.
+ */
+export function isStaleSnapshot(state: GameState, snapshot: RoomStateSnapshot): boolean {
+  return (
+    snapshot.sequenceNumber !== undefined &&
+    state.lastSnapshotSequence !== null &&
+    state.roomCode === snapshot.roomCode &&
+    snapshot.sequenceNumber < state.lastSnapshotSequence
+  );
+}
+
 /** Pure patch for applying a full server snapshot on top of the current state. */
 export function applyRoomSnapshotReducer(
   state: GameState,
@@ -74,6 +87,9 @@ export function applyRoomSnapshotReducer(
     dischargeDeadlineUtc:
       snapshot.dischargeDeadlineUtc ??
       (snapshot.state === 'VoltageTest' ? state.dischargeDeadlineUtc : null),
+    lastSnapshotSequence:
+      snapshot.sequenceNumber ??
+      (state.roomCode === snapshot.roomCode ? state.lastSnapshotSequence : null),
     intermissionDeadlineUtc:
       snapshot.intermissionDeadlineUtc ??
       (snapshot.state === 'RoundOver' ? state.intermissionDeadlineUtc : null),

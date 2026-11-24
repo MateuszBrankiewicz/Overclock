@@ -2,7 +2,6 @@ import type { Translations } from "../types";
 
 export const en: Translations = {
   common: {
-    appTitle: "PROJECT: OVERCLOCK // DEAD CIRCUIT",
     gameRules: "Game Rules",
     copied: "Copied!",
     copyCode: "Copy Code",
@@ -16,12 +15,12 @@ export const en: Translations = {
     status: "STATUS",
   },
   lobby: {
-    title: "DEAD CIRCUIT",
+    title: "OVERVOLT",
     subtitle:
-      "Dead Circuit — a cyberpunk game of bluffing, hardware risks, and capacitor overloads.",
+      "Overvolt — a cyberpunk game of bluffing, hardware risks, and capacitor overloads.",
     operatorNick: "OPERATOR IDENTIFIER (NICKNAME):",
     roomCode: "ROOM CODE:",
-    roomCodePlaceholder: "E.G. CYBER-7X9",
+    roomCodePlaceholder: "E.G. 7KQ4MZ2X",
     createTable: "CREATE TABLE",
     createTableSub: "[INITIALIZE TABLE]",
     connectTable: "JOIN TABLE",
@@ -55,8 +54,8 @@ export const en: Translations = {
     joinCta: "Join",
     characterHeading: "Pick your character",
     invite: "Invite",
-    inviteShareTitle: "Dead Circuit",
-    inviteShareText: "Join my table in Dead Circuit!",
+    inviteShareTitle: "Overvolt",
+    inviteShareText: "Join my table in Overvolt!",
     inviteCopied: "Table link copied.",
     inviteFailed: "Could not copy the link.",
     inviteNicknameTitle: "Choose a nickname",
@@ -72,9 +71,6 @@ export const en: Translations = {
     leaveConfirm: "Leave table?",
     leaveYes: "Yes",
     leaveNo: "No",
-    footer: "DEAD CIRCUIT",
-    debugToggle: "Dev console",
-    backToGame: "Back to game",
   },
   summary: {
     title: "MATCH OVER",
@@ -112,6 +108,7 @@ export const en: Translations = {
     callTrace: "CALL TRACE (CALL BLUFF)",
     callTraceHelp:
       "Accuse previous operator of transmitting fraudulent packets.",
+    mustCallTrace: "Rivals are out of packets — you must call TRACE.",
     selectCardsPrompt: "Select at least 1 packet from your hand",
     matchCard: "MATCH",
     wildCard: "WILD",
@@ -278,7 +275,7 @@ export const en: Translations = {
     legendBluff: "bluff",
   },
   rules: {
-    modalTitle: "OPERATIONAL MANUAL // DEAD CIRCUIT",
+    modalTitle: "OPERATIONAL MANUAL // OVERVOLT",
     shortSummary:
       "Cyberpunk bluffing & risk management card game built upon Cheat / Liar's Dice.",
     coreGoalTitle: "1. Objective",

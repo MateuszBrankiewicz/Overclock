@@ -1,0 +1,7 @@
+# Load-test override: publishes the backend on localhost so k6 can bypass Nginx.
+# Use only together with docker-compose.prod.yml on a load-test host:
+#   docker compose -f docker-compose.prod.yml -f tests/load/docker-compose.load.yml up -d --build
+services:
+  backend:
+    ports:
+      - "127.0.0.1:5000:5000"

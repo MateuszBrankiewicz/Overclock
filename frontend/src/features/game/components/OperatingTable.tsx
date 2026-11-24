@@ -13,11 +13,7 @@ import { TableCenterOverlay } from './TableCenterOverlay';
 import { TableShowdownPanel } from './TableShowdownPanel';
 import { TableTopBar } from './TableTopBar';
 
-export interface OperatingTableProps {
-  onOpenTerminal?: () => void;
-}
-
-export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }) => {
+export const OperatingTable: React.FC = () => {
   const session = useGameSession();
   const { t } = useI18n();
   // Same check as BunkerArenaCanvas: without WebGL the showdown bar shows the cards itself.
@@ -51,7 +47,7 @@ export const OperatingTable: React.FC<OperatingTableProps> = ({ onOpenTerminal }
   const revealResolution = traceReveal?.resolution ?? null;
 
   if (!roomCode) {
-    return <LobbyScreen onOpenTerminal={onOpenTerminal} />;
+    return <LobbyScreen />;
   }
 
   /* Fullscreen First-Person 3D POV Table View (Zero Website Clutter) */

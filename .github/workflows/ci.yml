@@ -21,6 +21,8 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-context:
     name: "Gate 1: Context & Governance"
+    # Self-hosted runner: never run code from fork pull requests on it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
     steps:
       - name: Checkout code
@@ -68,6 +70,8 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-backend:
     name: "Gate 2: Backend Architecture & Quality"
+    # Self-hosted runner: never run code from fork pull requests on it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
     steps:
       - name: Checkout code
@@ -101,6 +105,8 @@ jobs:
   # ----------------------------------------------------------------------------
   gate-frontend:
     name: "Gate 3: Frontend Quality & Runtime Validation"
+    # Self-hosted runner: never run code from fork pull requests on it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: self-hosted
     steps:
       - name: Checkout code

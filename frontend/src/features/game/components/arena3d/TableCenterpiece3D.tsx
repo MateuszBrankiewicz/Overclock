@@ -1,4 +1,3 @@
-import { Html } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import clsx from 'clsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -9,6 +8,7 @@ import { useI18n } from '../../../../shared/i18n';
 import { prefersReducedMotion } from '../../../../shared/lib/motion';
 import { PROTOCOL_HEX } from '../../../../shared/theme/protocols';
 import type { CardProtocol, PlayerCard, RoomState } from '../../schemas/gameEvents';
+import { AnchoredHtml } from './AnchoredHtml';
 import { BunkerTable3D } from './BunkerTable3D';
 import { createPcbCardBackTexture } from './pcbCardTexture';
 import { RevealedCards3D } from './RevealedCards3D';
@@ -228,7 +228,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
 
       {/* Pile Counter & Turn Status Info Pill next to Hologram */}
       {roomState !== 'Lobby' && !hideStatusPill && (
-        <Html position={[0, 0.98, -0.32]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
+        <AnchoredHtml position={[0, 0.98, -0.32]} center distanceFactor={6.5} zIndexRange={[10, 0]}>
           <div className="px-3 py-1 rounded-full border border-zinc-700/80 bg-black/85 backdrop-blur-md font-mono text-[10px] flex items-center gap-2.5 shadow-[0_0_25px_rgba(0,0,0,0.9)] select-none pointer-events-none whitespace-nowrap">
             <span className="text-zinc-300 font-bold">{t.arena.hologramPile}: {tablePileCount}</span>
             <span
@@ -242,7 +242,7 @@ export const TableCenterpiece3D: React.FC<TableCenterpiece3DProps> = ({
                 : `○ ${t.arena.hologramTurnOf}: ${activePlayerNickname ?? '...'}`}
             </span>
           </div>
-        </Html>
+        </AnchoredHtml>
       )}
 
       {/* 3D PCB Packet Stack on Central Bus */}

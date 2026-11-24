@@ -21,11 +21,9 @@ internal sealed class CreateRoomCommandHandler(
 {
     public ValueTask<Result<RoomJoinResultDto>> Handle(CreateRoomCommand request, CancellationToken ct)
     {
-        var rawCode = string.IsNullOrWhiteSpace(request.RoomCode)
-            ? $"CYBER-{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}"
-            : request.RoomCode;
-
-        var roomIdResult = RoomId.Create(rawCode);
+        var roomIdResult = string.IsNullOrWhiteSpace(request.RoomCode)
+            ? Result<RoomId>.Success(RoomId.Generate())
+            : RoomId.Create(request.RoomCode);
         if (!roomIdResult.IsSuccess)
         {
             return ValueTask.FromResult(roomIdResult.ToResult<RoomJoinResultDto>());

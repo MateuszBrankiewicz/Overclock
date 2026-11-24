@@ -10,6 +10,7 @@ import { ConnectionStatusPill } from './ConnectionStatusPill';
 import { GfxQualityButton } from './GfxQualityButton';
 import { LeaveTableButton } from './LeaveTableButton';
 import { RoomCodeBadge } from './RoomCodeBadge';
+import { StreamerSettings } from './StreamerSettings';
 import { VoiceToggleButton } from './VoiceToggleButton';
 
 export interface TableTopBarProps {
@@ -32,6 +33,7 @@ export const TableTopBar: React.FC<TableTopBarProps> = ({ roomCode }) => {
         <AudioMuteButton />
         <VoiceToggleButton />
         <GfxQualityButton />
+        <StreamerSettings />
         <button
           type="button"
           onClick={openRules}

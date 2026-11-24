@@ -45,6 +45,7 @@ internal sealed class StartRoundCommandHandler(
             turnTimer.Start(session, room.CurrentTurnPlayerId!.Value, room.TurnSequenceId);
             var sequenceNumber = room.NextEventSequence();
             var snapshots = projector.ProjectForActiveConnections(room);
+            registry.RefreshMetadata(room);
             var roundStartedDto = new RoundStartedDto(
                 room.Id.Value,
                 room.RoundNumber,

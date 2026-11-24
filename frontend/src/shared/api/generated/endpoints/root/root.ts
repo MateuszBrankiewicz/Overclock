@@ -129,7 +129,6 @@ export function useGetRoot<TData = Awaited<ReturnType<typeof getRoot>>, TError =
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRoot>>, TError, TData>>, request?: SecondParameter<typeof httpClient>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-
 export function useGetRoot<TData = Awaited<ReturnType<typeof getRoot>>, TError = unknown>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getRoot>>, TError, TData>>, request?: SecondParameter<typeof httpClient>}
  , queryClient?: QueryClient

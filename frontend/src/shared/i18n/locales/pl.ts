@@ -2,7 +2,6 @@ import type { Translations } from "../types";
 
 export const pl: Translations = {
   common: {
-    appTitle: "PROJECT: OVERCLOCK // DEAD CIRCUIT",
     gameRules: "Zasady gry",
     copied: "Skopiowano!",
     copyCode: "Kopiuj kod",
@@ -16,12 +15,12 @@ export const pl: Translations = {
     status: "STATUS",
   },
   lobby: {
-    title: "DEAD CIRCUIT",
+    title: "OVERVOLT",
     subtitle:
-      "Dead Circuit — cyberpunkowa gra blefu, zarządzania ryzykiem i przeciążeń obwodów.",
+      "Overvolt — cyberpunkowa gra blefu, zarządzania ryzykiem i przeciążeń obwodów.",
     operatorNick: "TWÓJ IDENTYFIKATOR (NICK):",
     roomCode: "KOD POKOJU:",
-    roomCodePlaceholder: "NP. CYBER-7X9",
+    roomCodePlaceholder: "NP. 7KQ4MZ2X",
     createTable: "STWÓRZ NOWY STÓŁ",
     createTableSub: "[INITIALIZE TABLE]",
     connectTable: "DOŁĄCZ DO STOŁU",
@@ -55,8 +54,8 @@ export const pl: Translations = {
     joinCta: "Dołącz",
     characterHeading: "Wybierz postać",
     invite: "Zaproś",
-    inviteShareTitle: "Dead Circuit",
-    inviteShareText: "Dołącz do mojego stołu w Dead Circuit!",
+    inviteShareTitle: "Overvolt",
+    inviteShareText: "Dołącz do mojego stołu w Overvolt!",
     inviteCopied: "Link do stołu skopiowany.",
     inviteFailed: "Nie udało się skopiować linku.",
     inviteNicknameTitle: "Podaj nick",
@@ -72,9 +71,6 @@ export const pl: Translations = {
     leaveConfirm: "Opuścić stół?",
     leaveYes: "Tak",
     leaveNo: "Nie",
-    footer: "DEAD CIRCUIT",
-    debugToggle: "Konsola dev",
-    backToGame: "Wróć do gry",
   },
   summary: {
     title: "KONIEC ROZGRYWKI",
@@ -111,6 +107,7 @@ export const pl: Translations = {
     transmitCards: "WYŁÓŻ KARTY",
     callTrace: "SPRAWDŹ BLEF (CALL TRACE)",
     callTraceHelp: "Oskarż poprzednika o wyłożenie nieprawidłowych kart.",
+    mustCallTrace: "Rywale nie mają już kart — musisz sprawdzić blef.",
     selectCardsPrompt: "Wybierz przynajmniej jedną kartę z ręki",
     matchCard: "ZGODNA",
     wildCard: "DZIKA KARTA",
@@ -307,7 +304,7 @@ export const pl: Translations = {
     legendBluff: "blef",
   },
   rules: {
-    modalTitle: "ZASADY GRY // DEAD CIRCUIT",
+    modalTitle: "ZASADY GRY // OVERVOLT",
     shortSummary:
       "Cyberpunkowa gra blefu i zarządzania ryzykiem oparta o mechanikę Oszusta (Liar's Dice / Cheat).",
     coreGoalTitle: "1. Cel rozgrywki",
