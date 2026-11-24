@@ -56,18 +56,14 @@ public class Phase4ProductionReadinessTests
         var redisConnectionString = redisContainer.GetConnectionString();
 
         await using var factoryA = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, cfg) =>
-                cfg.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:Redis"] = redisConnectionString
-                })));
+            // UseSetting, not ConfigureAppConfiguration: Program reads these values while building the host,
+            // before late-added configuration sources are visible.
+            .WithWebHostBuilder(b => b.UseSetting("ConnectionStrings:Redis", redisConnectionString));
 
         await using var factoryB = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, cfg) =>
-                cfg.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:Redis"] = redisConnectionString
-                })));
+            // UseSetting, not ConfigureAppConfiguration: Program reads these values while building the host,
+            // before late-added configuration sources are visible.
+            .WithWebHostBuilder(b => b.UseSetting("ConnectionStrings:Redis", redisConnectionString));
 
         var hubConnectionB = new HubConnectionBuilder()
             .WithUrl(new Uri(factoryB.Server.BaseAddress, "/hubs/game"), options =>
@@ -133,11 +129,9 @@ public class Phase4ProductionReadinessTests
         var connectionString = postgres.GetConnectionString();
 
         await using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, cfg) =>
-                cfg.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:Database"] = connectionString
-                })));
+            // UseSetting, not ConfigureAppConfiguration: Program reads these values while building the host,
+            // before late-added configuration sources are visible.
+            .WithWebHostBuilder(b => b.UseSetting("ConnectionStrings:Database", connectionString));
 
         await using (var scope = factory.Services.CreateAsyncScope())
         {
