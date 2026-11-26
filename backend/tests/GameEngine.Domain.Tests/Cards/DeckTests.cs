@@ -176,9 +176,11 @@ public class DeckTests
         // Beta matches only Beta
         Assert.True(beta.MatchesProtocol(CardProtocol.Beta));
         Assert.False(beta.MatchesProtocol(CardProtocol.Alpha));
+        Assert.False(beta.MatchesProtocol(CardProtocol.Gamma));
 
         // Gamma matches only Gamma
         Assert.True(gamma.MatchesProtocol(CardProtocol.Gamma));
+        Assert.False(gamma.MatchesProtocol(CardProtocol.Alpha));
         Assert.False(gamma.MatchesProtocol(CardProtocol.Beta));
 
         // Glitch is Wildcard and matches all base protocols
